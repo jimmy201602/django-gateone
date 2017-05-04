@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load staticfiles %} 
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -7,28 +8,18 @@
     <title>Gate One - {{hostname}}</title>
 {% else %}
     <title>Gate One - {{location}}</title>
-{% end %}
-    <link rel="stylesheet" href="{{url_prefix}}static/gateone.css" type="text/css" media="screen" />
-    <link rel="shortcut icon" href="{{url_prefix}}static/favicon.ico" />
-    {% raw head %}
+{% endif %}
+    <link rel="stylesheet" href="{% static "gateone.css" %}" type="text/css" media="screen" />
+    <link rel="shortcut icon" href="{% static "favicon.ico" %}" />
 </head>
 <body>
-{% raw body %}
-<script type="text/javascript" src="{{gateone_js}}"></script>
+<script type="text/javascript" src="{% static "gateone.js" %}"></script>
 <div id="gateone"></div>
 <script>
 window.onload = function() {
     // Initialize Gate One using defaults:
     GateOne.location = '{{location}}';
-{% if prefs %}
-    var urlPrefs = {% raw prefs %};
-    for (var pref in urlPrefs) {
-        GateOne.prefs[pref] = urlPrefs[pref];
-    }
-    // Also remove the long obtrusive query string from the URL
-    GateOne.Utils.removeQueryVariable('prefs');
-{% end %}
-    GateOne.init({% raw js_init %}); // NOTE: Many defaults (e.g. CSS themes/colors, font size, etc) can be overridden by the user.
+    GateOne.init(); // NOTE: Many defaults (e.g. CSS themes/colors, font size, etc) can be overridden by the user.
 
     // Commented out below are a few examples of the various ways you can initialize Gate One...
     // Init Gate One (client) using the built-in white CSS scheme telling it to connect to a specific Gate One server (url):
