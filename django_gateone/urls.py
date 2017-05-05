@@ -17,7 +17,6 @@ from django.conf.urls import url
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from applications.views import index,auth
-from django.contrib.auth.views import login,logout
 from django.contrib.auth.views import LoginView,LogoutView
 
 urlpatterns = [
