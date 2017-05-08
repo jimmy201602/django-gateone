@@ -18,12 +18,18 @@ from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from applications.views import index,auth,DownloadHandler
 from django.contrib.auth.views import LoginView,LogoutView
+from django.conf import settings
+import os
+from django.views.static import serve
+from django.conf import settings
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^$',login_required(index.as_view())),
     url(r'^auth/$',auth.as_view()),
-    url(r'^downloads/(?P<path>\w+\.\w+)$',login_required(DownloadHandler.as_view())),
+    url(r'^downloads/(?P<path>.*)$',login_required(DownloadHandler.as_view())),
     url(r'^accounts/login/$', LoginView.as_view(template_name='admin/login.html'),),
-    url(r'^accounts/logout/$',LogoutView.as_view(template_name='registration/logged_out.html'),),    
+    url(r'^accounts/logout/$',LogoutView.as_view(template_name='registration/logged_out.html'),), 
+    url(r'^terminal/static/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static/terminal/static/')}),
+    url(r'^terminal/shared/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static/')}),
 ]
