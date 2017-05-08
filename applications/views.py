@@ -95,7 +95,7 @@ class auth(basehttphander):
 
 class DownloadHandler(basehttphander):
     def get(self, request, path, include_body=True):
-        session_dir = getsettings('session_dir',os.path.join(getsettings('BASE_DIR'),'sessions'))
+        session_dir = getsettings('session_dir',os.path.join(getsettings('BASE_DIR'),'sessions'))#default session dir
         user = self.request.session.get('gateone_user')
         if user and 'session' in self.request.session.get('gateone_user'):
             session = user['session']
