@@ -16,7 +16,7 @@ Including another URLconf
 from django.conf.urls import url
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
-from applications.views import index,auth,DownloadHandler
+from applications.views import index,auth,DownloadHandler,SharedTermHandler
 from django.contrib.auth.views import LoginView,LogoutView
 from django.conf import settings
 import os
@@ -31,5 +31,5 @@ urlpatterns = [
     url(r'^accounts/login/$', LoginView.as_view(template_name='admin/login.html'),),
     url(r'^accounts/logout/$',LogoutView.as_view(template_name='registration/logged_out.html'),), 
     url(r'^terminal/static/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static/terminal/static/')}),
-    url(r'^terminal/shared/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static/')}),
+    url(r'^terminal/shared/$', login_required(SharedTermHandler.as_view())),
 ]

@@ -157,3 +157,19 @@ class DownloadHandler(basehttphander):
             "code": status_code,
             "message": httplib.responses[status_code],
         }
+
+class SharedTermHandler(basehttphander):
+    """
+    Renders shared.html which allows an anonymous user to view a shared
+    terminal.
+    """
+    def get(self, request, share_id=None):
+        hostname = os.uname()[1]
+        prefs = self.request.GET.get("prefs", None)
+        url_prefix = getsettings('url_prefix','/')
+        gateone_js = "%sstatic/gateone.js" % url_prefix
+        minified_js_abspath = os.path.join(getsettings('BASE_DIR'),'static/gateone.min.js')
+        # Use the minified version if it exists
+        if os.path.exists(minified_js_abspath):
+            gateone_js = "%sgateone.min.js" % getsettings('STATIC_URL')
+        return render_to_response('share.html',locals())
