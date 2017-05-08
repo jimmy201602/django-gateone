@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-from django.shortcuts import render,HttpResponse
+from django.shortcuts import render,HttpResponse,Http404
 
 # Create your views here.
 from django.views.generic import View
@@ -13,6 +13,9 @@ from applications.utils import generate_session_id,mkdir_p
 import tornado
 from django.core import signing #encrypted the strings
 from django.contrib.auth.views import login,logout
+import io
+import datetime
+import hashlib
 
 def getsettings(name,default=None):
     return getattr(settings, name, default)
@@ -91,60 +94,59 @@ class auth(basehttphander):
         return redirect(getsettings('url_prefix','/'))
 
 class DownloadHandler(basehttphander):
-    def get(self, path, include_body=True):
-        session_dir = self.settings['session_dir']
-        user = self.current_user
-        if user and 'session' in user:
+    def get(self, request, path, include_body=True):
+        session_dir = getsettings('session_dir',os.path.join(getsettings('BASE_DIR'),'sessions'))
+        user = self.request.session.get('gateone_user')
+        if user and 'session' in self.request.session.get('gateone_user'):
             session = user['session']
         else:
-            logger.error(_("DownloadHandler: Could not determine use session"))
-            return # Something is wrong
+            return HttpResponse('User session is not valid')
         filepath = os.path.join(session_dir, session, 'downloads', path)
         abspath = os.path.abspath(filepath)
         if not os.path.exists(abspath):
-            self.set_status(404)
-            self.write(self.get_error_html(404))
-            return
+            return HttpResponse(self.get_error_html(404),status=404)
         if not os.path.isfile(abspath):
-            raise tornado.web.HTTPError(403, "%s is not a file", path)
+            return HttpResponse("%s is not a file" %(path), status=403)
         import stat, mimetypes
         stat_result = os.stat(abspath)
-        modified = datetime.fromtimestamp(stat_result[stat.ST_MTIME])
-        self.set_header("Last-Modified", modified)
+        modified = datetime.datetime.fromtimestamp(stat_result[stat.ST_MTIME])
+        response = HttpResponse()
+        response["Last-Modified"] = modified
         mime_type, encoding = mimetypes.guess_type(abspath)
         if mime_type:
-            self.set_header("Content-Type", mime_type)
+            response["Content-Type"] = mime_type
         # Set the Cache-Control header to private since this file is not meant
         # to be public.
-        self.set_header("Cache-Control", "private")
+        response["Cache-Control"] = "private"
         # Add some additional headers
-        self.set_header('Access-Control-Allow-Origin', '*')
+        response['Access-Control-Allow-Origin'] = '*'
         # Check the If-Modified-Since, and don't send the result if the
         # content has not been modified
-        ims_value = self.request.headers.get("If-Modified-Since")
+        ims_value = self.request.META.get('If-Modified-Since',None)
         if ims_value is not None:
             import email.utils
             date_tuple = email.utils.parsedate(ims_value)
-            if_since = datetime.fromtimestamp(time.mktime(date_tuple))
+            if_since = datetime.datetime.fromtimestamp(time.mktime(date_tuple))
             if if_since >= modified:
-                self.set_status(304)
-                return
+                response.status = 304
+                return response
         # Finally, deliver the file
         with io.open(abspath, "rb") as file:
             data = file.read()
             hasher = hashlib.sha1()
             hasher.update(data)
-            self.set_header("Etag", '"%s"' % hasher.hexdigest())
+            response["Etag"] = '"%s"' % hasher.hexdigest()
             if include_body:
-                self.write(data)
+                response.content = data
+                response.status = 200
+                return response
             else:
-                assert self.request.method == "HEAD"
-                self.set_header("Content-Length", len(data))
+                assert self.request.method in ("HEAD","head")
+                response["Content-Length"] = len(data)
 
     def get_error_html(self, status_code, **kwargs):
-        self.require_setting("static_url")
         if status_code in [404, 500, 503, 403]:
-            filename = os.path.join(self.settings['static_url'], '%d.html' % status_code)
+            filename = os.path.join(os.path.join(getsettings('BASE_DIR'),'templates'), '%d.html' % status_code)
             if os.path.exists(filename):
                 with io.open(filename, 'r') as f:
                     data = f.read()
