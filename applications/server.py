@@ -96,6 +96,9 @@ from applications.configuration import apply_cli_overrides, define_options, Sett
 from applications.configuration import get_settings
 from applications.onoff import OnOffMixin
 
+#replace tornado websocket handler
+from channels.generic.websockets import WebsocketDemultiplexer, JsonWebsocketConsumer
+
 # Setup our base loggers (these get overwritten in main())
 from applications.log import go_logger, LOGS
 logger = go_logger(None)
@@ -737,7 +740,7 @@ class GOApplication(OnOffMixin):
             timeout = convert_to_timedelta(timeout)
         self.io_loop.add_timeout(timeout, func)
 
-class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
+class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
     """
     The main WebSocket interface for Gate One, this class is setup to call
     WebSocket 'actions' which are methods registered in `self.actions`.
@@ -750,10 +753,9 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
     file_update_funcs = {} # Format: {<file path>: <function called on update>}
     file_watcher = None    # Will be replaced with a PeriodicCallback
     prefs = {} # Gets updated with every call to initialize()
-    def __init__(self, application, request, **kwargs):
-        #print 'application',application.__class__
-        #print 'request',request
-        #print 'kwargs',kwargs
+    channel_session = True
+    channel_session_user = True    
+    def __init__(self, message, **kwargs):
         self.actions = {
             'go:ping': self.pong,
             'go:log': self.log_message,
@@ -804,7 +806,7 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
         self.timestamps = [] # Tracks/averages client latency
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
-        WebSocketHandler.__init__(self, application, request, **kwargs)
+        JsonWebsocketConsumer.__init__(self, message, **kwargs)
 
     @classmethod
     def file_checker(cls):
@@ -3148,3 +3150,30 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
                     #break
         except ImportError:
             pass # Oh well
+        
+    def connection_groups(self, **kwargs):
+        """
+        Called to return the list of groups to automatically add/remove
+        this connection to/from.
+        """
+        return ["test"]
+
+    def connect(self, message, **kwargs):
+        return self.open()
+
+    def receive(self, content, **kwargs):
+        return self.on_message(message)
+
+    def disconnect(self, message, **kwargs):
+        return self.on_close()
+    
+    #def send(self, content, close=False):
+        #"""
+        #Encode the given content as JSON and send it to the client.
+        #"""
+        #super(JsonWebsocketConsumer, self).send(text=self.encode_json(content), close=close)    
+        
+    def write_message(self, message,):
+        if isinstance(message, dict):
+            message = json_encode(message)
+        return self.send(message)    
