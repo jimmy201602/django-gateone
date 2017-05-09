@@ -15,8 +15,8 @@ This module contains functions that deal with Gate One's options/settings
 
 import os, sys, io, re, socket, tempfile, logging
 from pkg_resources import resource_filename, resource_listdir, resource_string
-from application.log import FACILITIES
-from gateone.core.log import go_logger
+from applications.log import FACILITIES
+from applications.log import go_logger
 from tornado import locale
 from tornado.escape import json_decode
 from tornado.options import define, options, Error

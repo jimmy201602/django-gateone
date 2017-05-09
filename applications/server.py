@@ -84,20 +84,20 @@ PERSIST = {}
 #from gateone.auth.authentication import SSLAuthHandler
 #from gateone.auth.authorization import require, authenticated, policies
 #from gateone.auth.authorization import applicable_policies
-from application.async import MultiprocessRunner, ThreadedRunner
-from application.utils import generate_session_id, mkdir_p, touch, noop
-from application.utils import gen_self_signed_ssl, entry_point_files
-from application.utils import merge_handlers, none_fix, convert_to_timedelta, short_hash
-from application.utils import json_encode, recursive_chown, ChownError, get_or_cache
-from application.utils import write_pid, read_pid, remove_pid, drop_privileges
-from application.utils import check_write_permissions, valid_hostname
-from application.utils import total_seconds, MEMO, bind
-from application.configuration import apply_cli_overrides, define_options, SettingsError
-from application.configuration import get_settings
-from application.onoff import OnOffMixin
+from applications.async import MultiprocessRunner, ThreadedRunner
+from applications.utils import generate_session_id, mkdir_p, touch, noop
+from applications.utils import gen_self_signed_ssl, entry_point_files
+from applications.utils import merge_handlers, none_fix, convert_to_timedelta, short_hash
+from applications.utils import json_encode, recursive_chown, ChownError, get_or_cache
+from applications.utils import write_pid, read_pid, remove_pid, drop_privileges
+from applications.utils import check_write_permissions, valid_hostname
+from applications.utils import total_seconds, MEMO, bind
+from applications.configuration import apply_cli_overrides, define_options, SettingsError
+from applications.configuration import get_settings
+from applications.onoff import OnOffMixin
 
 # Setup our base loggers (these get overwritten in main())
-from application.log import go_logger, LOGS
+from applications.log import go_logger, LOGS
 logger = go_logger(None)
 auth_log = go_logger('gateone.auth')
 msg_log = go_logger('gateone.message')
@@ -211,7 +211,7 @@ def cleanup_old_sessions():
                 mtime = datetime.fromtimestamp(time.mktime(mtime))
                 if datetime.now() - mtime > expiration:
                     import shutil
-                    from .utils import kill_session_processes
+                    from applications.utils import kill_session_processes
                     # The log is older than expiration, remove it and kill any
                     # processes that may be remaining.
                     kill_session_processes(session)
@@ -1376,7 +1376,6 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
         message = {'go:pong': timestamp}
         self.write_message(json_encode(message))
 
-    @require(policies('gateone'))
     def log_message(self, log_obj):
         """
         Attached to the `go:log` WebSocket action; logs the given *log_obj* via
@@ -1475,7 +1474,7 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
             embedding Gate One and wish to associate extra metadata with the
             user you may do so via the API authentication process.
         """
-        from .utils import create_signature
+        from applications.utils import create_signature
         reauth = {'go:reauthenticate': True}
         api_key = auth_obj.get('api_key', None)
         if not api_key:
@@ -2011,7 +2010,6 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
         message = {'go:applications': applications}
         self.write_message(json_encode(message))
 
-    @require(policies('gateone'))
     def set_location(self, location):
         """
         Attached to the `go:set_location` WebSocket action.  Sets
@@ -2032,7 +2030,6 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
         self.location = location
         self.trigger("go:set_location", location)
 
-    @require(authenticated(), policies('gateone'))
     def get_locations(self):
         """
         Attached to the `go:get_locations` WebSocket action.  Sends a message to
@@ -2062,7 +2059,6 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
         self.write_message(message)
         self.trigger("go:get_locations")
 
-    @require(policies('gateone'))
     def set_dimensions(self, dimensions):
         """
         Attached to the `go:set_dimensions` WebSocket action.  Sets
@@ -2898,7 +2894,7 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
             Translation files must be the result of a
             ``pojson /path/to/translation.po`` conversion.
         """
-        from gateone.core.locale import supported_locales
+        from applications.locale import supported_locales
         if not locales:
             locales = self.user_locales
         if not locales: # Use the server's locale
@@ -2934,7 +2930,6 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
 #       programmatic use.  For example, when a user shares a terminal and it
 #       would be appropriate to notify certain users that the terminal is now
 #       available for them to connect.
-    @require(authenticated(), policies('gateone'))
     def send_user_message(self, settings):
         """
         Sends the given *settings['message']* to the given *settings['upn']*.
@@ -2982,7 +2977,6 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
             self.write_message(message_dict)
         self.trigger('go:send_message', message, upn, session)
 
-    @require(authenticated(), policies('gateone'))
     def broadcast(self, message):
         """
         Attached to the `go:broadcast` WebSocket action; sends the given
@@ -2994,12 +2988,11 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
             GateOne.ws.send(JSON.stringify({"go:broadcast": "This is a test"}));
         """
         self.msg_log.info("Broadcast: %s" % message)
-        from .utils import strip_xss # Prevent XSS attacks
+        from applications.utils import strip_xss # Prevent XSS attacks
         message, bad_tags = strip_xss(message, replacement="entities")
         self.send_message(message, upn="AUTHENTICATED")
         self.trigger('go:broadcast', message)
 
-    @require(authenticated(), policies('gateone'))
     def list_server_users(self):
         """
         Returns a list of users currently connected to the Gate One server to
@@ -3094,7 +3087,6 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
         message = {'go:license_info': licenses}
         self.write_message(message)
 
-    @require(authenticated(), policies('gateone'))
     def debug(self):
         """
         Imports Python's Garbage Collection module (gc) and displays various

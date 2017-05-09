@@ -15,15 +15,15 @@ and internationalization features.
 """
 
 import os, gettext, logging
-from application.configuration import get_settings
+from applications.configuration import get_settings
 from tornado.options import options
 
 # Figure out which languages we have translations for:
 from pkg_resources import resource_listdir, resource_stream, isdir
 from pkg_resources import resource_exists
-supported_locales = [
-    a for a in resource_listdir('gateone', 'i18n')
-        if a not in ('gateone.pot', 'gateone_js.pot')]
+#supported_locales = [
+    #a for a in resource_listdir('gateone', 'i18n')
+        #if a not in ('gateone.pot', 'gateone_js.pot')]
 
 def get_translation(settings_dir=None):
     """

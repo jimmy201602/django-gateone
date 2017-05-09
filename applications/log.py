@@ -39,7 +39,7 @@ prefixing::
 """
 
 import os.path, sys, logging, json
-from application.utils import mkdir_p
+from applications.utils import mkdir_p
 from tornado.options import options
 from tornado.log import LogFormatter
 

@@ -23,12 +23,12 @@ from datetime import datetime, timedelta
 from itertools import count
 from collections import Iterable
 from functools import partial
-from utils import AutoExpireDict, convert_to_timedelta
+from applications.utils import AutoExpireDict, convert_to_timedelta
 from tornado.ioloop import IOLoop
 from tornado.ioloop import PeriodicCallback as PC
 
 # Localization support
-from application.locale import get_translation
+from applications.locale import get_translation
 _ = get_translation()
 
 # A global to old memoized results (so multiple instances can share)
