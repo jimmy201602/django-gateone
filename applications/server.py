@@ -97,8 +97,8 @@ from applications.configuration import get_settings
 from applications.onoff import OnOffMixin
 
 #replace tornado websocket handler
-from channels.generic.websockets import WebsocketDemultiplexer, JsonWebsocketConsumer
-from channels.sessions import channel_session
+from channels.generic.websockets import WebsocketConsumer
+from channels.sessions import channel_session,channel_and_http_session,http_session
 
 # Setup our base loggers (these get overwritten in main())
 from applications.log import go_logger, LOGS
@@ -741,7 +741,7 @@ class GOApplication(OnOffMixin):
             timeout = convert_to_timedelta(timeout)
         self.io_loop.add_timeout(timeout, func)
 
-class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
+class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     """
     The main WebSocket interface for Gate One, this class is setup to call
     WebSocket 'actions' which are methods registered in `self.actions`.
@@ -754,9 +754,11 @@ class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
     file_update_funcs = {} # Format: {<file path>: <function called on update>}
     file_watcher = None    # Will be replaced with a PeriodicCallback
     prefs = {} # Gets updated with every call to initialize()
-    channel_session = True
-    channel_session_user = True    
+    #http_user = True
+    #http_user_and_session = True
     def __init__(self,  message, **kwargs):
+        #print message
+        #print 'initialize the websocket'
         self.actions = {
             'go:ping': self.pong,
             'go:log': self.log_message,
@@ -807,7 +809,7 @@ class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
         self.timestamps = [] # Tracks/averages client latency
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
-        JsonWebsocketConsumer.__init__(self, message, **kwargs)
+        WebsocketConsumer.__init__(self, message, **kwargs)
 
     @classmethod
     def file_checker(cls):
@@ -1600,7 +1602,8 @@ class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
                 # Save it so we can keep track across multiple clients
                 f.write(session_info_json)
         return user
-
+    
+    @channel_and_http_session
     def authenticate(self, settings):
         """
         Authenticates the client by first trying to use the 'gateone_user'
@@ -3159,13 +3162,23 @@ class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
         """
         return ["test"]
 
+    @channel_session
     def connect(self, message, **kwargs):
+        print 'connected'
+        #print message.user
+        print dir(message)
+        print message.get('headers',None)
+        #print message.channel_session.__dict__
+        #print type(message.content)
         return self.open()
-
+    
+    @channel_session
     def receive(self, message, **kwargs):
+        print 'receive message',message,kwargs
         return self.on_message(message)
 
     def disconnect(self, message, **kwargs):
+        print 'disconnect websocket',message
         return self.on_close()
     
     #def send(self, content, close=False):
@@ -3177,4 +3190,19 @@ class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
     def write_message(self, message,):
         if isinstance(message, dict):
             message = json_encode(message)
-        return self.send(message)    
+        return self.send(message)
+    
+    def current_user(self):
+        pass
+    
+    @channel_session
+    def raw_receive(self, message, **kwargs):
+        """
+        Called when a WebSocket frame is received. Decodes it and passes it
+        to receive().
+        """
+        print message.user
+        if "text" in message:
+            self.receive(message, **kwargs)
+        #else:
+            #self.receive(bytes=message['bytes'], **kwargs)        
