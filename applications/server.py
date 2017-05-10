@@ -98,6 +98,7 @@ from applications.onoff import OnOffMixin
 
 #replace tornado websocket handler
 from channels.generic.websockets import WebsocketDemultiplexer, JsonWebsocketConsumer
+from channels.sessions import channel_session
 
 # Setup our base loggers (these get overwritten in main())
 from applications.log import go_logger, LOGS
@@ -755,7 +756,7 @@ class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
     prefs = {} # Gets updated with every call to initialize()
     channel_session = True
     channel_session_user = True    
-    def __init__(self, message, **kwargs):
+    def __init__(self,  message, **kwargs):
         self.actions = {
             'go:ping': self.pong,
             'go:log': self.log_message,
@@ -1363,7 +1364,7 @@ class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
         self.latency = sum(self.timestamps)/len(self.timestamps)
         if self.latency_count > 12: # Only log once a minute
             self.latency_count = 0
-            self.logger.info(_("WebSocket Latency: {0}ms").format(self.latency))
+            #self.logger.info(_("WebSocket Latency: {0}ms").format(self.latency))
 
     def pong(self, timestamp):
         """
@@ -3161,7 +3162,7 @@ class ApplicationWebSocket(JsonWebsocketConsumer, OnOffMixin):
     def connect(self, message, **kwargs):
         return self.open()
 
-    def receive(self, content, **kwargs):
+    def receive(self, message, **kwargs):
         return self.on_message(message)
 
     def disconnect(self, message, **kwargs):
