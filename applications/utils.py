@@ -40,6 +40,8 @@ from tornado.escape import json_encode as _json_encode
 from tornado.escape import to_unicode
 from tornado.ioloop import IOLoop, PeriodicCallback
 
+from django.conf import settings
+
 # Globals
 MACOS = os.uname()[0] == 'Darwin'
 OPENBSD = os.uname()[0] == 'OpenBSD'
@@ -1679,3 +1681,6 @@ def create_signature(*parts, **kwargs):
 if MACOS or OPENBSD: # Apply BSD-specific stuff
     kill_dtached_proc = kill_dtached_proc_bsd
     killall = killall_bsd
+
+def getsettings(name,default=None):
+    return getattr(settings, name, default)

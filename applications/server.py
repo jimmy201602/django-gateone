@@ -99,6 +99,13 @@ from applications.onoff import OnOffMixin
 #replace tornado websocket handler
 from channels.generic.websockets import WebsocketConsumer
 from channels.sessions import channel_session,channel_and_http_session,http_session
+from channels import Group
+
+from itertools import izip
+
+from applications.utils import getsettings
+
+from django.core import signing
 
 # Setup our base loggers (these get overwritten in main())
 from applications.log import go_logger, LOGS
@@ -754,8 +761,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     file_update_funcs = {} # Format: {<file path>: <function called on update>}
     file_watcher = None    # Will be replaced with a PeriodicCallback
     prefs = {} # Gets updated with every call to initialize()
-    #http_user = True
-    #http_user_and_session = True
+    http_user = True
+    http_user_and_session = True
+    channel_session = True
+    channel_session_user = True    
     def __init__(self,  message, **kwargs):
         #print message
         #print 'initialize the websocket'
@@ -1136,7 +1145,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             logging.error("Origin check failed for: %s" % origin)
         return valid
 
-    def open(self):
+    def open(self, message):
         """
         Called when a new WebSocket is opened.  Will deny access to any
         origin that is not defined in `self.settings['origin']`.  Also sends
@@ -1164,25 +1173,101 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'websocket opened'
         cls = ApplicationWebSocket
         cls.instances.add(self)
-        if hasattr(self, 'set_nodelay'):
-            # New feature of Tornado 3.1 that can reduce latency:
-            self.set_nodelay(True)
-        client_address = self.request.remote_ip
-        logging.debug("open() origin: %s" % self.origin)
+        #if hasattr(self, 'set_nodelay'):
+            ## New feature of Tornado 3.1 that can reduce latency:
+            #self.set_nodelay(True)
+        client_address = message.http_session.get('gateone_user',None)['ip_address']
+        #print client_address
+        logging.debug("open() origin: %s" % client_address)
         self.origin_denied = False
         # client_id is unique to the browser/client whereas session_id is unique
         # to the user.  It isn't used much right now but it will be useful in
         # the future once more stuff is running over WebSockets.
-        self.client_id = generate_session_id()
+        self.client_id = message.http_session.get('session',None)
         self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
-            protocol=self.request.protocol,
-            host=self.request.host,
-            port=self.settings['port'],
-            url_prefix=self.settings['url_prefix'])
-        user = self.current_user
+            protocol=message.http_session.get('gateone_user',None)['protocol'],
+            host=client_address,
+            port=getsettings('port',8000),#self.settings['port']
+            url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']
+        user = self.current_user(message)
         # NOTE: self.current_user will call self.get_current_user() and set
         # self._current_user the first time it is used.
         policy = applicable_policies("gateone", user, self.prefs)
+        #policy example
+        """
+        {
+            "*": {
+                "gateone": {
+                    "uid": "1000", 
+                    "locale": "en_US", 
+                    "user_logs_max_age": "30d", 
+                    "pam_service": "login", 
+                    "syslog_facility": "daemon", 
+                    "js_init": "", 
+                    "cookie_secret": "iqy3so83+l8=m^p=-0t2po)(h#+r%gmqcfgz7kj7biux)+t#ow", 
+                    "enable_unix_socket": false, 
+                    "session_timeout": "5d", 
+                    "port": 8000, 
+                    "url_prefix": "/", 
+                    "user_dir": "/home/jimmy/Desktop/GateOne/users", 
+                    "unix_socket_mode": "0600", 
+                    "log_rotate_mode": "size", 
+                    "certificate": "/home/jimmy/Desktop/GateOne/ssl/certificate.pem", 
+                    "log_rotate_interval": 1, 
+                    "log_to_stderr": null, 
+                    "log_rotate_when": "midnight", 
+                    "gid": "1000", 
+                    "pid_file": "/home/jimmy/Desktop/GateOne/gateone.pid", 
+                    "pam_realm": "jimmy-VirtualBox", 
+                    "sso_service": "HTTP", 
+                    "https_redirect": false, 
+                    "auth": "none", 
+                    "api_keys": {
+                        "ZDRhMTA1ZjIwZDY2NDc3N2I4ZmZlNzQzM2ZiMTUxN2M4N": "YTA4ZWYzZjYzNWE5NDIyMmExMTZiZDE3MzdhNTk1NWY0M"
+                    }, 
+                    "disable_ssl": false, 
+                    "ca_certs": null, 
+                    "cache_dir": "/home/jimmy/Desktop/GateOne/cache", 
+                    "address": "", 
+                    "logging": "info", 
+                    "multiprocessing_workers": null, 
+                    "log_file_num_backups": 10, 
+                    "sso_keytab": null, 
+                    "origins": [
+                        "localhost:10443", 
+                        "127.0.0.1:10443", 
+                        "jimmy-VirtualBox:10443", 
+                        "127.0.1.1:10443"
+                    ], 
+                    "embedded": false, 
+                    "unix_socket_path": "/tmp/gateone.sock", 
+                    "ssl_auth": "none", 
+                    "log_file_max_size": 100000000, 
+                    "session_dir": "/home/jimmy/Desktop/GateOne/sessions", 
+                    "sso_realm": null, 
+                    "debug": false, 
+                    "api_timestamp_window": "30s", 
+                    "keyfile": "/home/jimmy/Desktop/GateOne/ssl/keyfile.pem", 
+                    "log_file_prefix": "/home/jimmy/Desktop/GateOne/logs/gateone.log"
+                }, 
+                "terminal": {
+                    "commands": {
+                        "SSH": {
+                            "command": "/bin/bash"
+                        }
+                    }, 
+                    "environment_vars": {
+                        "TERM": "xterm-256color"
+                    }, 
+                    "dtach": true, 
+                    "default_command": "SSH", 
+                    "syslog_session_logging": false, 
+                    "session_logging": true, 
+                    "enabled_filetypes": "all"
+                }
+            }
+        }
+        """
         blacklisted = policy.get('blacklist', False)
         if blacklisted:
             auth_log.info(_(
@@ -1603,7 +1688,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 f.write(session_info_json)
         return user
     
-    @channel_and_http_session
     def authenticate(self, settings):
         """
         Authenticates the client by first trying to use the 'gateone_user'
@@ -3162,24 +3246,37 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         return ["test"]
 
-    @channel_session
+    #@channel_session
     def connect(self, message, **kwargs):
         print 'connected'
-        #print message.user
-        print dir(message)
-        print message.get('headers',None)
-        #print message.channel_session.__dict__
-        #print type(message.content)
-        return self.open()
+        #print message.http_session.items()
+        #authenticate user
+        
+        #print message
+        #print message.content
+        #status,result = self.cookieconvert(message)
+        #print signing.loads(result.get(' gateone_user',None)[1:-1])
+        ##print signing.loads()
+        #if status:
+            #pass
+            #print result
+            #print result.get('sessionid',None)
+            #from django.contrib.sessions.models import Session
+            #print Session.objects.filter(session_key=result.get('sessionid',None))[0].get_decoded().get('gateone_user',None)  
+            #print result.get('gateone_user',None)
+            #print signing.dumps(Session.objects.filter(session_key=result.get('sessionid',None))[0].get_decoded().get('gateone_user',None))
+            #print signing.loads()
+            #print "eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"
+        return self.open(message)
     
-    @channel_session
+    #@channel_session
     def receive(self, message, **kwargs):
         print 'receive message',message,kwargs
         return self.on_message(message)
 
     def disconnect(self, message, **kwargs):
         print 'disconnect websocket',message
-        return self.on_close()
+        #return self.on_close()
     
     #def send(self, content, close=False):
         #"""
@@ -3192,17 +3289,59 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             message = json_encode(message)
         return self.send(message)
     
-    def current_user(self):
-        pass
+    def current_user(self, message):
+        user = message.http_session.get('gateone_user',None)
+        if user:
+            user.pop('protocol')
+            return user
+        return None
     
-    @channel_session
+    #@channel_session
     def raw_receive(self, message, **kwargs):
         """
         Called when a WebSocket frame is received. Decodes it and passes it
         to receive().
         """
-        print message.user
+        print 'raw message',message
         if "text" in message:
             self.receive(message, **kwargs)
         #else:
             #self.receive(bytes=message['bytes'], **kwargs)        
+
+    def cookieconvert(self,message):
+        headers = message.get('headers',None)
+        #default I choose trust client cookies, this is a bug. Afterward i would fix it.
+        #data example
+        #(True, {'csrftoken': 'HoGOLeWKmgMvz27aXXvssqzuU8qPX57xFT8C7slyfoSSsLgMMaalkfwyksAJe7qa', \
+        #' sessionid': 'uo53r2dgfyhj9af8abrebgr8dc046o1s', \
+        #' gateone_user': '"eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"'})
+        #from django.contrib.sessions.models import Session
+        #print Session.objects.filter(session_key=self.request.session.session_key)[0].get_decoded().get('gateone_user', None)
+        #print self.request.session.session_key         
+        #print message.user
+        #print dir(message)
+        #print message.__dict__
+        #print message.channel_session.__dict__
+        #print type(message.content)        
+        try:
+            cookies = dict()
+            if headers:
+                headers = dict(headers)
+                cookie = headers.get('cookie',None)
+                if cookie:
+                    for i in cookie.rsplit(';'):
+                        i = iter(i.rsplit('='))
+                        cookies.update(dict(izip(i, i)))
+        except Exception,e:
+            return False,None
+        return True,cookies
+    
+    def raw_connect(self, message, **kwargs):
+        """
+        Called when a WebSocket connection is opened. Base level so you don't
+        need to call super() all the time.
+        """
+        #print 'raw connect',message.content
+        for group in self.connection_groups(**kwargs):
+            Group(group, channel_layer=message.channel_layer).add(message.reply_channel)
+        self.connect(message, **kwargs)    

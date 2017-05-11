@@ -8,7 +8,6 @@ from django.views.generic import View
 from django.shortcuts import render_to_response,HttpResponseRedirect,reverse,redirect
 import os
 import ast
-from django.conf import settings
 from applications.utils import generate_session_id,mkdir_p
 import tornado
 from django.core import signing #encrypted the strings
@@ -16,9 +15,7 @@ from django.contrib.auth.views import login,logout
 import io
 import datetime
 import hashlib
-
-def getsettings(name,default=None):
-    return getattr(settings, name, default)
+from applications.utils import getsettings
 
 class basehttphander(View):
     def user_login(self,request):
@@ -37,9 +34,14 @@ class basehttphander(View):
             session_info = {
                 'session': generate_session_id()
             }
+            if self.request.is_secure():
+                protocol = 'https'
+            else:
+                protocol = 'http'            
             session_info.update(user)
+            session_info.update({'protocol':protocol})
             self.request.session['session'] = session_info['session']
-            self.request.session['gateone_user'] = session_info    
+            self.request.session['gateone_user'] = session_info       
     def user_logout(self, request, redirect=None):
         if not redirect:
             # Try getting it from the query string
@@ -60,6 +62,7 @@ class index(basehttphander):
         if not self.request.COOKIES.get('gateone_user',None):
             response.set_cookie("gateone_user",signing.dumps(self.request.session['gateone_user']))
             self.request.session.set_expiry(expiration)
+        print self.request.session.get('gateone_user',None)
         return response
 
 class auth(basehttphander):
