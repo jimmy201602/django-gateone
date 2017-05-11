@@ -62,7 +62,7 @@ class index(basehttphander):
         if not self.request.COOKIES.get('gateone_user',None):
             response.set_cookie("gateone_user",signing.dumps(self.request.session['gateone_user']))
             self.request.session.set_expiry(expiration)
-        print self.request.session.get('gateone_user',None)
+        #print self.request.session.get('gateone_user',None)
         return response
 
 class auth(basehttphander):
