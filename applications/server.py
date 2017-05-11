@@ -825,7 +825,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print '__init__'
         self.initialize()
         #print 'self.initialize'
-        ApplicationWebSocket.__init__(self, message, **kwargs)
+        #ApplicationWebSocket.__init__(self, message, **kwargs)
         #print 'ApplicationWebSocket __init__'
 
     @classmethod
@@ -997,9 +997,18 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # Make sure we have all prefs ready for checking
         cls = ApplicationWebSocket
         cls.prefs = get_settings(getsettings('settings_dir',os.path.join(getsettings('BASE_DIR'),'conf.d')))
-        #print self.prefs
-        if not os.path.exists(self.settings['cache_dir']):
-            mkdir_p(self.settings['cache_dir'])
+        #print 'initialize cls prefix',self.prefs
+        #sel.settings example
+        """
+        {u'dtach': True, 'version': None, u'locale': u'en_US', u'address': u'', u'pam_service': u'login', u'syslog_facility': u'daemon', 'cookie_secret': u'ZTQyZTZhYjQxZmVjNDI2M2E3MWZiYmMyOWViZDA5ZGZlM', u'enable_unix_socket': False, u'port': 10443, u'uid': u'1000', u'url_prefix': u'/', u'user_dir': u'/home/jimmy/Desktop/GateOne/users', 'settings_dir': '/home/jimmy/Desktop/GateOne/conf.d', u'unix_socket_mode': u'0600', u'multiprocessing_workers': None, u'certificate': u'/home/jimmy/Desktop/GateOne/ssl/certificate.pem', u'log_rotate_interval': 1, u'log_to_stderr': None, u'log_rotate_when': u'midnight', u'gid': u'1000', u'pid_file': u'/home/jimmy/Desktop/GateOne/gateone.pid', 'command': None, 'gzip': True, u'pam_realm': u'jimmy-linux', 'login_url': u'/auth', 'configure': False, u'sso_service': u'HTTP', 'cli_overrides': [], u'https_redirect': False, u'auth': None, 'api_keys': '', u'disable_ssl': False, u'ca_certs': None, u'cache_dir': u'/home/jimmy/Desktop/GateOne/cache', u'syslog_session_logging': False, u'user_logs_max_age': u'30d', u'sso_keytab': None, u'api_timestamp_window': datetime.timedelta(0, 30), 'static_url_prefix': u'/static/', u'log_rotate_mode': u'size', u'log_file_num_backups': 10, u'logging': u'info', u'embedded': False, u'origins': [u'localhost:10443', u'127.0.0.1:10443', u'jimmy-linux:10443', u'127.0.1.1:10443'], u'session_logging': True, u'keyfile': u'/home/jimmy/Desktop/GateOne/ssl/keyfile.pem', u'session_dir': u'/home/jimmy/Desktop/GateOne/sessions', 'static_url': '/home/jimmy/Desktop/GateOne/gateone/static', u'ssl_auth': u'none', u'log_file_max_size': 100000000, u'session_timeout': u'5d', u'sso_realm': None, u'debug': False, u'js_init': u'', u'unix_socket_path': u'/tmp/gateone.sock', u'log_file_prefix': u'/home/jimmy/Desktop/GateOne/logs/gateone.log'}
+        """
+        cache_dir = getsettings('cache_dir',os.path.join(getsettings('BASE_DIR'), 'cache'))
+        if not os.path.exists(cache_dir):
+            mkdir_p(cache_dir)
+        #PLUGIN_HOOKS example
+        """
+         {'gateone.plugins.editor': {'WebSocket': {'go:get_editor_mode': <function get_editor_mode at 0x7fec2b339b90>}}}
+        """
         for plugin_name, hooks in PLUGIN_HOOKS.items():
             if 'Events' in hooks:
                 for event, callback in hooks['Events'].items():
@@ -1182,8 +1191,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         print 'websocket opened'
         cls = ApplicationWebSocket
         cls.instances.add(self)
-        if not self.prefs:
-            self.initialize()
         print 'websocket opened self.prefx',self.prefs
         #if hasattr(self, 'set_nodelay'):
             ## New feature of Tornado 3.1 that can reduce latency:
