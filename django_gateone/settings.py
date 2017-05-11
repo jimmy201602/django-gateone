@@ -137,3 +137,4 @@ CHANNEL_LAYERS = {
        "ROUTING": "django_gateone.routing.channel_routing",  # load routing from our routing.py file
        },
 }
+settings_dir = os.path.join(BASE_DIR,'conf.d')

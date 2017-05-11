@@ -107,6 +107,9 @@ from applications.utils import getsettings
 
 from django.core import signing
 
+from applications.auth.authorization import applicable_policies
+
+#from applications.app_terminal import TerminalApplication
 # Setup our base loggers (these get overwritten in main())
 from applications.log import go_logger, LOGS
 logger = go_logger(None)
@@ -819,6 +822,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
         WebsocketConsumer.__init__(self, message, **kwargs)
+        #print '__init__'
+        self.initialize()
+        #print 'self.initialize'
+        ApplicationWebSocket.__init__(self, message, **kwargs)
+        #print 'ApplicationWebSocket __init__'
 
     @classmethod
     def file_checker(cls):
@@ -988,7 +996,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug('ApplicationWebSocket.initialize(%s)' % apps)
         # Make sure we have all prefs ready for checking
         cls = ApplicationWebSocket
-        cls.prefs = get_settings(options.settings_dir)
+        cls.prefs = get_settings(getsettings('settings_dir',os.path.join(getsettings('BASE_DIR'),'conf.d')))
+        #print self.prefs
         if not os.path.exists(self.settings['cache_dir']):
             mkdir_p(self.settings['cache_dir'])
         for plugin_name, hooks in PLUGIN_HOOKS.items():
@@ -1170,9 +1179,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             `self.prefs` which includes *all* of Gate One's settings (including
             settings for other applications and scopes).
         """
-        #print 'websocket opened'
+        print 'websocket opened'
         cls = ApplicationWebSocket
         cls.instances.add(self)
+        if not self.prefs:
+            self.initialize()
+        print 'websocket opened self.prefx',self.prefs
         #if hasattr(self, 'set_nodelay'):
             ## New feature of Tornado 3.1 that can reduce latency:
             #self.set_nodelay(True)
@@ -1193,6 +1205,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # NOTE: self.current_user will call self.get_current_user() and set
         # self._current_user the first time it is used.
         policy = applicable_policies("gateone", user, self.prefs)
+        print 'policy',policy
         #policy example
         """
         {
@@ -3267,6 +3280,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print signing.dumps(Session.objects.filter(session_key=result.get('sessionid',None))[0].get_decoded().get('gateone_user',None))
             #print signing.loads()
             #print "eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"
+        #print 'open prefx',self.prefs
         return self.open(message)
     
     #@channel_session

@@ -22,11 +22,11 @@ Docstrings
 import os, logging, re
 
 # Import our own stuff
-from gateone.core.utils import noop
-from gateone.core.utils import memoize
-from gateone.core.configuration import RUDict
-from gateone.core.locale import get_translation
-from gateone.core.log import go_logger
+from applications.utils import noop
+from applications.utils import memoize
+from applications.configuration import RUDict
+from applications.locale import get_translation
+from applications.log import go_logger
 
 # Localization support
 _ = get_translation()
