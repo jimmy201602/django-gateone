@@ -20,13 +20,15 @@ from datetime import datetime, timedelta
 from functools import partial
 # Pseudo stdlib
 from pkg_resources import resource_filename, resource_listdir, resource_string
-
+from applications.utils import getsettings
 # Gate One imports
-from gateone import GATEONE_DIR, SESSIONS#global variables
+#from gateone import GATEONE_DIR, SESSIONS#global variables
+GATEONE_DIR = getsettings('GATEONE_DIR', dict())
+SESSIONS = getsettings('SESSIONS', dict())
 from applications.server import StaticHandler, BaseHandler, GOApplication
 from applications.server import ApplicationWebSocket
-#from gateone.auth.authorization import require, authenticated
-#from gateone.auth.authorization import applicable_policies, policies
+from applications.auth.authorization import require, authenticated
+from applications.auth.authorization import applicable_policies, policies
 from applications.configuration import get_settings, RUDict
 from applications.utils import cmd_var_swap, json_encode, generate_session_id
 from applications.utils import mkdir_p, entry_point_files
@@ -116,7 +118,7 @@ def timeout_session(session):
 
 @atexit.register
 def quit():
-    from gateone.core.utils import killall
+    from applications.utils import killall
     try:
         commands = options.parse_command_line()
     except Error: # options.Error
@@ -502,7 +504,7 @@ class TerminalApplication(GOApplication):
                             del term_obj[self.ws.client_id]
         self.trigger("terminal:on_close")
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def enumerate_commands(self):
         """
         Tell the client which 'commands' (from settings/policy) that are
@@ -542,7 +544,7 @@ class TerminalApplication(GOApplication):
         message = {'terminal:fonts_list': {'fonts': font_list}}
         self.write_message(message)
 
-    @require(policies('terminal'))
+    #@require(policies('terminal'))
     def get_font(self, settings):
         """
         Attached to the `terminal:get_font` WebSocket action; sends the client
@@ -725,7 +727,7 @@ class TerminalApplication(GOApplication):
             f.write(json_encode(term_settings))
         self.trigger("terminal:clear_term_settings", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def terminals(self, *args, **kwargs):
         """
         Sends a list of the current open terminals to the client using the
@@ -1000,7 +1002,7 @@ class TerminalApplication(GOApplication):
                     highest = term
         return highest
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def new_terminal(self, settings):
         """
         Starts up a new terminal associated with the user's session using
@@ -1219,7 +1221,7 @@ class TerminalApplication(GOApplication):
             term, {'command': command,
                    'metadata': self.loc_terms[term]['metadata']})
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def set_term_encoding(self, settings):
         """
         Sets the encoding for the given *settings['term']* to
@@ -1250,7 +1252,7 @@ class TerminalApplication(GOApplication):
         message = {'terminal:encoding': {'term': term, 'encoding': encoding}}
         self.write_message(message)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def set_term_keyboard_mode(self, settings):
         """
         Sets the keyboard mode (e.g. 'sco') for the given *settings['term']* to
@@ -1277,7 +1279,7 @@ class TerminalApplication(GOApplication):
         message = {'terminal:keyboard_mode': {'term': term, 'mode': mode}}
         self.write_message(message)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def start_capture(self, term=None):
         """
         Starts capturing output for the terminal given via *term*.
@@ -1337,7 +1339,7 @@ class TerminalApplication(GOApplication):
         message = {'terminal:captured_data': capture_dict}
         self.write_message(message)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def swap_terminals(self, settings):
         """
         Swaps the numbers of *settings['term1']* and *settings['term2']*.
@@ -1367,7 +1369,7 @@ class TerminalApplication(GOApplication):
             term2, term1_dict['multiplex'], self.callback_id)
         self.trigger("terminal:swap_terminals", term1, term2)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def move_terminal(self, settings):
         """
         Attached to the `terminal:move_terminal` WebSocket action. Moves
@@ -1453,7 +1455,7 @@ class TerminalApplication(GOApplication):
         self.write_message(message)
         self.trigger("terminal:move_terminal", details)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def kill_terminal(self, term):
         """
         Kills *term* and any associated processes.
@@ -1504,7 +1506,7 @@ class TerminalApplication(GOApplication):
         self.write_message(json_encode(message))
         self.trigger("terminal:reset_client_terminal", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def reset_terminal(self, term):
         """
         Performs the equivalent of the 'reset' command which resets the terminal
@@ -1566,7 +1568,7 @@ class TerminalApplication(GOApplication):
                 self.save_term_settings(term, {'title': title})
         self.trigger("terminal:set_title", term, title)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def manual_title(self, settings):
         """
         Sets the title of *settings['term']* to *settings['title']*.  Differs
@@ -1753,7 +1755,7 @@ class TerminalApplication(GOApplication):
         self.refresh_screen(term, full=True)
         self.trigger("terminal:full_refresh", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def resize(self, resize_obj):
         """
         Resize the terminal window to the rows/columns specified in *resize_obj*
@@ -1807,7 +1809,7 @@ class TerminalApplication(GOApplication):
             {"terminal:resize": {"term": term, "rows": rows, "columns": cols}})
         self.trigger("terminal:resize", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def char_handler(self, chars, term=None):
         """
         Writes *chars* (string) to *term*.  If *term* is not provided the
@@ -1835,7 +1837,7 @@ class TerminalApplication(GOApplication):
                     multiplex.io_loop.add_timeout(
                         timedelta(milliseconds=1050), refresh)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def write_chars(self, message):
         """
         Writes *message['chars']* to *message['term']*.  If *message['term']*
@@ -1954,7 +1956,7 @@ class TerminalApplication(GOApplication):
         self.render_and_send_css(colors_path,
             element_id="text_colors", filename=filename)
 
-    @require(policies('terminal'))
+    #@require(policies('terminal'))
     def get_locations(self):
         """
         Attached to the `terminal:get_locations` WebSocket action.  Sends a
@@ -2007,7 +2009,7 @@ class TerminalApplication(GOApplication):
 #   * Logic to detect the optimum terminal size for all viewers.
 #   * DONE - A data structure of some sort to keep track of shared terminals and who is currently connected to them.
 #   * A way to view multiple shared terminals on a single page with the option to break them out into individual windows/tabs.
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def permissions(self, settings):
         """
         Attached to the `terminal:permissions` WebSocket action; controls the
@@ -2224,7 +2226,7 @@ class TerminalApplication(GOApplication):
                 except AttributeError:
                     pass # User disconnected in the middle of this operation
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def new_share_id(self, settings):
         """
         Generates a new pair of words to act as the share/broadcast ID for a
@@ -2270,7 +2272,7 @@ class TerminalApplication(GOApplication):
                 old=old_share_id,
                 new=new_share_id))
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def get_permissions(self, term):
         """
         Sends the client an object representing the permissions of the given
@@ -2301,7 +2303,7 @@ class TerminalApplication(GOApplication):
         self.write_message(json_encode(message))
         self.trigger("terminal:get_sharing_permissions", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def share_user_list(self, share_id):
         """
         Sends the client a dict of users that are currently viewing the terminal
@@ -2383,7 +2385,7 @@ class TerminalApplication(GOApplication):
                 }
         return out_dict
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def list_shared_terminals(self):
         """
         Returns a message to the client listing all the shared terminals they
@@ -2404,7 +2406,7 @@ class TerminalApplication(GOApplication):
         self.trigger("terminal:list_shared_terminals")
 
     # NOTE: This doesn't require authenticated() so anonymous sharing can work
-    @require(policies('terminal'))
+    #@require(policies('terminal'))
     def attach_shared_terminal(self, settings):
         """
         Attaches callbacks for the terminals associated with
@@ -2551,7 +2553,7 @@ class TerminalApplication(GOApplication):
             self.on('terminal:on_close', remove_callbacks)
         self.trigger("terminal:attach_shared_terminal", term)
 
-    @require(policies('terminal'))
+    #@require(policies('terminal'))
     def detach_shared_terminal(self, settings):
         """
         Stops watching the terminal specified via *settings['term']*.
@@ -2645,7 +2647,7 @@ class TerminalApplication(GOApplication):
         self.render_and_send_css(
             print_css_path, element_id="terminal_print_css", media="print")
 
-    @require(authenticated())
+    #@require(authenticated())
     def debug_terminal(self, term):
         """
         Prints the terminal's screen and renditions to stdout so they can be
@@ -2861,12 +2863,12 @@ def init(settings):
 # Tell Gate One which classes are applications
 apps = [TerminalApplication]
 # Tell Gate One about our terminal-specific static file handler
-web_handlers.append((
-    r'terminal/static/(.*)',
-    TermStaticFiles,
-    {"path": resource_filename('gateone.applications.terminal', '/static')}
-))
-web_handlers.append((r'terminal/shared/(.*)', SharedTermHandler))
+#web_handlers.append((
+    #r'terminal/static/(.*)',
+    #TermStaticFiles,
+    #{"path": resource_filename('applications.terminal', '/static')}
+#))
+#web_handlers.append((r'terminal/shared/(.*)', SharedTermHandler))
 
 # Command line argument commands
 commands = {

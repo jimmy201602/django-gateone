@@ -15,6 +15,7 @@ import os, sys, re, io, gzip, fcntl, termios, struct, shutil, tempfile
 from time import sleep
 from datetime import datetime
 from optparse import OptionParser
+from applications.utils import getsettings
 
 try:
     import curses
@@ -22,7 +23,8 @@ except ImportError:
     curses = None
 
 # Import our own stuff
-from gateone import GATEONE_DIR
+#from gateone import GATEONE_DIR
+GATEONE_DIR = getsettings('BASE_DIR')
 from applications.utils import raw
 from applications.configuration import get_settings, combine_css
 

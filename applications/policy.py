@@ -13,10 +13,12 @@ __license__ = "AGPLv3 or Proprietary (see LICENSE.txt)"
 __author__ = 'Dan McDougall <daniel.mcdougall@liftoffsoftware.com>'
 
 from functools import partial
-from gateone import SESSIONS
+from applications.utils import getsettings
+#from gateone import SESSIONS
+SESSIONS = getsettings('SESSIONS', dict())
 from applications.locale import get_translation
 from applications.log import go_logger
-from applications.authorization import applicable_policies
+from applications.auth.authorization import applicable_policies
 
 # Localization support
 _ = get_translation()
