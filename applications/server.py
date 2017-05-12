@@ -73,9 +73,11 @@ try:
 except (ImportError, NameError):
     pass
 
+from applications.utils import getsettings
+
 # Our own modules
-SESSIONS = {}
-PERSIST = {}
+SESSIONS = getsettings('SESSIONS', dict())
+PERSIST = getsettings('PERSIST', dict())
 
 #from gateone import SESSIONS, PERSIST
 #from gateone.auth.authentication import NullAuthHandler, KerberosAuthHandler
@@ -83,7 +85,7 @@ PERSIST = {}
 #from gateone.auth.authentication import CASAuthHandler, PAMAuthHandler
 #from gateone.auth.authentication import SSLAuthHandler
 #from gateone.auth.authorization import require, authenticated, policies
-#from gateone.auth.authorization import applicable_policies
+from applications.auth.authorization import applicable_policies
 from applications.async import MultiprocessRunner, ThreadedRunner
 from applications.utils import generate_session_id, mkdir_p, touch, noop
 from applications.utils import gen_self_signed_ssl, entry_point_files
@@ -103,11 +105,9 @@ from channels import Group
 
 from itertools import izip
 
-from applications.utils import getsettings
+
 
 from django.core import signing
-
-from applications.auth.authorization import applicable_policies
 
 #from applications.app_terminal import TerminalApplication
 # Setup our base loggers (these get overwritten in main())
@@ -981,7 +981,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls._deliver(message_dict, upn="AUTHENTICATED")
             io.open(broadcast_file, 'w').write(u'') # Empty it out
 
-    def initialize(self, apps=None, **kwargs):
+    def initialize(self, apps=None,message=None, **kwargs):
         """
         This gets called by the Tornado framework when `ApplicationWebSocket` is
         instantiated.  It will be passed the list of *apps* (Gate One
@@ -1046,7 +1046,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.apps.append(instance)
             logging.debug("Initializing %s" % instance)
             if hasattr(instance, 'initialize'):
-                instance.initialize()
+                instance.initialize(message=message)
 
     def send_extra(self):
         """
@@ -1112,6 +1112,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.write_message(message, binary=True)
 
     def check_origin(self, origin):
+        #this function is overwrite for tornado request header check. It won't be invoked by applicationwebsocket.
         """
         Checks if the given *origin* matches what's been set in Gate One's
         "origins" setting (usually in 10server.conf).  The *origin* will first
@@ -1126,6 +1127,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             If '*' is in the "origins" setting (anywhere) all origins will be
             allowed.
         """
+        print 'origin',origin
         logging.debug("check_origin(%s)" % origin)
         self.checked_origin = True
         valid = False
@@ -1299,6 +1301,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.close() # Close the WebSocket
             return
         metadata = {'ip_address': client_address}
+        #print 'client_address',client_address
+        self.origin = str(client_address + ':' + getsettings('port', '8000'))
         if user and 'upn' in user:
             # Update our loggers to include the user metadata
             metadata['upn'] = user['upn']
@@ -1353,7 +1357,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'doT.js' # For simple HTML templates
         ]
         for js_file in additional_files:
-            path = resource_filename('gateone', '/static/%s' % js_file)
+            path = os.path.join(getsettings('BASE_DIR'), 'static')
+            path = os.path.join(path, js_file)#get js path
             self.send_js(path)
         for app in self.apps:
             if hasattr(app, 'open'):
@@ -2600,6 +2605,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         if kind == 'js' and not force:
             send_js = self.prefs['*']['gateone'].get('send_js', True)
+            #print 'send_js',send_js
+            #print 'self.prefs',self.prefs
             if not send_js:
                 if not hasattr('logged_js_message', self):
                     self.logger.info(_(
@@ -2695,7 +2702,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'requires': requires,
             'media': media # NOTE: Ignored if JS
         }
-        if self.settings['debug']:
+        if self.settings()['debug']:
             # This makes sure that the files are always re-downloaded
             mtime = time.time()
         out_dict = {'files': [{
@@ -2707,6 +2714,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'element_id': element_id,
             'media': media # NOTE: Ignored if JS
         }]}
+        #print 'out_dict',out_dict
         if use_client_cache:
             message = {'go:file_sync': out_dict}
             self.write_message(message)
@@ -3015,6 +3023,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug("send_js_translation() locales: %s" % locales)
         for locale in locales:
             locale = locale.replace('-', '_') # Example: Converts en-US to en_US
+            #return if locale is en_us
             if locale.lower().startswith('en'):
                 return # Gate One strings are English by default
             if not path:
@@ -3276,9 +3285,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     #@channel_session
     def connect(self, message, **kwargs):
         print 'connected'
+        self.request(message=message)
         from applications.app_terminal import TerminalApplication
-        self.initialize(apps=[TerminalApplication])
-        self.request(message)
+        self.initialize(apps=[TerminalApplication],message=message)
         #print 'connect prefx',self.prefs
         #print message.http_session.items()
         #authenticate user
@@ -3317,6 +3326,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #super(JsonWebsocketConsumer, self).send(text=self.encode_json(content), close=close)    
         
     def write_message(self, message,):
+        print 'write_message',message
         if isinstance(message, dict):
             message = json_encode(message)
         return self.send(message)
@@ -3378,11 +3388,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             Group(group, channel_layer=message.channel_layer).add(message.reply_channel)
         self.connect(message, **kwargs)    
     
-    def request(self, message):
-        return message.http_session
+    def request(self, message=None):
+        return message
     
-    def settings(self, settings):
-        pass
+    def settings(self):
+        from applications.configuration import define_options
+        settings = define_options()
+        return define_options()
 
 
 class ErrorHandler(tornado.web.RequestHandler):
@@ -3752,629 +3764,26 @@ def validate_licenses(licenses):
         global __license_info__
         __license_info__ = new_licenses
 
-def main(installed=True):
-    global _
-    global PLUGINS
-    global APPLICATIONS
-    cli_commands = {'gateone': {}} # CLI commands provided by plugins/apps
-    define_options(installed=installed, cli_commands=cli_commands)
-    # Before we do anything else we need the get the settings_dir argument (if
-    # given) so we can make sure we're handling things accordingly.
-    settings_dir = options.settings_dir # Set the default
-    for arg in sys.argv:
-        if arg.startswith('--settings_dir'):
-            settings_dir = arg.split('=', 1)[1].strip('"').strip("'")
-    if not os.path.isdir(settings_dir) and '--help' not in sys.argv:
-        # Try to create it
-        try:
-            mkdir_p(settings_dir)
-        except:
-            print(_(
-               "Could not find/create settings directory at %s" % settings_dir))
-            sys.exit(1)
+global CPU_ASYNC
+global IO_ASYNC
+IO_ASYNC = ThreadedRunner()
+cores = getsettings('multiprocessing_workers',None)
+try:
+    cores = int(cores)
+except TypeError:
+    cores = None
+if cores == 0:
+    logging.warning(_(
+        "Multiprocessing is disabled.  Performance will be sub-optimal."
+    ))
+    CPU_ASYNC = IO_ASYNC # Use threading instead
+else:
     try:
-        all_settings = get_settings(settings_dir)
-    except SettingsError as e:
-        # The error will be logged to stdout inside all_settings
-        sys.exit(2)
-    enabled_plugins = []
-    enabled_applications = []
-    cli_commands['gateone']['broadcast'] = {
-        'function': broadcast_message,
-        'description': _("Broadcast messages to users connected to Gate One.")
-    }
-    cli_commands['gateone']['install_license'] = {
-        'function': install_license,
-        'description': _("Install a commercial license for Gate One.")
-    }
-    cli_commands['gateone']['validate_authobj'] = {
-        'function': validate_authobj,
-        'description': _(
-            "Test API authentication by validating a JSON auth object.")
-    }
-    go_settings = {}
-    log_fail_msg = _(
-        "You probably want to provide a different destination via "
-        "--log_file_prefix=/path/to/gateone.log")
-    if 'gateone' in all_settings['*']:
-        # The check above will fail in first-run situations
-        enabled_plugins = all_settings['*']['gateone'].get(
-            'enabled_plugins', [])
-        enabled_plugins = [a.lower() for a in enabled_plugins]
-        enabled_applications = all_settings['*']['gateone'].get(
-            'enabled_applications', [])
-        enabled_applications = [a.lower() for a in enabled_applications]
-        go_settings = all_settings['*']['gateone']
-        if 'log_file_prefix' in go_settings:
-            if 'log_file_prefix' not in ' '.join(sys.argv):
-                log_path = go_settings['log_file_prefix']
-                if bytes == str: # Python 2
-                    log_path = log_path.encode('UTF-8') # Make it str
-                options.log_file_prefix = log_path
-                log_dir = os.path.dirname(go_settings['log_file_prefix'])
-                try:
-                    mkdir_p(log_dir)
-                except:
-                    print(_("Could not create log directory: %s" % log_dir))
-                    print(log_fail_msg)
-                    sys.exit(1)
-    elif 'log_file_prefix' not in ' '.join(sys.argv):
-        log_dir = os.path.dirname(options.log_file_prefix) # Try the default
-        try:
-            mkdir_p(log_dir)
-        except:
-            print(_("Could not create log directory: %s" % log_dir))
-            print(log_fail_msg)
-            sys.exit(1)
-    PLUGINS = entry_point_files('go_plugins', enabled_plugins)
-    for plugin, module in PLUGINS['py'].items():
-        try:
-            PLUGIN_HOOKS.update({module.__name__: module.hooks})
-            if hasattr(module, 'commands'):
-                cli_commands.update({'gateone': module.commands})
-        except AttributeError:
-            pass # No hooks--probably just a supporting .py file.
-    # NOTE: entry_point_files() imports all the .py files in applications.  This
-    # means that applications can place calls to tornado.options.define()
-    # anywhere in their .py files and they should automatically be usable by the
-    # user at this point in the startup process.
-    app_modules = entry_point_files(
-        'go_applications', enabled_applications)['py']
-    # Check if the user is running a command as opposed to passing arguments
-    # so we can set the log_file_prefix to something innocuous so as to prevent
-    # IOError exceptions from Tornado's parse_command_line() below...
-    if [a for a in sys.argv[1:] if not a.startswith('-')]:
-        options.log_file_prefix = None
-    # Make sure
-    # Having parse_command_line() after loading applications in case an
-    # application has additional calls to define().
-    try:
-        commands = tornado.options.parse_command_line()
-    except IOError:
-        print(_("Could not write to the log: %s") % options.log_file_prefix)
-        print(log_fail_msg)
-        sys.exit(2)
-    # NOTE: Here's how settings/command line args works:
-    #       * The 'options' object gets set from the arguments on the command
-    #         line (parse_command_line() above).
-    #       * 'go_settings' gets set from the stuff in the 'settings_dir'
-    #       * Once both are parsed (on their own) we overwrite 'go_settings'
-    #         with what was given on the command line.
-    #       * Once 'go_settings' has been adjusted we overwrite 'options' with
-    #         any settings that directly correlate with command line options.
-    #         This ensures that the 'options' object (which controls Tornado'
-    #         settings) gets the stuff from 'settings_dir' if not provided on
-    #         the command line.
-    # TODO: Add a way for applications/plugins to add to this list:
-    non_options = [
-        # These are things that don't really belong in settings
-        'new_api_key', 'help', 'kill', 'config', 'combine_js', 'combine_css',
-        'combine_css_container'
-    ]
-    # Figure out which options are being overridden on the command line
-    apply_cli_overrides(go_settings)
-    arguments = []
-    for arg in list(sys.argv)[1:]:
-        if not arg.startswith('-'):
-            break
-        else:
-            arguments.append(arg.lstrip('-').split('=', 1)[0])
-    licenses = all_settings.get('*', {}).get('licenses', {})
-    if licenses:
-        validate_licenses(licenses)
-    # TODO: Get this outputting installed plugins and versions as well
-    if options.version:
-        print("\x1b[1mGate One:\x1b[0m")
-        print("\tVersion: %s (%s)" % (__version__, __commit__))
-        print("\x1b[1mInstalled Applications:\x1b[0m")
-        for name, app in app_modules.items():
-            if hasattr(app, 'apps'):
-                for _app in app.apps:
-                    if hasattr(_app, 'info'):
-                        name = _app.info.get('name', None)
-                        ver = _app.info.get('version', 'Unknown')
-                        if hasattr(ver, '__call__'):
-                            # It's a function; grab its output (cool feature)
-                            ver = ver()
-                        if name:
-                            print("\t%s Version: %s" % (name, ver))
-        sys.exit(0)
-    # Turn any API keys provided on the command line into a dict
-    api_keys = {}
-    if 'api_keys' in arguments:
-        if options.api_keys:
-            for pair in options.api_keys.split(','):
-                api_key, secret = pair.split(':')
-                if bytes == str:
-                    api_key = api_key.decode('UTF-8')
-                    secret = secret.decode('UTF-8')
-                api_keys.update({api_key: secret})
-        go_settings['api_keys'] = api_keys
-    # Setting the log level using go_settings requires an additional step:
-    if options.logging.upper() != 'NONE':
-        logging.getLogger().setLevel(getattr(logging, options.logging.upper()))
-    else:
-        logging.disable(logging.CRITICAL)
-    logger = go_logger(None)
-    APPLICATIONS = [] # Replace it with a list of actual class instances
-    web_handlers = []
-    # Convert the old server.conf to the new settings file format and save it
-    # as a number of distinct .conf files to keep things better organized.
-    # NOTE: This logic will go away some day as it only applies when moving from
-    #       Gate One 1.1 (or older) to newer versions.
-    if os.path.exists(options.config):
-        from .configuration import convert_old_server_conf
-        convert_old_server_conf()
-    if 'gateone' not in all_settings['*']:
-        # User has yet to create a 10server.conf (or equivalent)
-        all_settings['*']['gateone'] = {} # Will be filled out below
-    # If you want any missing config file entries re-generated just delete the
-    # cookie_secret line...
-    if 'cookie_secret' not in go_settings or not go_settings['cookie_secret']:
-        # Generate a default 10server.conf with a random cookie secret
-        # NOTE: This will also generate a new 10server.conf if it is missing.
-        from .configuration import generate_server_conf
-        generate_server_conf(installed=installed)
-        # Make sure these values get updated
-        all_settings = get_settings(options.settings_dir)
-        go_settings = all_settings['*']['gateone']
-    for name, module in app_modules.items():
-        try:
-            if hasattr(module, 'apps'):
-                APPLICATIONS.extend(module.apps)
-            if hasattr(module, 'init'):
-                module.init(all_settings)
-            if hasattr(module, 'web_handlers'):
-                web_handlers.extend(module.web_handlers)
-            if hasattr(module, 'commands'):
-                cli_commands.update({module.__name__: module.commands})
-        except AttributeError:
-            # No apps--probably just a supporting .py file.
-            # Uncomment if you can't figure out why your app isn't loading:
-            #print("Error initializing module: %s" % module)
-            #import traceback
-            #traceback.print_exc(file=sys.stdout)
-            pass
-    if options.help:
-        from .configuration import print_help
-        print_help(cli_commands)
-        sys.exit(2)
-    if commands: # Optional CLI functionality provided by plugins/applications
-        from .configuration import parse_commands
-        parsed_commands = parse_commands(commands)
-        flattened_commands = {}
-        for mod, cmds in cli_commands.items():
-            for name, command_dict in cmds.items():
-                flattened_commands.update({name: command_dict['function']})
-        for command, args in list(parsed_commands.items()):
-            if command not in flattened_commands:
-                logger.warning(_("Unknown CLI command: '%s'") % (command))
-            else:
-                flattened_commands[command](commands[1:])
-        sys.exit(0)
-    if __license__ == "AGPLv3":
-        agplv3_url = 'http://www.gnu.org/licenses/agpl-3.0.html'
-        logging.info("Gate One License: {0} ({1})".format(
-            __license__, agplv3_url))
-    else:
-        logging.info(
-            "Gate One License: {license} (Max Users: {users}, "
-            "Version: {version})".format(
-                license=__license_info__['license'],
-                users=__license_info__['users'],
-                version=__license_info__['license']))
-    logging.info(_("Imported applications: {0}".format(
-        ', '.join([a.info['name'] for a in APPLICATIONS]))))
-    # Change the uid/gid strings into integers
-    try:
-        uid = int(go_settings['uid'])
-    except ValueError:
-        import pwd
-        # Assume it's a username and grab its uid
-        try:
-            uid = pwd.getpwnam(go_settings['uid']).pw_uid
-        except KeyError:
-            logger.error(_("The configured 'uid' ({0}) does not exist.").format(
-                go_settings['uid']))
-            sys.exit(1)
-    try:
-        gid = int(go_settings['gid'])
-    except ValueError:
-        import grp
-        # Assume it's a group name and grab its gid
-        try:
-            gid = grp.getgrnam(go_settings['gid']).gr_gid
-        except KeyError:
-            logger.error(_("The configured 'gid' ({0}) does not exist.").format(
-                go_settings['gid']))
-            sys.exit(1)
-    if uid == 0 and os.getuid() != 0:
-        # Running as non-root; set uid/gid to the current user
-        logging.info(_("Running as non-root; will not drop privileges."))
-        uid = os.getuid()
-        gid = os.getgid()
-    if not os.path.exists(go_settings['user_dir']): # Make our user_dir
-        try:
-            mkdir_p(go_settings['user_dir'])
-        except OSError:
-            import pwd
-            logging.error(_(
-                "Gate One could not create %s.  Please ensure that user,"
-                " %s has permission to create this directory or create it "
-                "yourself and make user, %s its owner."
-                % (go_settings['user_dir'],
-                repr(pwd.getpwuid(os.geteuid())[0]),
-                repr(pwd.getpwuid(os.geteuid())[0]))))
-            sys.exit(1)
-        # If we could create it we should be able to adjust its permissions:
-        os.chmod(go_settings['user_dir'], 0o770)
-    if not check_write_permissions(uid, go_settings['user_dir']):
-        # Try correcting this first
-        try:
-            recursive_chown(go_settings['user_dir'], uid, gid)
-        except (ChownError, OSError) as e:
-            logging.error(_(
-                "Failed to recursively change permissions of user_dir: %s, "
-                "uid: %s, gid: %s" % (go_settings['user_dir'], uid, gid)))
-            logging.error(e)
-            sys.exit(1)
-    if not os.path.exists(go_settings['session_dir']): # Make our session_dir
-        try:
-            mkdir_p(go_settings['session_dir'])
-        except OSError:
-            logging.error(_(
-                "Error: Gate One could not create %s.  Please ensure that user,"
-                " %s has permission to create this directory or create it "
-                "yourself and make user, %s its owner." % (
-                go_settings['session_dir'],
-                repr(pwd.getpwuid(os.geteuid())[0]),
-                repr(pwd.getpwuid(os.geteuid())[0]))))
-            sys.exit(1)
-        os.chmod(go_settings['session_dir'], 0o770)
-    if not check_write_permissions(uid, go_settings['session_dir']):
-        # Try correcting it
-        try:
-            recursive_chown(go_settings['session_dir'], uid, gid)
-        except (ChownError, OSError) as e:
-            logging.error("session_dir: %s, uid: %s, gid: %s" % (
-                go_settings['session_dir'], uid, gid))
-            logging.error(e)
-            sys.exit(1)
-    # Re-do the locale in case the user supplied something as --locale
-    server_locale = locale.get(go_settings['locale'])
-    _ = server_locale.translate # Also replaces our wrapper so no more .encode()
-    # Create the log dir if not already present (NOTE: Assumes we're root)
-    log_dir = os.path.dirname(go_settings['log_file_prefix'])
-    if options.logging.upper() != 'NONE':
-        if not os.path.exists(log_dir):
-            try:
-                mkdir_p(log_dir)
-            except OSError:
-                logging.error(_(
-                    "\x1b[1;31mERROR:\x1b[0m Could not create %s for "
-                    "log_file_prefix: %s"
-                    % (log_dir, go_settings['log_file_prefix']
-                )))
-                logging.error(_(
-                    "You probably want to change this option, run Gate "
-                    "One as root, or create that directory and give the proper "
-                    "user ownership of it."))
-                sys.exit(1)
-        if not check_write_permissions(uid, log_dir):
-            # Try to correct it
-            try:
-                recursive_chown(log_dir, uid, gid)
-            except (ChownError, OSError) as e:
-                logging.error(
-                    "log_dir: %s, uid: %s, gid: %s" % (log_dir, uid, gid))
-                logging.error(e)
-                sys.exit(1)
-        # Now fix the permissions on each log (no need to check)
-        for log_file in LOGS:
-            if not os.path.exists(log_file):
-                touch(log_file)
-            try:
-                recursive_chown(log_file, uid, gid)
-            except (ChownError, OSError) as e:
-                logging.error(
-                    "log_file: %s, uid: %s, gid: %s" % (log_dir,uid, gid))
-                logging.error(e)
-                sys.exit(1)
-    if options.new_api_key:
-        # Generate a new API key for an application to use and save it to
-        # settings/30api_keys.conf.
-        from .configuration import RUDict
-        api_key = generate_session_id()
-        # Generate a new secret
-        secret = generate_session_id()
-        api_keys_conf = os.path.join(options.settings_dir, '30api_keys.conf')
-        new_keys = {api_key: secret}
-        api_keys = RUDict({"*": {"gateone": {"api_keys": {}}}})
-        if os.path.exists(api_keys_conf):
-            api_keys = get_settings(api_keys_conf)
-        api_keys.update({"*": {"gateone": {"api_keys": new_keys}}})
-        with io.open(api_keys_conf, 'w', encoding='utf-8') as conf:
-            msg = _(
-                u"// This file contains the key and secret pairs used by Gate "
-                u"One's API authentication method.\n")
-            conf.write(msg)
-            conf.write(unicode(api_keys))
-        logging.info(_(u"A new API key has been generated: %s" % api_key))
-        logging.info(_(
-            u"This key can now be used to embed Gate One into other "
-            u"applications."))
-        sys.exit(0)
-    if options.combine_js:
-        from .configuration import combine_javascript
-        combine_javascript(options.combine_js, options.settings_dir)
-        sys.exit(0)
-    if options.combine_css:
-        from .configuration import combine_css
-        combine_css(
-            options.combine_css,
-            options.combine_css_container,
-            options.settings_dir)
-        sys.exit(0)
-    # Display the version in case someone sends in a log for for support
-    logging.info(_("Version: %s (%s)" % (__version__, __commit__)))
-    logging.info(_("Tornado version %s" % tornado_version))
-    # Set our global session timeout
-    global TIMEOUT
-    TIMEOUT = convert_to_timedelta(go_settings['session_timeout'])
-    # Fix the url_prefix if the user forgot the trailing slash
-    if not go_settings['url_prefix'].endswith('/'):
-        go_settings['url_prefix'] += '/'
-    # Convert the origins into a list if overridden via the command line
-    if 'origins' in arguments:
-        if ';' in options.origins:
-            origins = options.origins.lower().split(';')
-            real_origins = []
-            for origin in origins:
-                if '://' in origin:
-                    origin = origin.split('://')[1]
-                if origin not in real_origins:
-                    real_origins.append(origin)
-            go_settings['origins'] = real_origins
-    logging.info(_(
-        "Connections to this server will be allowed from the following"
-        " origins: '%s'") % " ".join(go_settings['origins']))
-    # Normalize certain settings
-    go_settings['api_timestamp_window'] = convert_to_timedelta(
-        go_settings['api_timestamp_window'])
-    go_settings['auth'] = none_fix(go_settings['auth'])
-    go_settings['settings_dir'] = settings_dir
-    # Check to make sure we have a certificate and keyfile and generate fresh
-    # ones if not.
-    if not go_settings['disable_ssl']:
-        if not os.path.exists(go_settings['keyfile']):
-            ssl_base = os.path.dirname(go_settings['keyfile'])
-            if not os.path.exists(ssl_base):
-                try:
-                    mkdir_p(ssl_base)
-                except OSError as e:
-                    logging.error(_(
-                        "Gate One could not create {ssl_base} ({e}). "
-                        "Are you using the correct --settings_dir?").format(
-                            ssl_base=ssl_base, e=e))
-                    sys.exit(1)
-            logging.info(_("No SSL private key found.  One will be generated."))
-            gen_self_signed_ssl(path=ssl_base)
-        if not os.path.exists(go_settings['certificate']):
-            ssl_base = os.path.dirname(go_settings['certificate'])
-            logging.info(_("No SSL certificate found.  One will be generated."))
-            gen_self_signed_ssl(path=ssl_base)
-    # When logging=="debug" it will display all user's keystrokes so make sure
-    # we warn about this.
-    if go_settings['logging'] == "debug":
+        CPU_ASYNC = MultiprocessRunner(max_workers=cores)
+        CPU_ASYNC.call(noop, memoize=False) # Perform a realistic test
+    except NotImplementedError:
+        # System doesn't support multiprocessing (for whatever reason).
         logging.warning(_(
-            "Logging is set to DEBUG.  Be aware that this will record the "
-            "keystrokes of all users.  Don't be evil!"))
-    ssl_auth = go_settings.get('ssl_auth', 'none').lower()
-    if ssl_auth == 'required':
-        # Convert to an integer using the ssl module
-        cert_reqs = ssl.CERT_REQUIRED
-    elif ssl_auth == 'optional':
-        cert_reqs = ssl.CERT_OPTIONAL
-    else:
-        cert_reqs = ssl.CERT_NONE
-    # Instantiate our Tornado web server
-    ssl_options = {
-        "certfile": go_settings['certificate'],
-        "keyfile": go_settings['keyfile'],
-        "cert_reqs": cert_reqs
-    }
-    ca_certs = go_settings.get('ca_certs', None)
-    if ca_certs:
-        ssl_options['ca_certs'] = ca_certs
-    disable_ssl = go_settings.get('disable_ssl', False)
-    if disable_ssl:
-        proto = "http://"
-        ssl_options = None
-    else:
-        proto = "https://"
-    # Fill out our settings with command line args if any are missing
-    for option in list(options):
-        if option in non_options:
-            continue # These don't belong
-        if option not in go_settings:
-            go_settings[option] = options[option]
-    #print go_settings
-    #print web_handlers
-    https_server = tornado.httpserver.HTTPServer(
-        GateOneApp(settings=go_settings, web_handlers=web_handlers),
-        ssl_options=ssl_options)
-    #print go_settings['port']
-    https_redirect = tornado.web.Application(
-        [(r".*", HTTPSRedirectHandler),],
-        port=go_settings['port'],
-        url_prefix=go_settings['url_prefix']
-    )
-    tornado.web.ErrorHandler = ErrorHandler
-    if go_settings['auth'] == 'pam':
-        if uid != 0 or os.getuid() != 0:
-            logger.warning(_(
-                "PAM authentication is configured but you are not running Gate"
-                " One as root.  If the pam_service you've selected (%s) is "
-                "configured to use pam_unix.so for 'auth' (i.e. authenticating "
-                "against /etc/passwd and /etc/shadow) Gate One will not be able"
-                " to authenticate all users.  It will only be able to "
-                "authenticate the user that owns the gateone.py process." %
-                go_settings['pam_service']))
-    if options.configure:
-        logger.info(_("Gate One has been configured."))
-        sys.exit(0)
-    try: # Start your engines!
-        if go_settings.get('enable_unix_socket', False):
-            https_server.add_socket(
-                tornado.netutil.bind_unix_socket(
-                    go_settings['unix_socket_path'],
-                    # Tornado uses octal encoding
-                    int(go_settings['unix_socket_mode'], 8)
-                )
-            )
-            logger.info(_(
-                "Listening on Unix socket '{socketpath}' ({socketmode})"
-                .format(
-                  socketpath=go_settings['unix_socket_path'],
-                  socketmode=go_settings['unix_socket_mode']
-                )
-            ))
-        address = none_fix(go_settings['address'])
-        if address:
-            for addr in address.split(';'):
-                if addr: # Listen on all given addresses
-                    if go_settings['https_redirect']:
-                        if go_settings['disable_ssl']:
-                            logger.error(_(
-                            "You have https_redirect *and* disable_ssl enabled."
-                            "  Please pick one or the other."))
-                            sys.exit(1)
-                        logger.info(_(
-                            "http://{addr}:80/ will be redirected to...".format(
-                                addr=addr)
-                        ))
-                        https_redirect.listen(port=80, address=addr)
-                    logger.info(_(
-                        "Listening on {proto}{address}:{port}/".format(
-                            proto=proto, address=addr, port=go_settings['port'])
-                    ))
-                    https_server.listen(port=go_settings['port'], address=addr)
-        elif address == '':
-            # Listen on all addresses (including IPv6)
-            if go_settings['https_redirect']:
-                if go_settings['disable_ssl']:
-                    logger.error(_(
-                        "You have https_redirect *and* disable_ssl enabled."
-                        "  Please pick one or the other."))
-                    sys.exit(1)
-                logger.info(_("http://*:80/ will be redirected to..."))
-                https_redirect.listen(port=80, address="")
-            logger.info(_(
-                "Listening on {proto}*:{port}/".format(
-                    proto=proto, port=go_settings['port'])))
-            try: # Listen on all IPv4 and IPv6 addresses
-                https_server.listen(port=go_settings['port'], address="")
-            except socket.error: # Fall back to all IPv4 addresses
-                https_server.listen(port=go_settings['port'], address="0.0.0.0")
-        # NOTE:  To have Gate One *not* listen on a TCP/IP address you may set
-        #        address=None
-        # Check to see what group owns /dev/pts and use that for supl_groups
-        # First we have to make sure there's at least one pty present
-        tempfd1, tempfd2 = pty.openpty()
-        # Now check the owning group (doesn't matter which one so we use 0)
-        ptm = '/dev/ptm' if os.path.exists('/dev/ptm') else '/dev/ptmx'
-        tty_gid = os.stat(ptm).st_gid
-        # Close our temmporary pty/fds so we're not wasting them
-        os.close(tempfd1)
-        os.close(tempfd2)
-        if uid != os.getuid():
-            drop_privileges(uid, gid, [tty_gid])
-        global CPU_ASYNC
-        global IO_ASYNC
-        IO_ASYNC = ThreadedRunner()
-        cores = go_settings.get('multiprocessing_workers')
-        try:
-            cores = int(cores)
-        except TypeError:
-            cores = None
-        if cores == 0:
-            logging.warning(_(
-                "Multiprocessing is disabled.  Performance will be sub-optimal."
-            ))
-            CPU_ASYNC = IO_ASYNC # Use threading instead
-        else:
-            try:
-                CPU_ASYNC = MultiprocessRunner(max_workers=cores)
-                CPU_ASYNC.call(noop, memoize=False) # Perform a realistic test
-            except NotImplementedError:
-                # System doesn't support multiprocessing (for whatever reason).
-                logging.warning(_(
-                    "Multiprocessing is not functional on this system.  "
-                    "Threading for all async calls."))
-                CPU_ASYNC = IO_ASYNC # Fall back to using threading
-        @atexit.register
-        def shutdown_async():
-            """
-            Shuts down our asynchronous processes/threads.  Specifically, calls
-            ``CPU_ASYNC.shutdown()`` and ``IO_ASYNC.shutdown()``.
-            """
-            logging.debug(_("Shutting down asynchronous processes/threads..."))
-            if CPU_ASYNC != IO_ASYNC:
-                CPU_ASYNC.shutdown(wait=False)
-            IO_ASYNC.shutdown(wait=False)
-        write_pid(go_settings['pid_file'])
-        pid = read_pid(go_settings['pid_file'])
-        logger.info(_("Process running with pid " + pid))
-        tornado.ioloop.IOLoop.instance().start()
-    except socket.error as e:
-        import errno, pwd
-        if not address: address = "0.0.0.0"
-        if e.errno == errno.EADDRINUSE: # Address/port already in use
-            logging.error(_(
-                "Could not listen on {address}:{port} (address:port is already "
-                "in use by another application).").format(
-                    address=address, port=options.port))
-        elif e.errno == errno.EACCES:
-            logging.error(_(
-                "User '{user}' does not have permission to create a process "
-                "listening on {address}:{port}.  Typically only root can use "
-                "ports < 1024.").format(
-                    user=pwd.getpwuid(uid)[0],
-                    address=address,
-                    port=options.port))
-        else:
-            logging.error(_(
-                "An error was encountered trying to listen on "
-                "{address}:{port}...").format(
-                    address=address, port=options.port))
-        logging.error(_("Exception was: {0}").format(e.args))
-    except KeyboardInterrupt: # ctrl-c
-        logger.info(_("Caught KeyboardInterrupt.  Killing sessions..."))
-    finally:
-        tornado.ioloop.IOLoop.instance().stop()
-        import shutil
-        logger.info(_(
-            "Clearing cache_dir: {0}").format(go_settings['cache_dir']))
-        shutil.rmtree(go_settings['cache_dir'], ignore_errors=True)
-        remove_pid(go_settings['pid_file'])
-        logger.info(_("pid file removed."))
+            "Multiprocessing is not functional on this system.  "
+            "Threading for all async calls."))
+        CPU_ASYNC = IO_ASYNC # Fall back to using threading

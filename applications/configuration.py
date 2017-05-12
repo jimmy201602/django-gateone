@@ -20,6 +20,7 @@ from applications.log import go_logger
 from tornado import locale
 from tornado.escape import json_decode
 from tornado.options import define, options, Error
+from applications.utils import getsettings,check_write_permissions,recursive_chown,convert_to_timedelta,none_fix,gen_self_signed_ssl
 
 # Locale stuff (can't use .locale since .locale uses this module)
 # Default to using the environment's locale with en_US fallback
@@ -203,7 +204,7 @@ def print_help(commands):
     print("") # The oh-so-important whitespace before the prompt
     sys.exit(1)
 
-def define_options(installed=True, cli_commands=None):
+def define_options():
     """
     Calls `tornado.options.define` for all of Gate One's command-line options.
 
@@ -214,24 +215,16 @@ def define_options(installed=True, cli_commands=None):
     # NOTE: To test this function interactively you must import tornado.options
     # and call tornado.options.parse_config_file(*some_config_path*).  After you
     # do that the options will wind up in tornado.options.options
-    global user_locale
-    # Default to using the shell's LANG variable as the locale
-    try:
-        default_locale = os.environ['LANG'].split('.')[0]
-    except KeyError: # $LANG isn't set
-        default_locale = "en_US"
-    user_locale = locale.get(default_locale)
-    # NOTE: The locale setting above is only for the --help messages.
     # Simplify the auth option help message
     auths = "none, api, cas, google, ssl"
-    from gateone.auth.authentication import PAMAuthHandler, KerberosAuthHandler
-    if KerberosAuthHandler:
-        auths += ", kerberos"
-    if PAMAuthHandler:
-        auths += ", pam"
-    # Simplify the syslog_facility option help message
-    facilities = list(FACILITIES.keys())
-    facilities.sort()
+    #from applications.auth.authentication import PAMAuthHandler, KerberosAuthHandler
+    #if KerberosAuthHandler:
+        #auths += ", kerberos"
+    #if PAMAuthHandler:
+        #auths += ", pam"
+    ## Simplify the syslog_facility option help message
+    #facilities = list(FACILITIES.keys())
+    #facilities.sort()
     # Figure out the default origins
     default_origins = [
         'localhost',
@@ -250,408 +243,180 @@ def define_options(installed=True, cli_commands=None):
             for _host in host:
                 default_origins.append('%s' % _host)
     default_origins = ";".join(default_origins)
-    config_default = os.path.join(os.path.sep, "opt", "gateone", "server.conf")
-    # NOTE: --settings_dir deprecates --config
-    settings_base = os.path.join(os.path.sep, 'etc', 'gateone')
+    settings_base = getsettings('BASE_DIR')
     settings_default = os.path.join(settings_base, 'conf.d')
-    port_default = 443
-    log_default = os.path.join(
-        os.path.sep, "var", "log", 'gateone', 'gateone.log')
-    user_dir_default = os.path.join(
-        os.path.sep, "var", "lib", "gateone", "users")
-    pid_default = os.path.join(os.path.sep, "var", "run", 'gateone.pid')
-    session_dir_default = os.path.join(tempfile.gettempdir(), 'gateone')
-    cache_dir_default = os.path.join(tempfile.gettempdir(), 'gateone_cache')
-    if os.getuid() != 0: # Not root?  Use $HOME/.gateone/ for everything
-        home = os.path.expanduser('~')
-        user_dir_default = os.path.join(home, '.gateone')
-        settings_default = os.path.join(user_dir_default, 'conf.d')
-        port_default = 10443
-        log_default = os.path.join(user_dir_default, 'logs', 'gateone.log')
-        pid_default = os.path.join(user_dir_default, 'gateone.pid')
-        session_dir_default = os.path.join(user_dir_default, 'sessions')
-        cache_dir_default = os.path.join(user_dir_default, 'cache')
-    if not installed:
-        # Running inside the download directory?  Change various defaults to
-        # work inside of this directory
-        here = os.path.dirname(os.path.abspath(__file__))
-        settings_base = os.path.normpath(os.path.join(here, '..', '..'))
-        settings_default = os.path.join(settings_base, 'conf.d')
-        port_default = 10443
-        log_default = os.path.join(settings_base, 'logs', 'gateone.log')
-        user_dir_default = os.path.join(settings_base, 'users')
-        pid_default = os.path.join(settings_base, 'gateone.pid')
-        session_dir_default = os.path.join(settings_base, 'sessions')
-        cache_dir_default = os.path.join(settings_base, 'cache')
-    options.log_file_prefix = log_default
+    settings_dir = settings_default
+    if not os.path.isdir(settings_dir):
+        mkdir_p(settings_dir)
+    port_default = 8000
+    log_default = os.path.join(settings_base, 'logs', 'gateone.log')
+    user_dir_default = os.path.join(settings_base, 'users')
+    pid_default = os.path.join(settings_base, 'pid', 'gateone.pid')
+    session_dir_default = os.path.join(settings_base, 'sessions')
+    cache_dir_default = os.path.join(settings_base, 'cache')
     ssl_dir = os.path.join(settings_base, 'ssl')
-    # Override Tornado's help so we can print CLI 'commands'
-    del options._options['help']
-    define("help",
-        type=bool,
-        help="Show this help information")
-    define("version",
-        type=bool,
-        group='gateone',
-        help=_("Display version information."),
-    )
-    define("config",
-        default=config_default,
-        group='gateone',
-        help=_("DEPRECATED.  Use --settings_dir."),
-        type=basestring,
-    )
-    define("settings_dir",
-        default=settings_default,
-        group='gateone',
-        help=_("Path to the settings directory."),
-        type=basestring
-    )
-    define(
-        "cache_dir",
-        default=cache_dir_default,
-        group='gateone',
-        help=_(
-            "Path where Gate One should store temporary global files (e.g. "
-            "rendered templates, CSS, JS, etc)."),
-        type=basestring
-    )
-    define(
-        "debug",
-        default=False,
-        group='gateone',
-        help=_("Enable debugging features such as auto-restarting when files "
-               "are modified.")
-    )
-    define("cookie_secret", # 45 chars is, "Good enough for me" (cookie joke =)
-        default=None,
-        group='gateone',
-        help=_("Use the given 45-character string for cookie encryption."),
-        type=basestring
-    )
-    define("command",
-        default=None,
-        group='gateone',
-        help=_(
-            "DEPRECATED: Use the 'commands' option in the terminal settings."),
-        type=basestring
-    )
-    define("address",
-        default="",
-        group='gateone',
-        help=_("Run on the given address.  Default is all addresses (IPv6 "
-               "included).  Multiple address can be specified using a semicolon"
-               " as a separator (e.g. '127.0.0.1;::1;10.1.1.100')."),
-        type=basestring)
-    define("port",
-           default=port_default,
-           group='gateone',
-           help=_("Run on the given port."),
-           type=int)
-    define(
-        "enable_unix_socket",
-        default=False,
-        group='gateone',
-        help=_("Enable Unix socket support."),
-        type=bool)
-    define(
-        "unix_socket_path",
-        default="/tmp/gateone.sock",
-        group='gateone',
-        help=_("Path to the Unix socket (if --enable_unix_socket=True)."),
-        type=basestring)
-    define(
-        "unix_socket_mode",
-        default="0600",
-        group='gateone',
-        help=_("Unix socket mode (if --enable_unix_socket=True)."),
-        type=basestring)
-    # Please only use this if Gate One is running behind something with SSL:
-    define(
-        "disable_ssl",
-        default=False,
-        group='gateone',
-        help=_("If enabled Gate One will run without SSL (generally not a "
-               "good idea).")
-    )
-    define(
-        "certificate",
-        default=os.path.join(ssl_dir, "certificate.pem"),
-        group='gateone',
-        help=_(
-            "Path to the SSL certificate.  Will be auto-generated if not "
-            "found."),
-        type=basestring
-    )
-    define(
-        "keyfile",
-        default=os.path.join(ssl_dir, "keyfile.pem"),
-        group='gateone',
-        help=_("Path to the SSL keyfile.  Will be auto-generated if none is"
-               " provided."),
-        type=basestring
-    )
-    define(
-        "ca_certs",
-        default=None,
-        group='gateone',
-        help=_("Path to a file containing any number of concatenated CA "
-               "certificates in PEM format.  They will be used to authenticate "
-               "clients if the 'ssl_auth' option is set to 'optional' or "
-               "'required'."),
-        type=basestring
-    )
-    define(
-        "ssl_auth",
-        default='none',
-        group='gateone',
-        help=_("Enable the use of client SSL (X.509) certificates as a "
-               "secondary authentication factor (the configured 'auth' type "
-               "will come after SSL auth).  May be one of 'none', 'optional', "
-               "or 'required'.  NOTE: Only works if the 'ca_certs' option is "
-               "configured."),
-        type=basestring
-    )
-    define(
-        "user_dir",
-        default=user_dir_default,
-        group='gateone',
-        help=_("Path to the location where user files will be stored."),
-        type=basestring
-    )
-    define(
-        "user_logs_max_age",
-        default="30d",
-        group='gateone',
-        help=_(
-            "Maximum length of time to keep any given user log before it is "
-            "automatically removed."),
-        type=basestring
-    )
-    define(
-        "session_dir",
-        default=session_dir_default,
-        group='gateone',
-        help=_(
-            "Path to the location where session information will be stored."),
-        type=basestring
-    )
-    define(
-        "syslog_facility",
-        default="daemon",
-        group='gateone',
-        help=_("Syslog facility to use when logging to syslog (if "
-               "syslog_session_logging is enabled).  Must be one of: %s."
-               % ", ".join(facilities)),
-        type=basestring
-    )
-    define(
-        "session_timeout",
-        default="5d",
-        group='gateone',
-        help=_("Amount of time that a session is allowed to idle before it is "
-        "killed.  Accepts <num>X where X could be one of s, m, h, or d for "
-        "seconds, minutes, hours, and days.  Set to '0' to disable the ability "
-        "to resume sessions."),
-        type=basestring
-    )
-    define(
-        "new_api_key",
-        default=False,
-        group='gateone',
-        help=_("Generate a new API key that an external application can use to "
-               "embed Gate One."),
-    )
-    define(
-        "auth",
-        default="none",
-        group='gateone',
-        help=_("Authentication method to use.  Valid options are: %s" % auths),
-        type=basestring
-    )
-    # This is to prevent replay attacks.  Gate One only keeps a "working memory"
-    # of API auth objects for this amount of time.  So if the Gate One server is
-    # restarted we don't have to write them to disk as anything older than this
-    # setting will be invalid (no need to check if it has already been used).
-    define(
-        "api_timestamp_window",
-        default="30s", # 30 seconds
-        group='gateone',
-        help=_(
-            "How long before an API authentication object becomes invalid."),
-        type=basestring
-    )
-    define(
-        "sso_realm",
-        default=None,
-        group='gateone',
-        help=_("Kerberos REALM (aka DOMAIN) to use when authenticating clients."
-               "  Only relevant if Kerberos authentication is enabled."),
-        type=basestring
-    )
-    define(
-        "sso_service",
-        default='HTTP',
-        group='gateone',
-        help=_("Kerberos service (aka application) to use.  "
-               "Only relevant if Kerberos authentication is enabled."),
-        type=basestring
-    )
-    define(
-        "pam_realm",
-        default=os.uname()[1],
-        group='gateone',
-        help=_("Basic auth REALM to display when authenticating clients.  "
-        "Default: hostname.  "
-        "Only relevant if PAM authentication is enabled."),
-        # NOTE: This is only used to show the user a REALM at the basic auth
-        #       prompt and as the name in the 'user_dir/<user>' directory
-        type=basestring
-    )
-    define(
-        "pam_service",
-        default='login',
-        group='gateone',
-        help=_("PAM service to use.  Defaults to 'login'. "
-               "Only relevant if PAM authentication is enabled."),
-        type=basestring
-    )
-    define(
-        "embedded",
-        default=False,
-        group='gateone',
-        help=_(
-            "When embedding Gate One this option is available to plugins, "
-            "applications, and templates so they know they're running in "
-            "embedded mode and can change behavior (if necessary).")
-    )
-    define(
-        "locale",
-        default=default_locale,
-        group='gateone',
-        help=_("The locale (e.g. pt_PT) Gate One should use for translations."
-             "  If not provided, will default to $LANG (which is '%s' in your "
-             "current shell)."
-             % os.environ.get('LANG', 'not set').split('.')[0]),
-        type=basestring
-    )
-    define("js_init",
-        default="",
-        group='gateone',
-        help=_("A JavaScript object (string) that will be used when running "
-               "GateOne.init() inside index.html.  "
-               "Example: --js_init=\"{theme: 'white'}\" would result in "
-               "GateOne.init({theme: 'white'})"),
-        type=basestring
-    )
-    define(
-        "https_redirect",
-        default=False,
-        group='gateone',
-        help=_("If enabled a separate listener will be started on port 80 that"
-               " redirects users to the configured port using HTTPS.")
-    )
-    define(
-        "url_prefix",
-        default="/",
-        group='gateone',
-        help=_("An optional prefix to place before all Gate One URLs. e.g. "
-               "'/gateone/'.  Use this if Gate One will be running behind a "
-               "reverse proxy where you want it to be located at some sub-"
-               "URL path."),
-        type=basestring
-    )
-    define(
-        "origins",
-        default=default_origins,
-        group='gateone',
-        help=_("A semicolon-separated list of origins you wish to allow access "
-               "to your Gate One server over the WebSocket.  This value may "
-               "contain hostnames/FQDNs (e.g. foo;foo.bar;) and IP addresses.  "
-               "This value must contain all the hostnames/IPs that users will "
-               "use to connect to Gate One.  "
-               "Alternatively, '*' may be  specified to allow access from "
-               "anywhere.  NOTE: Using a '*' is only a good idea if you've "
-               "configured Gate One to use API authentication."),
-        type=basestring
-    )
-    define(
-        "pid_file",
-        default=pid_default,
-        group='gateone',
-        help=_("Define the path to the pid file."),
-        type=basestring
-    )
-    define(
-        "uid",
-        default=str(os.getuid()),
-        group='gateone',
-        help=_("Drop privileges and run Gate One as this user/uid."),
-        type=basestring
-    )
-    define(
-        "gid",
-        default=str(os.getgid()),
-        group='gateone',
-        help=_("Drop privileges and run Gate One as this group/gid."),
-        type=basestring
-    )
-    define(
-        "api_keys",
-        default="",
-        group='gateone',
-        help=_("The 'key:secret,...' API key pairs you wish to use (only "
-               "applies if using API authentication)"),
-        type=basestring
-    )
-    define(
-        "combine_js",
-        default="",
-        group='gateone',
-        help=_(
-            "Combines all of Gate One's JavaScript files into one big file and "
-            "saves it to the given path (e.g. ./gateone.py "
-            "--combine_js=/tmp/gateone.js)"),
-        type=basestring
-    )
-    define(
-        "combine_css",
-        default="",
-        group='gateone',
-        help=_(
-            "Combines all of Gate One's CSS Template files into one big file "
-            "and saves it to the given path (e.g. ./gateone.py "
-            "--combine_css=/tmp/gateone.css)."),
-        type=basestring
-    )
-    define(
-        "combine_css_container",
-        default="gateone",
-        group='gateone',
-        help=_(
-            "Use this setting in conjunction with --combine_css if the <div> "
-            "where Gate One lives is named something other than #gateone"),
-        type=basestring
-    )
-    define(
-        "multiprocessing_workers",
-        default=None,
-        group='gateone',
-        help=_(
-            "The number of processes to spawn use when using multiprocessing. "
-            "Default is: <number of cores> + 1.  Set to 0 to disable "
-            "multiprocessing."),
-        type=int
-    )
-    define(
-        "configure",
-        default=False,
-        group='gateone',
-        help=_(
-            "Only configure Gate One (create SSL certs, conf.d, etc).  Do not "
-            "start any Gate One processes."),
-    )
-
+    debug = False
+    cookie_secret = getsettings('SECRET_KEY')
+    address = ""
+    enable_unix_socket = False
+    unix_socket_path = "/tmp/gateone.sock"
+    unix_socket_mode = "0600"
+    disable_ssl = False
+    certificate = os.path.join(ssl_dir, "certificate.pem")
+    keyfile = os.path.join(ssl_dir, "keyfile.pem")
+    ca_certs = None
+    ssl_auth = 'none'
+    user_dir = user_dir_default 
+    uid = str(os.getuid())
+    gid = str(os.getgid()) 
+    if not os.path.exists(user_dir):
+        mkdir_p(user_dir)
+        os.chmod(user_dir, 0o770)
+    #if uid == 0 and os.getuid() != 0: 
+        #if not check_write_permissions(uid, user_dir):
+            #recursive_chown(user_dir, uid, gid)
+    user_logs_max_age = "30d"
+    session_dir = session_dir_default
+    if not os.path.exists(session_dir):
+        mkdir_p(session_dir)
+        os.chmod(session_dir, 0o770)
+    #if not check_write_permissions(uid, session_dir):
+        #recursive_chown(session_dir, uid, gid)    
+    syslog_facility = "daemon"
+    session_timeout = "5d"
+    new_api_key = False
+    auth = "none"
+    api_timestamp_window ="30s"
+    sso_realm = None
+    sso_service = "HTTP"
+    pam_realm = os.uname()[1]
+    pam_service = "login"
+    embedded = False
+    js_init = ""
+    https_redirect = False
+    url_prefix = "/"
+    origins = default_origins
+    pid_file = pid_default
+    api_keys = ""
+    combine_js = ""
+    combine_css = ""
+    combine_css_container = "gateone"
+    multiprocessing_workers = None
+    configure = False
+    login_url ='/auth'
+    static_url_prefix = '/static/'
+    log_rotate_mode = 'size'
+    logging = 'info'
+    static_url = os.path.join(settings_base, 'static')
+    session_logging = True
+    log_file_num_backups = 10
+    log_file_prefix = os.path.join(settings_base, 'log')
+    if not os.path.exists(log_file_prefix):
+        mkdir_p(log_file_prefix)
+        os.chmod(log_file_prefix, 0o770)
+    #if not check_write_permissions(uid, log_file_prefix):
+        #recursive_chown(log_file_prefix, uid, gid)
+    if not url_prefix.endswith('/'):
+        url_prefix += '/' 
+    global TIMEOUT
+    TIMEOUT = convert_to_timedelta(session_timeout)
+    api_timestamp_window = convert_to_timedelta(api_timestamp_window)
+    auth = none_fix(auth)
+    # Check to make sure we have a certificate and keyfile and generate fresh
+    # ones if not.
+    if not disable_ssl:
+        if not os.path.exists(keyfile):
+            ssl_base = os.path.dirname(keyfile)
+            if not os.path.exists(ssl_base):
+                mkdir_p(ssl_base)
+            gen_self_signed_ssl(path=ssl_base)
+        if not os.path.exists(certificate):
+            ssl_base = os.path.dirname(certificate)
+            gen_self_signed_ssl(path=ssl_base)   
+    ssl_auth = ssl_auth.lower()
+    log_file_max_size = 100000000
+    global _
+    global PLUGINS
+    global APPLICATIONS
+    cli_commands = {'gateone': {}} # CLI commands provided by plugins/apps
+    settings = {}    
+    global user_locale
+    # Default to using the shell's LANG variable as the locale
+    try:
+        default_locale = os.environ['LANG'].split('.')[0]
+    except KeyError: # $LANG isn't set
+        default_locale = "en_US"
+    locales = default_locale
+    user_locale = getsettings('LANGUAGE_CODE', 'en_US')
+    # NOTE: The locale setting above is only for the --help messages.
+    # Re-do the locale in case the user supplied something as --locale
+    server_locale = locale.get(user_locale)
+    _ = server_locale.translate # Also replaces our wrapper so no more .encode()
+    # Set our global session timeout    
+    https_redirect = False
+    syslog_session_logging = False
+    sso_keytab = None
+    configure = False
+    settings.update({
+            u'dtach': True,
+            'version': None,
+            u'locale': locales,
+            u'address': address,
+            u'pam_service': pam_service,
+            u'syslog_facility': syslog_facility,
+            'cookie_secret': cookie_secret,
+            u'enable_unix_socket': enable_unix_socket,
+            u'port': port_default,
+            u'uid': str(uid),
+            u'url_prefix': url_prefix,
+            u'user_dir': user_dir,
+            'settings_dir': settings_dir,
+            u'unix_socket_mode': unix_socket_mode,
+            u'multiprocessing_workers': multiprocessing_workers,
+            u'certificate': certificate,
+            u'log_rotate_interval': 1,
+            u'log_to_stderr': None,
+            u'log_rotate_when': u'midnight',
+            u'gid': str(gid),
+            u'pid_file': pid_file,
+            'command': None,
+            'gzip': True,
+            u'pam_realm': pam_realm,
+            'login_url': login_url,
+            'configure': configure,
+            u'sso_service': sso_service,
+            'cli_overrides': [],
+            u'https_redirect': https_redirect,
+            u'auth': auth,
+            'api_keys': api_keys,
+            u'disable_ssl': disable_ssl,
+            u'ca_certs': ca_certs,
+            u'cache_dir': cache_dir_default,
+            u'syslog_session_logging': syslog_session_logging,
+            u'user_logs_max_age': user_logs_max_age,
+            u'sso_keytab': sso_keytab,
+            u'api_timestamp_window': api_timestamp_window,
+            'static_url_prefix': static_url_prefix,
+            u'log_rotate_mode': log_rotate_mode,
+            u'log_file_num_backups': log_file_num_backups,
+            u'logging': logging,
+            u'embedded': embedded,
+            u'origins': default_origins,
+            u'session_logging': session_logging,
+            u'keyfile': keyfile,
+            u'session_dir': session_dir,
+            'static_url': static_url,
+            u'ssl_auth': ssl_auth,
+            u'log_file_max_size': log_file_max_size,
+            u'session_timeout': TIMEOUT,
+            u'sso_realm': sso_realm,
+            u'debug': debug,
+            u'js_init': js_init,
+            u'unix_socket_path': unix_socket_path,
+            u'log_file_prefix': os.path.join(log_file_prefix,'django-gateone.log'),
+})
+    return settings
+    
 def settings_template(path, **kwargs):
     """
     Renders and returns the Tornado template at *path* using the given *kwargs*.

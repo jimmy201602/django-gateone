@@ -24,6 +24,7 @@ from pkg_resources import resource_exists
 #supported_locales = [
     #a for a in resource_listdir('gateone', 'i18n')
         #if a not in ('gateone.pot', 'gateone_js.pot')]
+supported_locales = ['gateone.pot', 'gateone_js.pot']
 
 def get_translation(settings_dir=None):
     """

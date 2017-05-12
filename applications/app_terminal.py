@@ -197,14 +197,14 @@ class TerminalApplication(GOApplication):
         self.log_metadata = {'application': 'terminal'}
         GOApplication.__init__(self, ws)
 
-    def initialize(self):
+    def initialize(self,message=None):
         """
         Called when the WebSocket is instantiated, sets up our WebSocket
         actions, security policies, and attaches all of our plugin hooks/events.
         """
         self.log_metadata = {
             'application': 'terminal',
-            'ip_address': self.ws.request.remote_ip,
+            'ip_address': message.http_session.get('gateone_user', None)['ip_address'],#self.ws.request.remote_ip
             'location': self.ws.location
         }
         self.term_log = go_logger("gateone.terminal")
