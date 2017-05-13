@@ -1297,7 +1297,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 _("Your IP address (%s) has been blacklisted")
                 % client_address)
             message = {'go:blacklisted': blacklist_msg}
-            self.write_message(message)
+            self.write_message()
             self.close() # Close the WebSocket
             return
         metadata = {'ip_address': client_address}
@@ -1362,7 +1362,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.send_js(path)
         for app in self.apps:
             if hasattr(app, 'open'):
-                app.open() # Call applications' open() functions (if any)
+                app.open(self.client_id, '127.0.0.1:8000', '127.0.0.1') # Call applications' open() functions (if any)
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
         def send_ping():

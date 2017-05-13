@@ -339,7 +339,7 @@ class TerminalApplication(GOApplication):
                 for event, callback in hooks['Events'].items():
                     self.on(event, bind(callback, self))
 
-    def open(self):
+    def open(self, client_id, host, remote_ip):
         #print 'terminal opened'
         """
         This gets called at the end of :meth:`ApplicationWebSocket.open` when
@@ -347,7 +347,7 @@ class TerminalApplication(GOApplication):
         """
         self.term_log.debug('TerminalApplication.open()')
         self.callback_id = "%s;%s;%s" % (
-            self.ws.client_id, self.request.host, self.request.remote_ip)
+            client_id, host, remote_ip)
         self.trigger("terminal:open")
 
     def send_client_files(self):
