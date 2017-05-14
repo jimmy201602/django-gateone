@@ -1365,17 +1365,17 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 app.open(self.client_id, '127.0.0.1:8000', '127.0.0.1') # Call applications' open() functions (if any)
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
-        def send_ping():
-            try:
-                self.ping(str(int(time.time() * 1000)).encode('utf-8'))
-            except (WebSocketClosedError, AttributeError):
-                # Connection closed
-                self.pinger.stop()
-                del self.pinger
-        send_ping()
-        interval = 5000 # milliseconds
-        self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
-        self.pinger.start()
+        #def send_ping():
+            #try:
+                #self.ping(str(int(time.time() * 1000)).encode('utf-8'))
+            #except (WebSocketClosedError, AttributeError):
+                ## Connection closed
+                #self.pinger.stop()
+                #del self.pinger
+        #send_ping()
+        #interval = 5000 # milliseconds
+        #self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
+        #self.pinger.start()
         self.trigger("go:open")
 
     def on_message(self, message):
@@ -1386,14 +1386,16 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         contents.
         """
         # This is super useful when debugging:
-        print repr(message)
+        print 'on_message',repr(message)
+        print message.content.get('text',None)
         logging.debug("message: %s" % repr(message))
+        #bug
         if self.origin_denied:
             self.auth_log.error(_("Message rejected due to invalid origin."))
             self.close() # Close the WebSocket
         message_obj = None
         try:
-            message_obj = json_decode(message) # JSON FTW!
+            message_obj = json_decode(message.content.get('text',None)) # JSON FTW!
             if not isinstance(message_obj, dict):
                 self.write_message(_("'Error: Message bust be a JSON dict.'"))
                 return
@@ -1416,7 +1418,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                         self.logger.error(
                            _("Error in WebSocket action, %s: %s (%s line %s)") %
                            (key, e, fname, lineno))
-                        if self.settings['logging'] == 'debug':
+                        if self.settings().get('logging',None) == 'debug':
                             traceback.print_exc(file=sys.stdout)
                 else:
                     self.logger.error(
@@ -3394,7 +3396,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def settings(self):
         from applications.configuration import define_options
         settings = define_options()
-        return define_options()
+        return settings
 
 
 class ErrorHandler(tornado.web.RequestHandler):
