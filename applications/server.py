@@ -823,10 +823,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.timestamps = [] # Tracks/averages client latency
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
-        WebsocketConsumer.__init__(self, message, **kwargs)
+        super(WebsocketConsumer,self).__init__(message, **kwargs)
         #print '__init__'
         #self.initialize()
         #print 'self.initialize'
+        super(ApplicationWebSocket, self).__init__(message, **kwargs)
         #ApplicationWebSocket.__init__(self, message, **kwargs)
         #print 'ApplicationWebSocket __init__'
 
