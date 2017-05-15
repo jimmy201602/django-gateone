@@ -202,11 +202,13 @@ class TerminalApplication(GOApplication):
         Called when the WebSocket is instantiated, sets up our WebSocket
         actions, security policies, and attaches all of our plugin hooks/events.
         """
+        #print 'Initialize app_terminal'
         self.log_metadata = {
             'application': 'terminal',
             'ip_address': message.http_session.get('gateone_user', None)['ip_address'],#self.ws.request.remote_ip
             'location': self.ws.location
         }
+        #print self.log_metadata
         self.term_log = go_logger("gateone.terminal")
         self.term_log.debug("TerminalApplication.initialize()")
         # Register our security policy function
@@ -247,6 +249,7 @@ class TerminalApplication(GOApplication):
             'terminal:stop_capture': self.stop_capture,
             'terminal:debug_terminal': self.debug_terminal
         })
+        #print self.ws.actions
         if 'terminal' not in self.ws.persist:
             self.ws.persist['terminal'] = {}
         # Initialize plugins (every time a connection is established so we can
@@ -267,6 +270,7 @@ class TerminalApplication(GOApplication):
         self.term_log.info(_(
             "Active Terminal Plugins: %s" % ", ".join(plugin_list)))
         # Setup some events
+        #print plugin_list
         terminals_func = partial(self.terminals, self)
         self.ws.on("go:set_location", terminals_func)
         # Attach plugin hooks
@@ -385,6 +389,7 @@ class TerminalApplication(GOApplication):
         Sends all plugin JavaScript files to the client and triggers the
         'terminal:authenticate' event.
         """
+        #print 'app_terminal authenticate'
         self.term_log.debug('TerminalApplication.authenticate()')
         self.log_metadata = {
             'application': 'terminal',

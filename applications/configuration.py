@@ -346,6 +346,15 @@ def define_options():
         default_locale = os.environ['LANG'].split('.')[0]
     except KeyError: # $LANG isn't set
         default_locale = "en_US"
+    #from django.utils.translation import ugettext as _
+    #from django.utils.translation import ugettext_lazy as _
+    #from django.utils.translation import activate, get_language_info
+    #from django.utils.translation import activate
+    #from django.utils import translation
+    #user_language = 'fr'
+    #translation.activate(user_language)    
+    #activate('fr')
+    #i = get_language_info('de')
     locales = default_locale
     user_locale = getsettings('LANGUAGE_CODE', 'en_US')
     # NOTE: The locale setting above is only for the --help messages.

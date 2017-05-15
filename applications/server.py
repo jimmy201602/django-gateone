@@ -108,6 +108,8 @@ from itertools import izip
 
 
 from django.core import signing
+from django.utils.encoding import smart_bytes
+from django.template import Context, Template
 
 #from applications.app_terminal import TerminalApplication
 # Setup our base loggers (these get overwritten in main())
@@ -1046,6 +1048,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.apps.append(instance)
             logging.debug("Initializing %s" % instance)
             if hasattr(instance, 'initialize'):
+                #print 'initialize app_terminal'
                 instance.initialize(message=message)
 
     def send_extra(self):
@@ -1386,14 +1389,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         contents.
         """
         # This is super useful when debugging:
-        print 'on_message',repr(message)
-        print message.content.get('text',None)
+        #print 'on_message',repr(message)
+        #print 'on_message',message.content.get('text',None)
         logging.debug("message: %s" % repr(message))
         #bug
-        if self.origin_denied:
-            self.auth_log.error(_("Message rejected due to invalid origin."))
-            self.close() # Close the WebSocket
-        message_obj = None
+        #if self.origin_denied:
+            #self.auth_log.error(_("Message rejected due to invalid origin."))
+            #self.close() # Close the WebSocket
+        #message_obj = None
         try:
             message_obj = json_decode(message.content.get('text',None)) # JSON FTW!
             if not isinstance(message_obj, dict):
@@ -1769,7 +1772,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if orig_base_url != self.base_url:
                 self.logger.info(_(
                     "Proxy in use: Client URL differs from server."))
-        auth_method = self.settings.get('auth', None)
+        auth_method = self.settings().get('auth', None)
+        #print 'authenticate auth_method',auth_method
         if auth_method and auth_method != 'api':
             # Regular, non-API authentication
             if settings['auth']:
@@ -1827,18 +1831,20 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             # Double-check there isn't a user set in the cookie (i.e. we have
             # recently changed Gate One's settings).  If there is, force it
             # back to ANONYMOUS.
+            #print 'settings[auth]',settings['auth']
             if settings['auth']:
                 cookie_data = None
                 if isinstance(settings['auth'], basestring):
                     # The client is trying to authenticate using the
                     # 'gateone_user' parameter in localStorage.
                     # Authenticate/decode the encoded auth info
-                    expiration = self.settings.get('auth_timeout', "14d")
+                    expiration = self.settings().get('auth_timeout', "14d")
                     expiration = (
                         float(total_seconds(convert_to_timedelta(expiration)))
                         / float(86400))
-                    cookie_data = self.get_secure_cookie("gateone_user",
-                        value=settings['auth'], max_age_days=expiration)
+                    #cookie_data {"upn": "ANONYMOUS", "session": "MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM"}    
+                    #{u'upn': u'jimmy', u'ip_address': u'127.0.0.1', u'session': u'NjhlOTY0YjUzZDdiNDVmYjlhZDllNGFiOWNkOTFlMjM0Y', u'protocol': u'http'}
+                    cookie_data = self.get_secure_cookie['gateone_user']
                     # NOTE: The above doesn't actually touch any cookies
                 else:
                     # Someone is attempting to perform API-based authentication
@@ -1856,8 +1862,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                         "to set '\"auth\": \"api\"' in the settings?")}
                     self.write_message(json_encode(message))
                     return
-                if cookie_data:
-                    user = json_decode(cookie_data)
+                if cookie_data:                   
+                    user = cookie_data                 
+                #print 'cookie_data',cookie_data
             if not user:
                 # Generate a new session/anon user
                 # Also store/update their session info in localStorage
@@ -1871,24 +1878,30 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 self.write_message(json_encode(session_message))
                 self._current_user['ip_address'] = self.request.remote_ip
                 self._current_user = user
-            if user['upn'] != 'ANONYMOUS':
+            #print 'user', user['upn']
+            #bug rewrite the authenticate method
+            if user['upn'] == 'ANONYMOUS':#if user['upn'] != 'ANONYMOUS':
                 # Gate One server's auth config probably changed
                 self.write_message(json_encode(reauth))
+                #print 'reauth',reauth
                 return
-        if self.current_user and 'session' in self.current_user:
-            self.session = self.current_user['session']
+        #print 'self.request', self.request.http_session.get('gateone_user',None)
+        if self.request.http_session.get('gateone_user',None) and 'session' in self.request.http_session.get('gateone_user',None):#if self.current_user and 'session' in self.current_user:
+            self.session = self.request.http_session.get('gateone_user',None)['session']
         else:
             self.auth_log.error(_("Authentication failed for unknown user"))
             message = {'go:notice': _('AUTHENTICATION ERROR: User unknown')}
             self.write_message(json_encode(message))
             self.write_message(json_encode(reauth))
+            print 'reauth',reauth
             return
         # Locations are used to differentiate between different tabs/windows
         self.location = settings.get('location', 'default')
         # Update our loggers to include the user metadata
+        #print 'self.get_secure_cookie[gateone_user]',self.get_secure_cookie['gateone_user']['ip_address']
         metadata = {
             'upn': user['upn'],
-            'ip_address': self.request.remote_ip,
+            'ip_address': self.get_secure_cookie['gateone_user']['ip_address'],
             'location': self.location
         }
         self.logger = go_logger(None, **metadata)
@@ -1898,19 +1911,21 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.client_log = go_logger('gateone.client', **metadata)
         # NOTE: NOT using self.auth_log() here on purpose (this log message
         # should stay consistent for easier auditing):
+        #print 'self.request', self.get_secure_cookie['gateone_user']['ip_address']
         log_msg = _(
             u"User {upn} authenticated successfully via origin {origin} "
             u"(location {location}).").format(
                 upn=user['upn'],
-                origin=self.origin,
+                origin=self.get_secure_cookie['gateone_user']['ip_address'],#origin=self.origin
                 location=self.location)
         auth_log.info(log_msg)
         # This check is to make sure there's no existing session so we don't
         # accidentally clobber it.
+        #print 'session', self.get_secure_cookie['session']
         if self.session not in SESSIONS:
             # Start a new session:
             SESSIONS[self.session] = {
-                'client_ids': [self.client_id],
+                'client_ids': [self.get_secure_cookie['session']],#'client_ids': [self.client_id]
                 'last_seen': 'connected',
                 'user': self.current_user,
                 'kill_session_callbacks': [
@@ -1925,7 +1940,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             }
         else:
             SESSIONS[self.session]['last_seen'] = 'connected'
-            SESSIONS[self.session]['client_ids'].append(self.client_id)
+            SESSIONS[self.session]['client_ids'].append(self.get_secure_cookie['session'])#SESSIONS[self.session]['client_ids'].append(self.client_id)
             if self.location not in SESSIONS[self.session]['locations']:
                 SESSIONS[self.session]['locations'][self.location] = {}
         # A shortcut:
@@ -1937,7 +1952,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if hasattr(app, 'authenticate'):
                 app.authenticate()
         # This is just so the client has a human-readable point of reference:
-        message = {'go:set_username': self.current_user['upn']}
+        #print self.request.http_session['gateone_user']['upn']
+        message = {'go:set_username': self.request.http_session['gateone_user']['upn']}#{'go:set_username': self.current_user['upn']}
         self.write_message(json_encode(message))
         self.trigger('go:authenticate')
         # Perform a license check
@@ -2211,7 +2227,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
         This method also cleans up older versions of the same rendered template.
         """
-        cache_dir = self.settings['cache_dir']
+        cache_dir = self.settings()['cache_dir']
         if not isinstance(cache_dir, str):
             cache_dir = cache_dir.decode('utf-8')
         if not isinstance(style_path, str):
@@ -2220,15 +2236,21 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         shortened_path = short_hash(style_path)
         rendered_filename = 'rendered_%s_%s' % (shortened_path, int(mtime))
         rendered_path = os.path.join(cache_dir, rendered_filename)
+        #print 'style_path',style_path 
         if not os.path.exists(rendered_path) or force:
-            style_css = self.render_string(
-                style_path,
-                **kwargs
-            )
+            #t = Template('This is your <span>{{ message }}</span>.')
+            #c = Context({'message': 'Your message'})
+            #html = t.render(c)
+            with io.open(style_path, 'r') as f:
+                html = f.read()
+            template_strings = Template(html)
+            style_css = template_strings.render(context=Context(dict_=kwargs))
+            #print 'render the style_css'
+            #print 'style_css',smart_bytes(style_css)
             # NOTE: Tornado templates are always rendered as bytes.  That is why
             # we're using 'wb' below...
             with io.open(rendered_path, 'wb') as f:
-                f.write(style_css)
+                f.write(smart_bytes(style_css))
             # Remove older versions of the rendered template if present
             for fname in os.listdir(cache_dir):
                 if fname == rendered_filename:
@@ -2255,6 +2277,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         self.logger.debug('get_theme(%s)' % settings)
         send_css = self.prefs['*']['gateone'].get('send_css', True)
+        #print 'send_css',send_css
         if not send_css:
             if not hasattr('logged_css_message', self):
                 self.logger.info(_(
@@ -2275,14 +2298,17 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             container=container,
             prefix=prefix,
             url_prefix=go_url,
-            embedded=self.settings['embedded']
+            embedded=self.settings()['embedded']
         )
         out_dict = {'files': []}
         theme_mtimes = self.persist['theme_mtimes']
-        cache_dir = self.settings['cache_dir']
+        cache_dir = self.settings()['cache_dir']
         theme_file = "%s.css" % theme
-        theme_relpath = '/templates/themes/%s' % theme_file
-        theme_path = resource_filename('gateone', theme_relpath)
+        theme_relpath = 'themes/%s' % theme_file
+        #theme_path = resource_filename('gateone', theme_relpath)
+        theme_path = os.path.join(getsettings('BASE_DIR'), 'static')
+        theme_path = os.path.join(theme_path,theme_relpath)
+        #print 'theme_path',theme_path
         cached_theme_path = os.path.join(cache_dir, theme_file)
         filename_hash = hashlib.md5(theme_file.encode('utf-8')).hexdigest()[:10]
         theme_files = []
@@ -2360,7 +2386,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     f.write(io.open(path, 'rb').read())
             os.rename(new_theme_path, cached_theme_path)
         mtime = os.stat(cached_theme_path).st_mtime
-        if self.settings['debug']:
+        if self.settings()['debug']:
             # This makes sure that the files are always re-downloaded
             mtime = time.time()
         kind = 'css'
@@ -2402,11 +2428,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if not expired:
             logging.debug(_(
                 "No expired %s files at client %s" %
-                (kind, self.request.remote_ip)))
+                (kind, self.request.http_session.get('gateone_user',None)['ip_address'])))
             return
         logging.debug(_(
             "Requesting deletion of expired files at client %s: %s" % (
-            self.request.remote_ip, filenames)))
+            self.request.http_session.get('gateone_user',None)['ip_address'], filenames)))
         message = {'go:cache_expired': message}
         self.write_message(message)
         # Also clean up stale files in the cache while we're at it
@@ -2477,9 +2503,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         out_dict = {'result': 'Success', 'hash': filename_hash}
         out_dict.update(self.file_cache[filename_hash])
         del out_dict['path'] # Don't want the client knowing this
-        url_prefix = self.settings['url_prefix']
+        url_prefix = self.settings()['url_prefix']
         self.sync_log.info(_("Sending: {0}").format(filename))
-        cache_dir = self.settings['cache_dir']
+        cache_dir = self.settings()['cache_dir']
         def send_file(result):
             """
             Adds our minified data to the out_dict and sends it to the
@@ -2525,7 +2551,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             except (WebSocketClosedError, AttributeError):
                 pass # WebSocket closed before we got a chance to send this
         logging.debug("file_request() for: %s" % filename)
-        if self.settings['debug']:
+        if self.settings()['debug']:
             result = get_or_cache(cache_dir, path, minify=False)
             send_file(result)
         else:
@@ -2956,7 +2982,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         Returns a JSON-encoded object containing the installed themes and text
         color schemes.
         """
-        themes = resource_listdir('gateone', '/templates/themes')
+        themes = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static/themes'))
         # Just in case other junk wound up in that directory:
         themes = [a for a in themes if a.endswith('.css')]
         themes = [a.replace('.css', '') for a in themes] # Just need the names
@@ -3287,7 +3313,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     #@channel_session
     def connect(self, message, **kwargs):
         print 'connected'
-        self.request(message=message)
+        #self.request(message=message)
         from applications.app_terminal import TerminalApplication
         self.initialize(apps=[TerminalApplication],message=message)
         #print 'connect prefx',self.prefs
@@ -3314,7 +3340,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     
     #@channel_session
     def receive(self, message, **kwargs):
-        print 'receive message',message,kwargs
+        #print 'receive message',message,kwargs
+        print 'receive message content text',message.content.get('text',None)
         return self.on_message(message)
 
     def disconnect(self, message, **kwargs):
@@ -3328,7 +3355,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #super(JsonWebsocketConsumer, self).send(text=self.encode_json(content), close=close)    
         
     def write_message(self, message,):
-        print 'write_message',message
+        #print 'write_message',message
         if isinstance(message, dict):
             message = json_encode(message)
         return self.send(message)
@@ -3346,11 +3373,29 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         Called when a WebSocket frame is received. Decodes it and passes it
         to receive().
         """
-        print 'raw message',message
-        if "text" in message:
+        #print 'raw message',message
+        #try:
+            #print 'raw message text',message.content.get('text',None)       
+        #except Exception:
+            #print 'raw message content',message.content
+            ##print dir(message)
+            ##print type(message.content)
+            ##print 'raw message text', None  
+        self.request = message
+        self.get_secure_cookie = message.http_session
+        self.get_request_headers = message.get('headers',None)
+        #logout will cause a bug
+        client_address = message.http_session.get('gateone_user',None)['ip_address']
+        self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
+            protocol=message.http_session.get('gateone_user',None)['protocol'],
+            host=client_address,
+            port=getsettings('port',8000),#self.settings['port']
+            url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']
+        #self.base_url https://127.0.0.1:10443:10443/        
+        if 'text' in message:
             self.receive(message, **kwargs)
-        #else:
-            #self.receive(bytes=message['bytes'], **kwargs)        
+        else:
+            self.receive(bytes=message['bytes'], **kwargs)             
 
     def cookieconvert(self,message):
         headers = message.get('headers',None)
@@ -3390,15 +3435,20 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             Group(group, channel_layer=message.channel_layer).add(message.reply_channel)
         self.connect(message, **kwargs)    
     
-    def request(self, message=None):
-        return message
+    def request(self):
+        return self.request()
     
     def settings(self):
         from applications.configuration import define_options
         settings = define_options()
         return settings
+    
+    def get_secure_cookie(self):
+        return self.get_secure_cookie()
 
-
+    def get_request_headers(self):
+        return self.get_request_headers()
+    
 class ErrorHandler(tornado.web.RequestHandler):
     """
     Generates an error response with status_code for all requests.
