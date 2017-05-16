@@ -1,0 +1,32 @@
+{% if font_family == 'monospace' %}
+.✈terminal_pre {
+    font-family: monospace !important;
+    font-size: {{  font_size }};
+}
+{% elif woffs %}
+{% for path, woff in woffs.items %}
+/* {{path}} */
+@font-face {
+  font-family: '{{  font_family }}';
+  font-style: {{  woff.font_style }};
+  font-weight: {{ woff.font_weight }};
+  src: {{  woff.locals }}, url('{{  woff.url }}') format('woff');
+}
+{% endfor %}
+.✈terminal_pre {
+    font-family: '{{  font_family }}' !important;
+    font-size: {{  font_size }};
+}
+{% else %}
+{% if font_size %}
+.✈terminal_pre {
+    font-family: monospace !important;
+    font-size: {{ font_size }};
+}
+{% else %}
+.✈terminal_pre {
+    font-family: monospace !important;
+    font-size: 0.9em;
+}
+{% endif%}
+{% endif %}

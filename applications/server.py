@@ -76,8 +76,8 @@ except (ImportError, NameError):
 from applications.utils import getsettings
 
 # Our own modules
-SESSIONS = getsettings('SESSIONS', dict())
-PERSIST = getsettings('PERSIST', dict())
+from applications import SESSIONS
+from applications import PERSIST
 
 #from gateone import SESSIONS, PERSIST
 #from gateone.auth.authentication import NullAuthHandler, KerberosAuthHandler
@@ -110,6 +110,10 @@ from itertools import izip
 from django.core import signing
 from django.utils.encoding import smart_bytes
 from django.template import Context, Template
+
+
+from applications.utils import short_hash, create_data_uri, which
+from applications.utils import process_opt_esc_sequence, bind, MimeTypeFail
 
 #from applications.app_terminal import TerminalApplication
 # Setup our base loggers (these get overwritten in main())
@@ -791,6 +795,41 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'go:license_info': self.license_info,
             'go:debug': self.debug,
         }
+        #self.ws.actions.update({
+            #'terminal:new_terminal': self.new_terminal,
+            #'terminal:set_terminal': self.set_terminal,
+            #'terminal:move_terminal': self.move_terminal,
+            #'terminal:swap_terminals': self.swap_terminals,
+            #'terminal:kill_terminal': self.kill_terminal,
+            #'c': self.char_handler, # Just 'c' to keep the bandwidth down
+            #'terminal:write_chars': self.write_chars,
+            #'terminal:refresh': self.refresh_screen,
+            #'terminal:full_refresh': self.full_refresh,
+            #'terminal:resize': self.resize,
+            #'terminal:get_bell': self.get_bell,
+            #'terminal:manual_title': self.manual_title,
+            #'terminal:reset_terminal': self.reset_terminal,
+            #'terminal:get_webworker': self.get_webworker,
+            #'terminal:get_font': self.get_font,
+            #'terminal:get_colors': self.get_colors,
+            #'terminal:set_encoding': self.set_term_encoding,
+            #'terminal:set_keyboard_mode': self.set_term_keyboard_mode,
+            #'terminal:get_locations': self.get_locations,
+            #'terminal:get_terminals': self.terminals,
+            #'terminal:get_client_files': self.send_client_files,
+            #'terminal:permissions': self.permissions,
+            #'terminal:new_share_id': self.new_share_id,
+            #'terminal:share_user_list': self.share_user_list,
+            #'terminal:enumerate_commands': self.enumerate_commands,
+            #'terminal:enumerate_fonts': self.enumerate_fonts,
+            #'terminal:enumerate_colors': self.enumerate_colors,
+            #'terminal:list_shared_terminals': self.list_shared_terminals,
+            #'terminal:attach_shared_terminal': self.attach_shared_terminal,
+            #'terminal:detach_shared_terminal': self.detach_shared_terminal,
+            #'terminal:start_capture': self.start_capture,
+            #'terminal:stop_capture': self.stop_capture,
+            #'terminal:debug_terminal': self.debug_terminal
+        #})        
         # Setup some instance-specific loggers that we can later update with
         # more metadata
         self.io_loop = tornado.ioloop.IOLoop.current()
@@ -823,11 +862,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.timestamps = [] # Tracks/averages client latency
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
-        super(WebsocketConsumer,self).__init__(message, **kwargs)
-        #print '__init__'
-        #self.initialize()
-        #print 'self.initialize'
+        #WebsocketConsumer.__init__(self, message, **kwargs)
         super(ApplicationWebSocket, self).__init__(message, **kwargs)
+        #super(WebsocketConsumer, self).__init__(message, **kwargs)
+        #super(ApplicationWebSocket, self).__init__(message, **kwargs)
+        #print '__init__'
+        #self.initialize(message)
+        #print 'self.initialize'
         #ApplicationWebSocket.__init__(self, message, **kwargs)
         #print 'ApplicationWebSocket __init__'
 
@@ -1048,9 +1089,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             instance = app(self)
             self.apps.append(instance)
             logging.debug("Initializing %s" % instance)
+            #print "Initializing %s" % instance
             if hasattr(instance, 'initialize'):
                 #print 'initialize app_terminal'
                 instance.initialize(message=message)
+            if hasattr(instance, 'authenticate'):
+                instance.authenticate(message=message)
 
     def send_extra(self):
         """
@@ -1208,6 +1252,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # to the user.  It isn't used much right now but it will be useful in
         # the future once more stuff is running over WebSockets.
         self.client_id = message.http_session.get('session',None)
+        #print message.http_session.get('gateone_user',None)
         self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
             protocol=message.http_session.get('gateone_user',None)['protocol'],
             host=client_address,
@@ -1341,6 +1386,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #       having to restart Gate One (just need to wait for users to
         #       eventually re-connect or reload the page).
         # NOTE: Why store prefs in the class itself?  No need for redundancy.
+        #print 'cls.prefs',cls.prefs
         if 'cache_dir' not in cls.prefs['*']['gateone']:
             # Set the cache dir to a default if not set in the prefs
             cache_dir = self.settings['cache_dir']
@@ -1364,6 +1410,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             path = os.path.join(getsettings('BASE_DIR'), 'static')
             path = os.path.join(path, js_file)#get js path
             self.send_js(path)
+        #print 'self.client_id',self.client_id
         for app in self.apps:
             if hasattr(app, 'open'):
                 app.open(self.client_id, '127.0.0.1:8000', '127.0.0.1') # Call applications' open() functions (if any)
@@ -1393,7 +1440,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'on_message',repr(message)
         #print 'on_message',message.content.get('text',None)
         logging.debug("message: %s" % repr(message))
-        #bug
+        #bug need to be fixed
         #if self.origin_denied:
             #self.auth_log.error(_("Message rejected due to invalid origin."))
             #self.close() # Close the WebSocket
@@ -1405,7 +1452,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 return
         except ValueError: # We didn't get JSON
             self.write_message(_("'Error: We only accept JSON here.'"))
-            return
+            return   
         if message_obj:
             for key, value in message_obj.items():
                 if key in self.actions:
@@ -1923,12 +1970,15 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # This check is to make sure there's no existing session so we don't
         # accidentally clobber it.
         #print 'session', self.get_secure_cookie['session']
+        #print 'user',user
+        user = copy.deepcopy(user)
+        user.pop('protocol')
         if self.session not in SESSIONS:
             # Start a new session:
             SESSIONS[self.session] = {
                 'client_ids': [self.get_secure_cookie['session']],#'client_ids': [self.client_id]
                 'last_seen': 'connected',
-                'user': self.current_user,
+                'user': user,
                 'kill_session_callbacks': [
                     partial(self.send_message,
                         _("Please wait while the server is restarted..."))
@@ -1941,14 +1991,31 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             }
         else:
             SESSIONS[self.session]['last_seen'] = 'connected'
-            SESSIONS[self.session]['client_ids'].append(self.get_secure_cookie['session'])#SESSIONS[self.session]['client_ids'].append(self.client_id)
+            session_id = self.get_secure_cookie['session']
+            if session_id not in SESSIONS[self.session]['client_ids']:
+                SESSIONS[self.session]['client_ids'].append(self.get_secure_cookie['session'])#SESSIONS[self.session]['client_ids'].append(self.client_id)
             if self.location not in SESSIONS[self.session]['locations']:
                 SESSIONS[self.session]['locations'][self.location] = {}
         # A shortcut:
+        from django.conf import settings
+        settings.SESSIONS = SESSIONS
+        #print 'SESSIONS',SESSIONS
+        #print 'server django SESSIONS', settings.SESSIONS
+        """
+        SESSIONS {u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM':\
+        {'client_ids': [u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM', u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM'],\
+        'locations': {u'default': {}}, 'kill_session_callbacks': [<functools.partial object at 0x7f61843f0f70>],\
+        'user': <bound method ApplicationWebSocket.current_user of <applications.server.ApplicationWebSocket object at 0x7f61843fb790>>,\
+        'timeout_callbacks': [], 'last_seen': 'connected'}}
+
+        """
         self.locations = SESSIONS[self.session]['locations']
         # Call applications' authenticate() functions (if any)
+        #print 'server authenticate'
+        #print 'self.apps',self.apps
         for app in self.apps:
             # Set the current user for convenient access
+            #print 'self.apps',self.apps
             app.current_user = self.current_user
             if hasattr(app, 'authenticate'):
                 app.authenticate()
@@ -2244,6 +2311,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #html = t.render(c)
             with io.open(style_path, 'r') as f:
                 html = f.read()
+            #print 'style_path',style_path
+            #print 'kwargs', kwargs
+            #print 'rendered_path',rendered_path
             template_strings = Template(html)
             style_css = template_strings.render(context=Context(dict_=kwargs))
             #print 'render the style_css'
@@ -2872,7 +2942,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if not os.path.exists(css_path):
             self.sync_log.error(_("File does not exist: {0}").format(css_path))
             return
-        cache_dir = self.settings['cache_dir']
+        cache_dir = self.settings()['cache_dir']
         mtime = os.stat(css_path).st_mtime
         filename = os.path.split(css_path)[1]
         filepath_hash = hashlib.md5(css_path.encode('utf-8')).hexdigest()[:10]
@@ -2894,15 +2964,29 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # This wierd little bit empties Tornado's template cache:
         for web_template_path in template_loaders:
             template_loaders[web_template_path].reset()
-        rendered = self.render_string(
-            css_path,
-            container=self.container,
-            prefix=self.prefix,
-            url_prefix=self.settings['url_prefix'],
-            **kwargs
-        )
+        #print 'css_path',css_path
+        #print 'self.container',self.container
+        #print 'self.prefix',self.prefix
+        #print '''self.settings()['url_prefix']''',self.settings()['url_prefix']
+        #print 'kwargs', kwargs
+        """
+        css_path /home/jimmy/Desktop/django-gateone/static/templates/terminal.css
+        self.container 
+        self.prefix 
+        self.settings()['url_prefix'] /
+        kwargs {}
+        """
+        with io.open(css_path, 'r') as f:
+            css_content = f.read()
+        css_strings = Template(css_content)
+        rendered = css_strings.render(context=Context(dict_=kwargs))
+        #print 'render the style_css'
+        #print 'style_css',smart_bytes(style_css)
+        # NOTE: Tornado templates are always rendered as bytes.  That is why
+        # we're using 'wb' below...
+        #print 'rendered_path',rendered_path
         with io.open(rendered_path, 'wb') as f:
-            f.write(rendered)
+            f.write(smart_bytes(rendered))
         self.send_css(rendered_path,
             element_id=element_id, media=media, filename=filename)
         # Remove older versions of the rendered template if present
@@ -2915,7 +2999,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 os.remove(os.path.join(cache_dir, fname))
         return rendered_path
 
-    def send_plugin_static_files(self, entry_point, requires=None):
+    def send_plugin_static_files(self, entry_point, requires=None, message=None):
         """
         Sends all plugin .js and .css files to the client that exist inside the
         /static/ directory for given *entry_point*.  The policies that apply to
@@ -2953,7 +3037,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 if ep.module_name.startswith('gateone.applications'):
                     application = ep.module_name.split('.')[2]
                     break
-        policy = applicable_policies(application, self.current_user, self.prefs)
+        user = message.http_session.get('gateone_user',None)
+        user = copy.deepcopy(user)
+        user.pop('protocol')
+        #print 'user',user
+        #self.current_user {u'upn': u'ANONYMOUS', u'session': u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM', 'ip_address': '127.0.0.1'}        
+        policy = applicable_policies(application, user, self.prefs)#policy = applicable_policies(application, self.current_user, self.prefs)
+        #print 'policy', policy
+        #print 'self.prefs', self.prefs
         globally_enabled_plugins = policy.get('enabled_plugins', [])
         # This controls the client-side plugins that will be sent
         allowed_client_side_plugins = policy.get('user_plugins', [])
@@ -3313,10 +3404,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
     #@channel_session
     def connect(self, message, **kwargs):
-        print 'connected'
+        #print 'connected'
         #self.request(message=message)
-        from applications.app_terminal import TerminalApplication
-        self.initialize(apps=[TerminalApplication],message=message)
         #print 'connect prefx',self.prefs
         #print message.http_session.items()
         #authenticate user
@@ -3337,12 +3426,18 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print signing.loads()
             #print "eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"
         #print 'open prefx',self.prefs
+        from applications.app_terminal import TerminalApplication
+        self.initialize(apps=[TerminalApplication],message=message)
         return self.open(message)
     
     #@channel_session
     def receive(self, message, **kwargs):
         #print 'receive message',message,kwargs
-        print 'receive message content text',message.content.get('text',None)
+        #print 'receive message content text',message.content.get('text',None)
+        from applications.app_terminal import TerminalApplication
+        instance = TerminalApplication(self)
+        self.apps.append(instance) 
+        instance.initialize(message=message)
         return self.on_message(message)
 
     def disconnect(self, message, **kwargs):
@@ -3364,6 +3459,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def current_user(self, message):
         user = message.http_session.get('gateone_user',None)
         if user:
+            user = copy.deepcopy(user)
             user.pop('protocol')
             return user
         return None
@@ -3387,6 +3483,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.get_request_headers = message.get('headers',None)
         #logout will cause a bug
         client_address = message.http_session.get('gateone_user',None)['ip_address']
+        self.current_user(message)
         self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
             protocol=message.http_session.get('gateone_user',None)['protocol'],
             host=client_address,
@@ -3432,6 +3529,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         need to call super() all the time.
         """
         #print 'raw connect',message.content
+        #print 'raw connect' 
         for group in self.connection_groups(**kwargs):
             Group(group, channel_layer=message.channel_layer).add(message.reply_channel)
         self.connect(message, **kwargs)    
@@ -3450,6 +3548,24 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def get_request_headers(self):
         return self.get_request_headers()
     
+    def get_bell(self):
+        """
+        Sends the bell sound data to the client in in the form of a data::URI.
+        """
+        bell_path = os.path.join(getsettings('BASE_DIR'), 'static/terminal/bell.ogg')
+        try:
+            bell_data_uri = create_data_uri(bell_path)
+        except (IOError, MimeTypeFail): # There's always the fallback
+            bell_data_uri = os.path.join(getsettings('BASE_DIR'), 'static/terminal/fallback_bell.txt')
+        mimetype = bell_data_uri.split(';')[0].split(':')[1]
+        message = {
+            'terminal:load_bell': {
+                'data_uri': bell_data_uri, 'mimetype': mimetype
+            }
+        }
+        self.write_message(json_encode(message))  
+        
+        
 class ErrorHandler(tornado.web.RequestHandler):
     """
     Generates an error response with status_code for all requests.

@@ -7,6 +7,6 @@ from applications.server import ApplicationWebSocket
 # all WebSocket connections to the class-based BindingConsumer (the consumer
 # class itself specifies what channels it wants to consume)
 channel_routing = [
-    route_class(ApplicationWebSocket),
+    route_class(ApplicationWebSocket,path = r'^/ws'),
     #route_class(MyConsumer,path = r'^/ws/$'),
 ]

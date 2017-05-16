@@ -1,0 +1,2 @@
+SESSIONS = {}
+PERSIST = {}

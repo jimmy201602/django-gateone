@@ -24,7 +24,7 @@ from applications.utils import getsettings
 # Gate One imports
 #from gateone import GATEONE_DIR, SESSIONS#global variables
 GATEONE_DIR = getsettings('GATEONE_DIR', dict())
-SESSIONS = getsettings('SESSIONS', dict())
+from applications import SESSIONS
 from applications.server import StaticHandler, BaseHandler, GOApplication
 from applications.server import ApplicationWebSocket
 from applications.auth.authorization import require, authenticated
@@ -42,6 +42,9 @@ from applications.policy import terminal_policies
 # 3rd party imports
 from tornado.escape import json_decode
 from tornado.options import options, define, Error
+
+import copy
+from django.utils.encoding import smart_bytes
 
 # Globals
 REGISTERED_HANDLERS = [] # So we don't accidentally re-add handlers
@@ -196,6 +199,7 @@ class TerminalApplication(GOApplication):
         self.race_check = False
         self.log_metadata = {'application': 'terminal'}
         GOApplication.__init__(self, ws)
+        #print 'init terminal application'
 
     def initialize(self,message=None):
         """
@@ -354,21 +358,21 @@ class TerminalApplication(GOApplication):
             client_id, host, remote_ip)
         self.trigger("terminal:open")
 
-    def send_client_files(self):
+    def send_client_files(self, message=None):
         """
         Sends the client our standard CSS and JS.
         """
         # Render and send the client our terminal.css
-        terminal_css = resource_filename(
-            'gateone.applications.terminal', '/templates/terminal.css')
+        #terminal_css = resource_filename(
+            #'gateone.applications.terminal', '/templates/terminal.css')
+        terminal_css = os.path.join(getsettings('BASE_DIR'), 'static', 'templates', 'terminal.css')
         self.render_and_send_css(terminal_css, element_id="terminal.css")
         # Send the client our JavaScript files
-        js_files = resource_listdir('gateone.applications.terminal', '/static/')
+        js_files = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static', 'terminal'))
         js_files.sort()
         for fname in js_files:
             if fname.endswith('.js'):
-                js_file_path = resource_filename(
-                    'gateone.applications.terminal', '/static/%s' % fname)
+                js_file_path = os.path.join(os.path.join(getsettings('BASE_DIR'), 'static', 'terminal'),fname)
                 if fname == 'terminal.js':
                     self.ws.send_js(js_file_path, requires=["terminal.css"])
                 elif fname == 'terminal_input.js':
@@ -377,12 +381,12 @@ class TerminalApplication(GOApplication):
                     self.ws.send_js(js_file_path, requires='terminal_input.js')
         self.ws.send_plugin_static_files(
             'go_terminal_plugins',
-            requires=["terminal_input.js"])
+            requires=["terminal_input.js"], message=message)
         # Send the client the 256-color style information and our printing CSS
         self.send_256_colors()
         self.send_print_stylesheet()
 
-    def authenticate(self):
+    def authenticate(self, message=None):
         """
         This gets called immediately after the user is authenticated
         successfully at the end of :meth:`ApplicationWebSocket.authenticate`.
@@ -391,16 +395,23 @@ class TerminalApplication(GOApplication):
         """
         #print 'app_terminal authenticate'
         self.term_log.debug('TerminalApplication.authenticate()')
+        #print message.http_session.get('gateone_user',None)#{u'upn': u'jimmy', u'ip_address': u'127.0.0.1', u'session': u'YWYxYjdlMDhlOTIyNDRkZmEwOTAyYTA0NDI2ZTFkZTRiM', u'protocol': u'http'}
+        #print self.ws.location
+        #bug
         self.log_metadata = {
             'application': 'terminal',
-            'upn': self.current_user['upn'],
-            'ip_address': self.ws.request.remote_ip,
-            'location': self.ws.location
+            'upn': message.http_session.get('gateone_user',None)['upn'],#self.current_user['upn']
+            'ip_address': message.http_session.get('gateone_user',None)['ip_address'],#self.ws.request.remote_ip
+            'location': self.ws.location#
         }
         self.term_log = go_logger("gateone.terminal", **self.log_metadata)
         # Get our user-specific settings/policies for quick reference
+        #self.current_user {u'upn': u'ANONYMOUS', u'session': u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM', 'ip_address': '127.0.0.1'}
+        self.current_user = copy.deepcopy(message.http_session.get('gateone_user',None))
+        self.current_user.pop('protocol')
         self.policy = applicable_policies(
             'terminal', self.current_user, self.ws.prefs)
+        #print 'self.policy', self.policy
         # NOTE: If you want to be able to check policies on-the-fly without
         # requiring the user reload the page when a change is made make sure
         # call applicable_policies() on your own using self.ws.prefs every time
@@ -416,8 +427,21 @@ class TerminalApplication(GOApplication):
                     "User is not allowed to use the Terminal application.  "
                     "Skipping post-authentication functions."))
                 return
-        self.send_client_files()
-        sess = SESSIONS[self.ws.session]
+        self.send_client_files(message=message)
+        #print 'session', message.http_session.get('session', None)
+        #print 'app_terminal SESSIONS', SESSIONS
+        """
+            SESSIONS {u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM': {'client_ids': ['ZGU5MTkzMDljNWM4NDcwZjg3YTdlNjJkZjNjNDFmMzI5O'], \
+            'locations': {u'default': {}}, 'kill_session_callbacks': [<functools.partial object at 0x7fad3a548998>], 'user': {u'upn': u'ANONYMOUS', \
+            u'session': u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM', 'ip_address': '127.0.0.1'}, 'timeout_callbacks': [], 'last_seen': 'connected'}}
+        """        
+        #print 'self.ws.session',self.ws.session
+        #print 'SESSIONS',SESSIONS
+        from django.conf import settings
+        settings.SESSIONS = SESSIONS
+        #print 'app_terminal django SESSIONS',settings.SESSIONS  
+        #print 'app_terminal session', message.http_session.get('session',None)
+        sess = SESSIONS[message.http_session.get('session',None)]
         # Create a place to store app-specific stuff related to this session
         # (but not necessarily this 'location')
         if "terminal" not in sess:
@@ -456,14 +480,14 @@ class TerminalApplication(GOApplication):
                 sub_app = {'name': command}
             if 'icon' not in sub_app:
                 # Use the generic one
-                icon_path = resource_filename(
-                    'gateone.applications.terminal',
-                    '/templates/command_icon.svg')
-                sub_app_icon = resource_string(
-                    'gateone.applications.terminal',
-                    '/templates/command_icon.svg').decode('utf-8')
+                icon_path = os.path.join(getsettings('BASE_DIR'), 'static/templates/command_icon.svg')
+                #print 'icon_path', icon_path
+                with io.open(icon_path, 'r') as f:
+                    sub_app_icon = smart_bytes(f.read()).decode('utf-8')
+                #print 'sub_app_icon',sub_app_icon
                 sub_app['icon'] = sub_app_icon.format(cmd=sub_app['name'])
             sub_apps.append(sub_app)
+        #print 'sub_apps', sub_apps
         self.info['sub_applications'] = sorted(
             sub_apps, key=lambda k: k['name'])
         # NOTE: The user will often be authenticated before terminal.js is
@@ -516,6 +540,8 @@ class TerminalApplication(GOApplication):
         available via the `terminal:commands_list` WebSocket action.
         """
         # Get the current settings in case they've changed:
+        #print 'self.current_user',self.current_user
+        #bug
         policy = applicable_policies(
             'terminal', self.current_user, self.ws.prefs)
         commands = list(policy.get('commands', {}).keys())
@@ -529,15 +555,13 @@ class TerminalApplication(GOApplication):
         """
         Returns a JSON-encoded object containing the installed fonts.
         """
-        from .woff_info import woff_info
-        fonts = resource_listdir(
-            'gateone.applications.terminal', '/static/fonts')
+        from applications.woff_info import woff_info
+        fonts = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static/terminal/fonts'))
         font_list = []
         for font in fonts:
             if not font.endswith('.woff'):
                 continue
-            font_path = resource_filename(
-                'gateone.applications.terminal', '/static/fonts/%s' % font)
+            font_path = os.path.join(os.path.join(getsettings('BASE_DIR'), 'static/terminal/fonts'), font)
             font_info = woff_info(font_path)
             if "Font Family" not in font_info:
                 self.ws.logger.error(_(
@@ -564,8 +588,7 @@ class TerminalApplication(GOApplication):
         font_family = settings['font_family']
         font_size = settings.get('font_size', '90%')
         filename = 'font.css'
-        font_css_path = resource_filename(
-            'gateone.applications.terminal', '/templates/%s' % filename)
+        font_css_path = os.path.join(getsettings('BASE_DIR'), 'static/templates', filename)
         if font_family == 'monospace':
             # User wants the browser to control the font; real simple:
             rendered_path = self.render_style(
@@ -576,15 +599,13 @@ class TerminalApplication(GOApplication):
             self.send_css(
                 rendered_path, element_id="terminal_font", filename=filename)
             return
-        from .woff_info import woff_info
-        fonts = resource_listdir(
-            'gateone.applications.terminal', '/static/fonts')
+        from applications.woff_info import woff_info
+        fonts = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static/terminal/fonts'))
         woffs = {}
         for font in fonts:
             if not font.endswith('.woff'):
                 continue
-            font_path = resource_filename(
-                'gateone.applications.terminal', '/static/fonts/%s' % font)
+            font_path = os.path.join(os.path.join(getsettings('BASE_DIR'), 'static/terminal/fonts'), font)
             font_info = woff_info(font_path)
             if "Font Family" not in font_info:
                 self.ws.logger.error(_(
@@ -632,8 +653,7 @@ class TerminalApplication(GOApplication):
         Returns a JSON-encoded object containing the installed text color
         schemes.
         """
-        colors = resource_listdir(
-            'gateone.applications.terminal', '/templates/term_colors')
+        colors = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static/templates/term_colors'))
         colors = [a for a in colors if a.endswith('.css')]
         colors = [a.replace('.css', '') for a in colors]
         message = {'terminal:colors_list': {'colors': colors}}
@@ -743,6 +763,15 @@ class TerminalApplication(GOApplication):
         self.term_log.debug('terminals()')
         terminals = {}
         # Create an application-specific storage space in the locations dict
+        #print 'self.ws.locations', self.ws.locations
+        #print 'self.ws.location', self.ws.location
+        """
+        self.ws.location default
+        self.ws.locations {u'default': {}}
+        """
+        #bug need to be fixed
+        self.ws.locations = {u'default': {}}
+        #print 'SESSIONS', SESSIONS
         if 'terminal' not in self.ws.locations[self.ws.location]:
             self.ws.locations[self.ws.location]['terminal'] = {}
         # Quick reference for our terminals in the current location:
@@ -1910,14 +1939,11 @@ class TerminalApplication(GOApplication):
         """
         Sends the bell sound data to the client in in the form of a data::URI.
         """
-        bell_path = resource_filename(
-            'gateone.applications.terminal', '/static/bell.ogg')
+        bell_path = os.path.join(getsettings('BASE_DIR'), 'static/terminal/bell.ogg')
         try:
             bell_data_uri = create_data_uri(bell_path)
         except (IOError, MimeTypeFail): # There's always the fallback
-            self.term_log.error(_("Could not load bell: %s") % bell_path)
-            bell_data_uri = resource_string(
-                'gateone.applications.terminal', '/static/fallback_bell.txt')
+            bell_data_uri = os.path.join(getsettings('BASE_DIR'), 'static/terminal/fallback_bell.txt')
         mimetype = bell_data_uri.split(';')[0].split(':')[1]
         message = {
             'terminal:load_bell': {
@@ -1932,8 +1958,7 @@ class TerminalApplication(GOApplication):
         around the limitations of loading remote Web Worker URLs (for embedding
         Gate One into other apps).
         """
-        go_process = resource_string(
-            'gateone.applications.terminal', '/static/webworkers/term_ww.js')
+        go_process = os.path.join(getsettings('BASE_DIR'), 'static/terminal/webworkers/term_ww.js')
         message = {'terminal:load_webworker': go_process.decode('utf-8')}
         self.write_message(json_encode(message))
 
@@ -1954,9 +1979,7 @@ class TerminalApplication(GOApplication):
             self.logged_css_message = True
             return
         colors_filename = "%s.css" % settings["colors"]
-        colors_path = resource_filename(
-            'gateone.applications.terminal',
-            '/templates/term_colors/%s' % colors_filename)
+        colors_path = os.path.join(getsettings('BASE_DIR'), 'static/templates/term_colors', colors_filename)
         filename = "term_colors.css" # Make sure it's the same every time
         self.render_and_send_css(colors_path,
             element_id="text_colors", filename=filename)
@@ -2608,14 +2631,15 @@ class TerminalApplication(GOApplication):
         #        has yet to be implemented but this function will enable use to
         #        eventually do that.
         # Use the get_settings() function to import our 256 colors (convenient)
-        cache_dir = self.ws.settings['cache_dir']
+        cache_dir = self.ws.settings()['cache_dir']
         cached_256_colors = os.path.join(cache_dir, '256_colors.css')
         if os.path.exists(cached_256_colors):
             return cached_256_colors
-        colors_json_path = resource_filename(
-            'gateone.applications.terminal', '/static/256colors.json')
+        colors_json_path = os.path.join(getsettings('BASE_DIR'), 'static', 'terminal',  '256colors.json')
         color_map = get_settings(colors_json_path, add_default=False)
         # Setup our 256-color support CSS:
+        #print 'color_map',color_map
+        #print 'cache_dir',cache_dir
         colors_256 = ""
         for i in xrange(256):
             i = str(i)
@@ -2647,8 +2671,7 @@ class TerminalApplication(GOApplication):
         using `ApplicationWebSocket.ws.send_css` with the "media" set to
         "print".
         """
-        print_css_path = resource_filename(
-            'gateone.applications.terminal', '/templates/printing/printing.css')
+        print_css_path = os.path.join(getsettings('BASE_DIR'), 'static', 'templates',  'printing/printing.css')
         self.render_and_send_css(
             print_css_path, element_id="terminal_print_css", media="print")
 

@@ -30,6 +30,6 @@ urlpatterns = [
     url(r'^downloads/(?P<path>.*)$',login_required(DownloadHandler.as_view())),
     url(r'^accounts/login/$', LoginView.as_view(template_name='admin/login.html'),),
     url(r'^accounts/logout/$',LogoutView.as_view(template_name='registration/logged_out.html'),), 
-    url(r'^terminal/static/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static/terminal/static/')}),
+    url(r'^terminal/static/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static/terminal/')}),
     url(r'^terminal/shared/$', login_required(SharedTermHandler.as_view())),
 ]
