@@ -481,7 +481,6 @@ class TerminalApplication(GOApplication):
             if 'icon' not in sub_app:
                 # Use the generic one
                 icon_path = os.path.join(getsettings('BASE_DIR'), 'static/templates/command_icon.svg')
-                #print 'icon_path', icon_path
                 with io.open(icon_path, 'r') as f:
                     sub_app_icon = smart_bytes(f.read()).decode('utf-8')
                 #print 'sub_app_icon',sub_app_icon
@@ -541,9 +540,9 @@ class TerminalApplication(GOApplication):
         """
         # Get the current settings in case they've changed:
         #print 'self.current_user',self.current_user
-        #bug
+        #print 'self.current_user',self.ws.request.http_session.get('gateone_user', None)
         policy = applicable_policies(
-            'terminal', self.current_user, self.ws.prefs)
+            'terminal', self.ws.request.http_session.get('gateone_user', None), self.ws.prefs)
         commands = list(policy.get('commands', {}).keys())
         if not commands:
             self.term_log.error(_("You're missing the 'commands' setting!"))
@@ -792,11 +791,18 @@ class TerminalApplication(GOApplication):
         if not self.ws.session:
             return # Just a broadcast terminal viewer
         # Check for any dtach'd terminals we might have missed
-        if options.dtach and which('dtach'):
-            from .term_utils import restore_term_settings
+        #print 'self.ws.settings', self.ws.settings()
+        #print 'self.ws.session', self.ws.session
+        #print '''which('dtach')''', which('dtach')
+        if self.ws.settings()['dtach'] is True and which('dtach'):
+            from applications.term_utils import restore_term_settings
+            #print 'self.ws.session', self.ws.session
+            #print 'self.ws.settings', self.ws.settings()    
+            #print 'self.ws.location', self.ws.location
             term_settings = restore_term_settings(
                 self.ws.location, self.ws.session)
-            session_dir = options.session_dir
+            session_dir = self.ws.settings()['session_dir']
+            #print 'session_dir', session_dir
             session_dir = os.path.join(session_dir, self.ws.session)
             if not os.path.exists(session_dir):
                 mkdir_p(session_dir)
@@ -824,6 +830,7 @@ class TerminalApplication(GOApplication):
                             }})
         self.trigger('terminal:terminals', terminals)
         message = {'terminal:terminals': terminals}
+        #print 'terminal message', message
         self.write_message(json_encode(message))
 
     def term_ended(self, term):

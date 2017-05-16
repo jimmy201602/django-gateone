@@ -794,42 +794,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'go:set_dimensions': self.set_dimensions,
             'go:license_info': self.license_info,
             'go:debug': self.debug,
-        }
-        #self.ws.actions.update({
-            #'terminal:new_terminal': self.new_terminal,
-            #'terminal:set_terminal': self.set_terminal,
-            #'terminal:move_terminal': self.move_terminal,
-            #'terminal:swap_terminals': self.swap_terminals,
-            #'terminal:kill_terminal': self.kill_terminal,
-            #'c': self.char_handler, # Just 'c' to keep the bandwidth down
-            #'terminal:write_chars': self.write_chars,
-            #'terminal:refresh': self.refresh_screen,
-            #'terminal:full_refresh': self.full_refresh,
-            #'terminal:resize': self.resize,
-            #'terminal:get_bell': self.get_bell,
-            #'terminal:manual_title': self.manual_title,
-            #'terminal:reset_terminal': self.reset_terminal,
-            #'terminal:get_webworker': self.get_webworker,
-            #'terminal:get_font': self.get_font,
-            #'terminal:get_colors': self.get_colors,
-            #'terminal:set_encoding': self.set_term_encoding,
-            #'terminal:set_keyboard_mode': self.set_term_keyboard_mode,
-            #'terminal:get_locations': self.get_locations,
-            #'terminal:get_terminals': self.terminals,
-            #'terminal:get_client_files': self.send_client_files,
-            #'terminal:permissions': self.permissions,
-            #'terminal:new_share_id': self.new_share_id,
-            #'terminal:share_user_list': self.share_user_list,
-            #'terminal:enumerate_commands': self.enumerate_commands,
-            #'terminal:enumerate_fonts': self.enumerate_fonts,
-            #'terminal:enumerate_colors': self.enumerate_colors,
-            #'terminal:list_shared_terminals': self.list_shared_terminals,
-            #'terminal:attach_shared_terminal': self.attach_shared_terminal,
-            #'terminal:detach_shared_terminal': self.detach_shared_terminal,
-            #'terminal:start_capture': self.start_capture,
-            #'terminal:stop_capture': self.stop_capture,
-            #'terminal:debug_terminal': self.debug_terminal
-        #})        
+        }      
         # Setup some instance-specific loggers that we can later update with
         # more metadata
         self.io_loop = tornado.ioloop.IOLoop.current()
@@ -2018,7 +1983,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print 'self.apps',self.apps
             app.current_user = self.current_user
             if hasattr(app, 'authenticate'):
-                app.authenticate()
+                app.authenticate(message=self.request)
         # This is just so the client has a human-readable point of reference:
         #print self.request.http_session['gateone_user']['upn']
         message = {'go:set_username': self.request.http_session['gateone_user']['upn']}#{'go:set_username': self.current_user['upn']}
@@ -3442,6 +3407,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
     def disconnect(self, message, **kwargs):
         print 'disconnect websocket',message
+        print 'disconnect websocket',message.content
+        self.close(status=True)
         #return self.on_close()
     
     #def send(self, content, close=False):
@@ -3547,23 +3514,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
     def get_request_headers(self):
         return self.get_request_headers()
-    
-    def get_bell(self):
-        """
-        Sends the bell sound data to the client in in the form of a data::URI.
-        """
-        bell_path = os.path.join(getsettings('BASE_DIR'), 'static/terminal/bell.ogg')
-        try:
-            bell_data_uri = create_data_uri(bell_path)
-        except (IOError, MimeTypeFail): # There's always the fallback
-            bell_data_uri = os.path.join(getsettings('BASE_DIR'), 'static/terminal/fallback_bell.txt')
-        mimetype = bell_data_uri.split(';')[0].split(':')[1]
-        message = {
-            'terminal:load_bell': {
-                'data_uri': bell_data_uri, 'mimetype': mimetype
-            }
-        }
-        self.write_message(json_encode(message))  
         
         
 class ErrorHandler(tornado.web.RequestHandler):

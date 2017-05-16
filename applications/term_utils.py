@@ -20,6 +20,7 @@ from applications.utils import json_encode
 from applications.configuration import RUDict
 from applications.locale import get_translation
 from applications.log import go_logger
+from applications.utils import getsettings
 
 # 3rd party imports
 from tornado.escape import json_decode
@@ -31,7 +32,7 @@ term_log = go_logger("gateone.terminal")
 # Localization support
 _ = get_translation()
 
-def save_term_settings(term, location, session, settings):
+def save_term_settings(term, location, session, settings, session_dir=os.path.join(getsettings('BASE_DIR'), 'sessions')):
     """
     Saves the *settings* associated with the given *term*, *location*, and
     *session* in the 'term_settings.json' file inside the user's session
@@ -44,7 +45,7 @@ def save_term_settings(term, location, session, settings):
     term = str(term) # JSON wants strings as keys
     term_settings = RUDict()
     term_settings[location] = {term: settings}
-    session_dir = options.session_dir
+    session_dir = session_dir
     session_dir = os.path.join(session_dir, session)
     settings_path = os.path.join(session_dir, 'term_settings.json')
     # First we read in the existing settings and then update them.
@@ -55,14 +56,14 @@ def save_term_settings(term, location, session, settings):
     with io.open(settings_path, 'w', encoding='utf-8') as f:
         f.write(json_encode(term_settings))
 
-def restore_term_settings(location, session):
+def restore_term_settings(location, session, session_dir=os.path.join(getsettings('BASE_DIR'), 'sessions')):
     """
     Returns the terminal settings associated with the given *location* that are
     stored in the user's session directory.
     """
     if not session:
         return # Just a viewer of a broadcast terminal
-    session_dir = options.session_dir
+    session_dir = session_dir
     session_dir = os.path.join(session_dir, session)
     settings_path = os.path.join(session_dir, 'term_settings.json')
     if not os.path.exists(settings_path):
