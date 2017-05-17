@@ -2166,14 +2166,17 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if not enabled_applications: # Load all apps
             for app in self.apps: # Use the app's name attribute
                 info_dict = app.info.copy() # Make a copy so we can change it
+                #print 'if info_dict',info_dict
                 applications.append(info_dict)
         else:
             for app in self.apps: # Use the app's name attribute
+                #print 'else info_dict',info_dict
                 info_dict = app.info.copy() # Make a copy so we can change it
                 if info_dict['name'].lower() in enabled_applications:
                     applications.append(info_dict)
         applications = sorted(applications, key=lambda k: k['name'])
         message = {'go:applications': applications}
+        print 'list_applications message',message
         self.write_message(json_encode(message))
 
     #@require(policies('gateone'))
@@ -3408,7 +3411,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def disconnect(self, message, **kwargs):
         print 'disconnect websocket',message
         print 'disconnect websocket',message.content
-        self.close(status=True)
+        self.close()
         #return self.on_close()
     
     #def send(self, content, close=False):
