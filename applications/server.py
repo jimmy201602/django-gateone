@@ -2159,7 +2159,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             be something like "SSH" or "nethack" which runs inside the parent
             application.
         """
-        policy = applicable_policies("gateone", self.current_user, self.prefs)
+        policy = applicable_policies("gateone", self.request.http_session.get('gateone_user', None), self.prefs)
         enabled_applications = policy.get('enabled_applications', [])
         enabled_applications = [a.lower() for a in enabled_applications]
         applications = []
@@ -2176,7 +2176,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     applications.append(info_dict)
         applications = sorted(applications, key=lambda k: k['name'])
         message = {'go:applications': applications}
-        print 'list_applications message',message
+        #print 'list_applications message',message
         self.write_message(json_encode(message))
 
     #@require(policies('gateone'))
@@ -3406,6 +3406,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         instance = TerminalApplication(self)
         self.apps.append(instance) 
         instance.initialize(message=message)
+        self.list_applications()
         return self.on_message(message)
 
     def disconnect(self, message, **kwargs):
