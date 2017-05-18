@@ -956,19 +956,22 @@ class TerminalApplication(GOApplication):
         """
         import termio
         cls = TerminalApplication
+        current_user = self.ws.request.http_session.get('gateone_user',None)
+        current_user = copy.deepcopy(current_user)
+        current_user.pop('protocol')        
         policies = applicable_policies(
-            'terminal', self.current_user, self.ws.prefs)
+            'terminal', current_user, self.ws.prefs)
         shell_command = policies.get('shell_command', None)
         enabled_filetypes = policies.get('enabled_filetypes', 'all')
         use_shell = policies.get('use_shell', True)
-        user_dir = self.settings['user_dir']
+        user_dir = self.settings()['user_dir']
         try:
-            user = self.current_user['upn']
+            user = current_user['upn']
         except:
             # No auth, use ANONYMOUS (% is there to prevent conflicts)
             user = r'ANONYMOUS' # Don't get on this guy's bad side
-        session_dir = options.session_dir
-        session_dir = os.path.join(session_dir, self.ws.session)
+        session_dir = self.settings()['session_dir']
+        session_dir = os.path.join(session_dir, self.ws.request.http_session.get('gateone_user',None)['session'])
         log_path = None
         syslog_logging = False
         if logging:
@@ -980,17 +983,17 @@ class TerminalApplication(GOApplication):
                 if not os.path.exists(log_dir):
                     mkdir_p(log_dir)
                 log_suffix = "-{0}.golog".format(
-                    self.current_user.get('ip_address', "0.0.0.0"))
+                    current_user.get('ip_address', "0.0.0.0"))
                 log_name = datetime.now().strftime(
                     '%Y%m%d%H%M%S%f') + log_suffix
                 log_path = os.path.join(log_dir, log_name)
-        facility = string_to_syslog_facility(self.settings['syslog_facility'])
+        facility = string_to_syslog_facility(self.settings()['syslog_facility'])
         # This allows plugins to transform the command however they like
         if self.plugin_command_hooks:
             for func in self.plugin_command_hooks:
                 cmd = func(self, cmd, term=term_id)
         additional_log_metadata = {
-            'ip_address': self.current_user.get('ip_address', "0.0.0.0")
+            'ip_address': current_user.get('ip_address', "0.0.0.0")
         }
         # This allows plugins to add their own metadata to .golog files:
         if self.plugin_log_metadata_hooks:
@@ -1066,16 +1069,19 @@ class TerminalApplication(GOApplication):
             rows = 24
             cols = 80
         default_env = {"TERM": 'xterm-256color'} # Only one default
+        current_user = self.ws.request.http_session.get('gateone_user',None)
+        current_user = copy.deepcopy(current_user)
+        current_user.pop('protocol')
         policy = applicable_policies(
-            'terminal', self.current_user, self.ws.prefs)
+            'terminal', current_user, self.ws.prefs)
         environment_vars = policy.get('environment_vars', default_env)
         default_encoding = policy.get('default_encoding', 'utf-8')
         encoding = settings.get('encoding', default_encoding)
         if not encoding: # Was passed as None or 'null'
             encoding = default_encoding
         term_metadata = settings.get('metadata', {})
-        settings_dir = self.settings['settings_dir']
-        user_session_dir = os.path.join(options.session_dir, self.ws.session)
+        settings_dir = self.settings()['settings_dir']
+        user_session_dir = os.path.join(self.settings()['session_dir'], self.ws.request.http_session.get('gateone_user',None)['session'])
         # NOTE: 'command' here is actually just the short name of the command.
         #       ...which maps to what's configured the 'commands' part of your
         #       terminal settings.
@@ -1120,7 +1126,7 @@ class TerminalApplication(GOApplication):
                 'height': settings['em_dimensions']['h'],
                 'width': settings['em_dimensions']['w']
             }
-        user_dir = self.settings['user_dir']
+        user_dir = self.settings()['user_dir']
         if term not in self.loc_terms:
             # Setup the requisite dict
             self.loc_terms[term] = {
@@ -1130,11 +1136,11 @@ class TerminalApplication(GOApplication):
                 'manual_title': False,
                 'metadata': term_metadata, # Any extra info the client gave us
                 # This is needed by the terminal sharing policies:
-                'user': self.current_user # So we can determine the owner
+                'user': current_user # So we can determine the owner
             }
         term_obj = self.loc_terms[term]
-        if self.ws.client_id not in term_obj:
-            term_obj[self.ws.client_id] = {
+        if self.ws.request.http_session.get('gateone_user',None)['session'] not in term_obj:
+            term_obj[self.ws.request.http_session.get('gateone_user',None)['session']] = {
                 # Used by refresh_screen()
                 'refresh_timeout': None
             }
@@ -1144,15 +1150,15 @@ class TerminalApplication(GOApplication):
             # NOTE: Not doing anything with 'created'...  yet!
             now = int(round(time.time() * 1000))
             try:
-                user = self.current_user['upn']
+                user = current_user['upn']
             except:
                 # No auth, use ANONYMOUS (% is there to prevent conflicts)
                 user = 'ANONYMOUS' # Don't get on this guy's bad side
             cmd = cmd_var_swap(full_command, # Swap out variables like %USER%
                 gateone_dir=GATEONE_DIR,
-                session=self.ws.session, # with their real-world values.
-                session_dir=options.session_dir,
-                session_hash=short_hash(self.ws.session),
+                session=self.ws.request.http_session.get('gateone_user',None)['session'], # with their real-world values.
+                session_dir=self.settings()['session_dir'],
+                session_hash=short_hash(self.ws.request.http_session.get('gateone_user',None)['session'] ),
                 userdir=user_dir,
                 user=user,
                 time=now
@@ -1164,7 +1170,7 @@ class TerminalApplication(GOApplication):
             if not os.path.exists(user_session_dir):
                 mkdir_p(user_session_dir)
                 os.chmod(user_session_dir, 0o770)
-            if options.dtach and which('dtach') and cmd_dtach_enabled:
+            if self.settings()['dtach'] and which('dtach') and cmd_dtach_enabled:
                 # Wrap in dtach (love this tool!)
                 dtach_path = "{session_dir}/dtach_{location}_{term}".format(
                     session_dir=user_session_dir,
@@ -1178,6 +1184,15 @@ class TerminalApplication(GOApplication):
                 else: # No existing dtach session...  Make a new one
                     cmd = "dtach -c %s -E -z -r none %s" % (dtach_path, cmd)
             self.term_log.debug(_("new_terminal cmd: %s" % repr(cmd)))
+            #print 'self.ws.location'
+            #print self.ws.location  
+            #bug
+            import traceback
+            try:
+                self.new_multiplex(
+                    cmd, term, encoding=encoding) 
+            except Exception,e:
+                print traceback.print_exc()
             m = term_obj['multiplex'] = self.new_multiplex(
                 cmd, term, encoding=encoding)
             # Set some environment variables so the programs we execute can use
@@ -1189,10 +1204,11 @@ class TerminalApplication(GOApplication):
                 'GO_USER': user,
                 'GO_TERM': str(term),
                 'GO_LOCATION': self.ws.location,
-                'GO_SESSION': self.ws.session,
-                'GO_SESSION_DIR': options.session_dir,
+                'GO_SESSION': self.ws.request.http_session.get('gateone_user',None)['session'],
+                'GO_SESSION_DIR': self.settings()['session_dir'],
                 'GO_USER_SESSION_DIR': user_session_dir,
             }
+            print env
             env.update(os.environ) # Add the defaults for this system
             env.update(environment_vars) # Apply policy-based environment
             if self.plugin_env_hooks:
@@ -1207,7 +1223,7 @@ class TerminalApplication(GOApplication):
             m.term.linkpath = "{server_url}downloads".format(
                 server_url=self.ws.base_url)
             # Make sure it can generate pretty icons for file downloads
-            m.term.icondir = resource_filename('gateone', '/static/icons')
+            m.term.icondir = os.path.join(getsettings('BASE_DIR'), 'static/icons')
             if resumed_dtach:
                 # Send an extra Ctrl-L to refresh the screen and fix the sizing
                 # after it has been reattached.
@@ -1217,7 +1233,7 @@ class TerminalApplication(GOApplication):
             m = term_obj['multiplex']
             if m.isalive():
                 # It's ALIVE!!!
-                if term_obj['user'] == self.current_user:
+                if term_obj['user'] == current_user:
                     m.resize(
                         rows, cols,
                         ctrl_l=False,
@@ -1231,6 +1247,7 @@ class TerminalApplication(GOApplication):
                 self.term_ended(term)
                 return
         # Setup callbacks so that everything gets called when it should
+        #bug
         self.add_terminal_callbacks(
             term, term_obj['multiplex'], self.callback_id)
         # NOTE: refresh_screen will also take care of cleaning things up if
