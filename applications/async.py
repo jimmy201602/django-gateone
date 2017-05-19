@@ -313,6 +313,8 @@ class AsyncRunner(object):
                     lambda f: callback(f.result()))
             completed = partial(_call_complete, self, identifier)
             done_callback(ONE_CALLS[identifier]['future'], completed)
+        #print 'ONE_CALLS',ONE_CALLS
+        #print 'identifier',identifier
         return ONE_CALLS[identifier]['future']
 
     @restart_executor

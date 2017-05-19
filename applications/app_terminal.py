@@ -188,11 +188,13 @@ class TerminalApplication(GOApplication):
         'dependencies': ['terminal.js', 'terminal_input.js']
     }
     name = "Terminal" # A user-friendly name that will be displayed to the user
+    current_term = 1
+    loc_terms = {}
     def __init__(self, ws):
         logging.debug("TerminalApplication.__init__(%s)" % ws)
         self.policy = {} # Gets set in authenticate() below
         self.terms = {}
-        self.loc_terms = {}
+        #self.loc_terms = {}
         # So we can keep track and avoid sending unnecessary messages:
         self.titles = {}
         self.em_dimensions = None
@@ -669,7 +671,7 @@ class TerminalApplication(GOApplication):
         .. note:: This method is primarily to aid dtach support.
         """
         self.term_log.debug("save_term_settings(%s, %s)" % (term, settings))
-        from .term_utils import save_term_settings as _save
+        from applications.term_utils import save_term_settings as _save
         term = str(term) # JSON wants strings as keys
         def saved(result): # NOTE: result will always be None
             """
@@ -687,12 +689,19 @@ class TerminalApplication(GOApplication):
         # terminals it could slow things down quite a bit in the event that a
         # number of users lose connectivity and reconnect at once (or the server
         # is restarted with dtach support enabled).
+        #print 'save term sttings'
+        #print 'self.ws.session',self.ws.request.http_session.get('gateone_user',None)['session']
+        #print 'term',term
+        #print 'self.ws.location',self.ws.location
+        #print 'settings',settings
+        #print 'saved',saved
+        #print '_save',_save
         self.cpu_async.call_singleton( # Singleton since we're writing async
             _save,
-            'save_term_settings_%s' % self.ws.session,
+            'save_term_settings_%s' % self.ws.request.http_session.get('gateone_user',None)['session'],
             term,
             self.ws.location,
-            self.ws.session,
+            self.ws.request.http_session.get('gateone_user',None)['session'],
             settings,
             callback=saved)
 
@@ -954,7 +963,7 @@ class TerminalApplication(GOApplication):
                 If ``True``, will enable debugging on the created Multiplex
                 instance.
         """
-        import termio
+        from applications import termio
         cls = TerminalApplication
         current_user = self.ws.request.http_session.get('gateone_user',None)
         current_user = copy.deepcopy(current_user)
@@ -963,7 +972,9 @@ class TerminalApplication(GOApplication):
             'terminal', current_user, self.ws.prefs)
         shell_command = policies.get('shell_command', None)
         enabled_filetypes = policies.get('enabled_filetypes', 'all')
+        #print 'enabled_filetypes',enabled_filetypes
         use_shell = policies.get('use_shell', True)
+        #print 'use_shell',use_shell
         user_dir = self.settings()['user_dir']
         try:
             user = current_user['upn']
@@ -1016,6 +1027,7 @@ class TerminalApplication(GOApplication):
             additional_metadata=additional_log_metadata,
             encoding=encoding
         )
+        #print 'terminal Multiplex terminal created'
         if use_shell:
             m.use_shell = True # This is the default anyway
             if shell_command:
@@ -1253,7 +1265,6 @@ class TerminalApplication(GOApplication):
         #       term_obj['multiplex'].isalive() is False
         self.refresh_screen(term, True) # Send a fresh screen to the client
         self.current_term = term
-        print 'self.current_term',self.current_term
         # Restore expanded modes
         for mode, setting in m.term.expanded_modes.items():
             self.mode_handler(term, mode, setting)
@@ -1529,6 +1540,10 @@ class TerminalApplication(GOApplication):
             "Terminal Killed: %s" % term, metadata=metadata)
         multiplex = self.loc_terms[term]['multiplex']
         # Remove the EXIT callback so the terminal doesn't restart itself
+        self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                               self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                             str(getsettings('port',8000)),
+                                             self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
         multiplex.remove_callback(multiplex.CALLBACK_EXIT, self.callback_id)
         try:
             if options.dtach: # dtach needs special love
@@ -1710,6 +1725,7 @@ class TerminalApplication(GOApplication):
 
     def _send_refresh(self, term, full=False):
         """Sends a screen update to the client."""
+        print '_send_refresh'
         try:
             term_obj = self.loc_terms[term]
             term_obj['last_activity'] = datetime.now()
@@ -1770,6 +1786,8 @@ class TerminalApplication(GOApplication):
             term = int(term)
         else:
             return # This just prevents an exception when the cookie is invalid
+        #print 'refresh term',term
+        #print 'refresh self.loc_terms',self.loc_terms
         term_obj = self.loc_terms[term]
         try:
             msec = timedelta(milliseconds=50) # Keeps things smooth
@@ -1874,17 +1892,23 @@ class TerminalApplication(GOApplication):
         characters will be sent to the currently-selected terminal.
         """
         self.term_log.debug("char_handler(%s, %s)" % (repr(chars), repr(term)))
-        #if not term:
-            #term = self.current_term
-        term = 1
+        if not term:
+            term = self.current_term
         term = int(term) # Just in case it was sent as a string
         #print SESSIONS
         #print 'self.ws.session', self.ws.session
         #print self.loc_terms
         #bug
+        print 'chars',chars
+        #print 'self.current_term',self.current_term
+        #print self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS
+        #print 'self.loc_terms',self.loc_terms
         if self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS and term in self.loc_terms:
             multiplex = self.loc_terms[term]['multiplex']
+            #print 'multiplex',multiplex
             if multiplex.isalive():
+                print 'alive'
+                #print dir(multiplex)
                 multiplex.write(chars)
                 # Handle (gracefully) the situation where a capture is stopped
                 if '\x03' in chars:

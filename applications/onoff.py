@@ -179,10 +179,10 @@ class OnOffMixin(object):
                     if callback_obj['calls'] == callback_obj['times']:
                         self.off(event, callback_obj['callback'])
         #if events[0] in ['terminal:open','go:open']:
-            #print 'trigger events',events
-            #print 'trigger args',args
-            #print 'trigger kwargs',kwargs
-            #print 'trigger bind event',self._on_off_events
+        #print 'trigger events',events
+        #print 'trigger args',args
+        #print 'trigger kwargs',kwargs
+        #print 'trigger bind event',self._on_off_events
 
     def _debug_trigger(self, events, *args, **kwargs):
         """
