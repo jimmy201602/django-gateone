@@ -1186,13 +1186,8 @@ class TerminalApplication(GOApplication):
             self.term_log.debug(_("new_terminal cmd: %s" % repr(cmd)))
             #print 'self.ws.location'
             #print self.ws.location  
-            #bug
-            import traceback
-            try:
-                self.new_multiplex(
-                    cmd, term, encoding=encoding) 
-            except Exception,e:
-                print traceback.print_exc()
+            self.new_multiplex(
+                cmd, term, encoding=encoding) 
             m = term_obj['multiplex'] = self.new_multiplex(
                 cmd, term, encoding=encoding)
             # Set some environment variables so the programs we execute can use
@@ -1208,7 +1203,6 @@ class TerminalApplication(GOApplication):
                 'GO_SESSION_DIR': self.settings()['session_dir'],
                 'GO_USER_SESSION_DIR': user_session_dir,
             }
-            print env
             env.update(os.environ) # Add the defaults for this system
             env.update(environment_vars) # Apply policy-based environment
             if self.plugin_env_hooks:
@@ -1248,16 +1242,22 @@ class TerminalApplication(GOApplication):
                 return
         # Setup callbacks so that everything gets called when it should
         #bug
+        self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                         self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                         str(getsettings('port',8000)),
+                                         self.ws.request.http_session.get('gateone_user',None)['ip_address'])
+        #self.callback_id OGRhNTQ2NTYwZDE3NDE5ZTg5NTAwOTJjZmQ0NDVmNmQ0M;127.0.0.1:10443;127.0.0.1
         self.add_terminal_callbacks(
             term, term_obj['multiplex'], self.callback_id)
         # NOTE: refresh_screen will also take care of cleaning things up if
         #       term_obj['multiplex'].isalive() is False
         self.refresh_screen(term, True) # Send a fresh screen to the client
         self.current_term = term
+        print 'self.current_term',self.current_term
         # Restore expanded modes
         for mode, setting in m.term.expanded_modes.items():
             self.mode_handler(term, mode, setting)
-        if self.settings['logging'] == 'debug':
+        if self.settings()['logging'] == 'debug':
             self.ws.send_message(_(
                 "WARNING: Logging is set to DEBUG.  All keystrokes will be "
                 "logged!"))
@@ -1780,8 +1780,8 @@ class TerminalApplication(GOApplication):
             timediff = datetime.now() - last_activity
             # Because users can be connected to their session from more than one
             # browser/computer we differentiate between refresh timeouts by
-            # tying the timeout to the client_id.
-            client_dict = term_obj[self.ws.client_id]
+            # tying the timeout to the client_id.      
+            client_dict = term_obj[self.ws.request.http_session.get('gateone_user',None)['session']]
             multiplex = term_obj['multiplex']
             refresh = partial(self._send_refresh, term, full)
             # We impose a rate limit of max one screen update every 50ms by
@@ -1874,10 +1874,15 @@ class TerminalApplication(GOApplication):
         characters will be sent to the currently-selected terminal.
         """
         self.term_log.debug("char_handler(%s, %s)" % (repr(chars), repr(term)))
-        if not term:
-            term = self.current_term
+        #if not term:
+            #term = self.current_term
+        term = 1
         term = int(term) # Just in case it was sent as a string
-        if self.ws.session in SESSIONS and term in self.loc_terms:
+        #print SESSIONS
+        #print 'self.ws.session', self.ws.session
+        #print self.loc_terms
+        #bug
+        if self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS and term in self.loc_terms:
             multiplex = self.loc_terms[term]['multiplex']
             if multiplex.isalive():
                 multiplex.write(chars)
