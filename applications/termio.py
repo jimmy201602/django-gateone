@@ -1755,8 +1755,8 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
         """
         #logging.debug("MultiplexPOSIXIOLoop._write(%s)" % repr(chars))
         try:
-            print 'io open self.fd',self.fd
-            print 'self.fd chars',chars
+            #print 'io open self.fd',self.fd
+            #print 'self.fd chars',chars
             with io.open(
                 self.fd, 'wt', encoding='UTF-8', closefd=False) as writer:
                     writer.write(chars)
@@ -1786,9 +1786,8 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
         """
         if not self.isalive():
             raise ProgramTerminated(_("Child process is not running."))
-        print 'write chars',chars
+        #print 'write chars',chars
         write = partial(self._write, chars)
-        print 'write',write
         self._call_callback(write)
 
 # Here's an example of how termio compares to pexpect:

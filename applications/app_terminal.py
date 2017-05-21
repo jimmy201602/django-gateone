@@ -200,7 +200,7 @@ class TerminalApplication(GOApplication):
         self.em_dimensions = None
         self.race_check = False
         self.log_metadata = {'application': 'terminal'}
-        GOApplication.__init__(self, ws)
+        GOApplication.__init__(self, ws)      
         #print 'init terminal application'
 
     def initialize(self,message=None):
@@ -513,6 +513,10 @@ class TerminalApplication(GOApplication):
             self.trigger("terminal:on_close")
             return
         session_locs = SESSIONS[self.ws.session]['locations']
+        self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                       self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                     str(getsettings('port',8000)),
+                                                                                 self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
         if self.ws.location in session_locs and hasattr(self, 'loc_terms'):
             for term in self.loc_terms:
                 if isinstance(term, int):
@@ -746,8 +750,8 @@ class TerminalApplication(GOApplication):
         self.term_log.debug("clear_term_settings(%s)" % term)
         term_settings = RUDict()
         term_settings[self.ws.location] = {term: {}}
-        session_dir = options.session_dir
-        session_dir = os.path.join(session_dir, self.ws.session)
+        session_dir = self.settings()['session_dir']
+        session_dir = os.path.join(session_dir, self.ws.request.http_session.get('gateone_user',None)['session'])
         settings_path = os.path.join(session_dir, 'term_settings.json')
         if not os.path.exists(settings_path):
             return # Nothing to do
@@ -1247,7 +1251,7 @@ class TerminalApplication(GOApplication):
                 message = {'terminal:term_exists': {'term': term}}
                 self.write_message(json_encode(message))
                 # This resets the screen diff
-                m.prev_output[self.ws.client_id] = [None] * rows
+                m.prev_output[self.ws.request.http_session.get('gateone_user',None)['session']] = [None] * rows
             else:
                 # Tell the client this terminal is no more
                 self.term_ended(term)
@@ -1426,6 +1430,10 @@ class TerminalApplication(GOApplication):
             return
         term1_dict = self.loc_terms.pop(term1)
         term2_dict = self.loc_terms.pop(term2)
+        self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                       self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                     str(getsettings('port',8000)),
+                                                                                 self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
         self.remove_terminal_callbacks(
             term1_dict['multiplex'], self.callback_id)
         self.remove_terminal_callbacks(
@@ -1480,6 +1488,10 @@ class TerminalApplication(GOApplication):
         multiplex = existing_term_obj['multiplex']
         # Remove the existing object's callbacks so we don't end up sending
         # things like screen updates to the wrong place.
+        self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                       self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                     str(getsettings('port',8000)),
+                                                                                 self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
         try:
             self.remove_terminal_callbacks(multiplex, self.callback_id)
         except KeyError:
@@ -1546,9 +1558,9 @@ class TerminalApplication(GOApplication):
                                              self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
         multiplex.remove_callback(multiplex.CALLBACK_EXIT, self.callback_id)
         try:
-            if options.dtach: # dtach needs special love
-                from gateone.core.utils import kill_dtached_proc
-                kill_dtached_proc(self.ws.session, self.ws.location, term)
+            if self.settings()['dtach']: # dtach needs special love
+                from applications.utils import kill_dtached_proc
+                kill_dtached_proc(self.ws.request.http_session.get('gateone_user',None)['session'], self.ws.location, term)
             if multiplex.isalive():
                 multiplex.terminate()
         except KeyError:
@@ -1725,7 +1737,7 @@ class TerminalApplication(GOApplication):
 
     def _send_refresh(self, term, full=False):
         """Sends a screen update to the client."""
-        print '_send_refresh'
+        #print '_send_refresh'
         try:
             term_obj = self.loc_terms[term]
             term_obj['last_activity'] = datetime.now()
@@ -1737,8 +1749,10 @@ class TerminalApplication(GOApplication):
             return # Ignore
         multiplex = term_obj['multiplex']
         #print 'term_obj',term_obj
+        #print 'self.ws.client_id',self.ws.request.http_session.get('gateone_user',None)['session']
         scrollback, screen = multiplex.dump_html(
-            full=full, client_id=self.ws.client_id)
+            full=full, client_id=self.ws.request.http_session.get('gateone_user',None)['session'])
+        #print 'screen',screen
         if [a for a in screen if a]: # Checking for non-empty lines here
             output_dict = {
                 'terminal:termupdate': {
@@ -1752,9 +1766,18 @@ class TerminalApplication(GOApplication):
             #print 'term',term
             #print 'scrollback',scrollback
             #print 'ratelimiter',multiplex.ratelimiter_engaged
+            #print 'self.write_message(json_encode(output_dict))',json_encode(output_dict)
+            #print 'self.callback_id',"%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                                 #self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                             #str(getsettings('port',8000)),
+                                                                   #self.ws.request.http_session.get('gateone_user',None)['ip_address'])              
             try:
-                self.write_message(json_encode(output_dict))
-            except IOError: # Socket was just closed, no biggie
+                self.ws.write_message(json_encode(output_dict))
+            except IOError: # Socket was just closed, no biggie    
+                self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                                 self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                             str(getsettings('port',8000)),
+                                                                   self.ws.request.http_session.get('gateone_user',None)['ip_address'])
                 self.term_log.info(
                     _("WebSocket closed (%s)") % self.current_user['upn'])
                 multiplex = term_obj['multiplex']
@@ -1780,8 +1803,12 @@ class TerminalApplication(GOApplication):
         """
         # Commented this out because it was getting annoying.
         # Note to self: add more levels of debugging beyond just "debug".
-        #self.term_log.debug(
-            #"refresh_screen (full=%s) on %s" % (full, self.callback_id))
+        self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                       self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                     str(getsettings('port',8000)),
+                                                                                 self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
+        self.term_log.debug(
+            "refresh_screen (full=%s) on %s" % (full, self.callback_id))
         if term:
             term = int(term)
         else:
@@ -1801,7 +1828,9 @@ class TerminalApplication(GOApplication):
             # tying the timeout to the client_id.      
             client_dict = term_obj[self.ws.request.http_session.get('gateone_user',None)['session']]
             multiplex = term_obj['multiplex']
+            #print 'multiplex',multiplex
             refresh = partial(self._send_refresh, term, full)
+            #print 'refresh',refresh
             # We impose a rate limit of max one screen update every 50ms by
             # wrapping the call to _send_refresh() in an IOLoop timeout that
             # gets cancelled and replaced if screen updates come in faster than
@@ -1812,7 +1841,10 @@ class TerminalApplication(GOApplication):
             # update every 150ms.  It works out quite nice, actually.
             if client_dict['refresh_timeout']:
                 multiplex.io_loop.remove_timeout(client_dict['refresh_timeout'])
+            #print '''client_dict['refresh_timeout']''',client_dict['refresh_timeout']    
+            #print 'timediff',timediff
             if timediff > force_refresh_threshold:
+                #print 'timediff',timediff
                 refresh()
             else:
                 client_dict['refresh_timeout'] = multiplex.io_loop.add_timeout(
@@ -1903,15 +1935,16 @@ class TerminalApplication(GOApplication):
         #print 'self.current_term',self.current_term
         #print self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS
         #print 'self.loc_terms',self.loc_terms
+        print 'SESSIONS',SESSIONS
         if self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS and term in self.loc_terms:
             multiplex = self.loc_terms[term]['multiplex']
-            #print 'multiplex',multiplex
+            print 'multiplex',multiplex
             if multiplex.isalive():
                 print 'alive'
-                #print dir(multiplex)
                 multiplex.write(chars)
                 # Handle (gracefully) the situation where a capture is stopped
                 if '\x03' in chars:
+                    print 'alived'                    
                     if not multiplex.term.capture:
                         return # Nothing to do
                     # Make sure the call to abort_capture() comes *after* the
@@ -1921,6 +1954,7 @@ class TerminalApplication(GOApplication):
                         multiplex.term.abort_capture)
                     # Also make sure the client gets a screen update
                     refresh = partial(self.refresh_screen, term)
+                    print 'refresh',refresh
                     multiplex.io_loop.add_timeout(
                         timedelta(milliseconds=1050), refresh)
 
@@ -2229,7 +2263,7 @@ class TerminalApplication(GOApplication):
         share_id = term_obj['share_id']
         shared_terms = self.ws.persist['terminal']['shared']
         share_obj = shared_terms[share_id]
-        term_app_instance = None
+        term_app_instance = None    
         def disconnect(term_instance, term):
             message = {'terminal:share_disconnected': {'term': term}}
             #self.write_message(json_encode(message))
@@ -2559,6 +2593,10 @@ class TerminalApplication(GOApplication):
             multiplex.prev_output[self.ws.client_id] = [
                 None for a in range(multiplex.rows-1)]
         # Setup callbacks so that everything gets called when it should
+        self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                       self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                     str(getsettings('port',8000)),
+                                                                                 self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
         self.add_terminal_callbacks(
             term, term_obj['multiplex'], self.callback_id)
         # NOTE: refresh_screen will also take care of cleaning things up if
@@ -2623,6 +2661,10 @@ class TerminalApplication(GOApplication):
             self.ws.send_message(notice, upn=share_obj['user']['upn'])
             cls._deliver(message, upn=share_obj['user']['upn'])
         def remove_callbacks():
+            self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                           self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                         str(getsettings('port',8000)),
+                                                                                     self.ws.request.http_session.get('gateone_user',None)['ip_address'])            
             try:
                 self.remove_terminal_callbacks(multiplex, self.callback_id)
             except KeyError:
@@ -2661,6 +2703,10 @@ class TerminalApplication(GOApplication):
             if viewer['client_id'] == self.ws.client_id:
                 share_obj['viewers'].remove(viewer)
         try:
+            self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
+                                                           self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
+                                                                         str(getsettings('port',8000)),
+                                                                                     self.ws.request.http_session.get('gateone_user',None)['ip_address'])            
             self.remove_terminal_callbacks(multiplex, self.callback_id)
             del self.loc_terms[term]
             if self.ws.session:

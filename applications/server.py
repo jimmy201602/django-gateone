@@ -1423,10 +1423,21 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 if key in self.actions:
                     try:
                         if value is None:
-                            self.actions[key]()
+                            try:
+                                self.actions[key]()
+                            except Exception,e:
+                                print key
+                                import traceback
+                                print traceback.print_exc()
                         else:
                             # Try, try again
-                            self.actions[key](value)
+                            try:
+                                self.actions[key](value)
+                            except Exception,e:
+                                import traceback
+                                print key
+                                print value
+                                print traceback.print_exc()
                     except (KeyError, TypeError, AttributeError) as e:
                         import traceback
                         for frame in traceback.extract_tb(sys.exc_info()[2]):
