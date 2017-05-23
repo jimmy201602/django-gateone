@@ -1224,6 +1224,12 @@ class TerminalApplication(GOApplication):
             if self.plugin_env_hooks:
                 # This allows plugins to add/override environment variables
                 env.update(self.plugin_env_hooks)
+            #print 'cmd',cmd
+            #print 'cmd[0]',cmd[0]
+            #print 'rows',rows
+            #print 'cols',cols
+            #print 'env',env
+            #print 'em_dimensions',self.em_dimensions
             m.spawn(rows, cols, env=env, em_dimensions=self.em_dimensions)
             # Give the terminal emulator a path to store temporary files
             m.term.temppath = os.path.join(user_session_dir, 'downloads')
@@ -1276,6 +1282,9 @@ class TerminalApplication(GOApplication):
             self.ws.send_message(_(
                 "WARNING: Logging is set to DEBUG.  All keystrokes will be "
                 "logged!"))
+        #manually trigger ther terminal to start
+        #bug can't stop 
+        m.io_loop.start()
         self.send_term_encoding(term, encoding)
         if self.loc_terms[term]['multiplex'].cmd.startswith('dtach -a'):
             # This dtach session was resumed; restore terminal settings
@@ -1363,7 +1372,7 @@ class TerminalApplication(GOApplication):
         """
         self.term_log.debug("start_capture(%s)" % repr(term))
         from tempfile import NamedTemporaryFile
-        from .term_utils import capture_stream
+        from applications.term_utils import capture_stream
         if not term:
             term = self.current_term
         # Make a temporary file to save the terminal's output
@@ -1967,6 +1976,7 @@ class TerminalApplication(GOApplication):
         #self.term_log.debug('write_chars(%s)' % message)
         if 'chars' not in message:
             return # Invalid message
+        #print 'self.current_term',self.current_term
         if 'term' not in message:
             message['term'] = self.current_term
         try:

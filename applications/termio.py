@@ -1233,7 +1233,9 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
         *callback* will get called immediately and directly.
         """
         if self.io_loop._running:
+            #print 'running'
             self.io_loop.add_callback(callback, *args, **kwargs)
+            #print 'add callback'
         else:
             callback(*args, **kwargs)
 
@@ -1306,7 +1308,7 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
         self.cols = cols
         self.em_dimensions = em_dimensions
         import pty
-        pid, fd = pty.fork()
+        pid, fd = pty.fork()    
         if pid == 0: # We're inside the child process
     # Close all file descriptors other than stdin, stdout, and stderr (0, 1, 2)
             try:
@@ -1373,6 +1375,13 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
             self.exitfunc = exitfunc
             self.pid = pid
             self.time = time.time()
+            #print 'self.cmd',self.cmd
+            #print 'env',env
+            #print 'rows',rows
+            #print 'cols',cols
+            #print 'em_dimensions',em_dimensions
+            #print 'encoding',self.encoding
+            #print 'self.terminal_emulator_kwargs',self.terminal_emulator_kwargs
             try:
                 self.term = self.terminal_emulator(
                     rows=rows,
@@ -1755,12 +1764,12 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
         """
         #logging.debug("MultiplexPOSIXIOLoop._write(%s)" % repr(chars))
         try:
-            #print 'io open self.fd',self.fd
-            #print 'self.fd chars',chars
+            print 'io open self.fd',self.fd
+            print 'self.fd chars',chars
             with io.open(
                 self.fd, 'wt', encoding='UTF-8', closefd=False) as writer:
                     writer.write(chars)
-            #print 'self.ratelimiter_engaged',self.ratelimiter_engaged
+            print 'self.ratelimiter_engaged',self.ratelimiter_engaged
             if self.ratelimiter_engaged:
                 if u'\x03' in chars: # Ctrl-C
                     # This will force self._read() to discard the buffer
