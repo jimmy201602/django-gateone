@@ -1201,7 +1201,8 @@ class TerminalApplication(GOApplication):
                     cmd = "dtach -c %s -E -z -r none %s" % (dtach_path, cmd)
             self.term_log.debug(_("new_terminal cmd: %s" % repr(cmd)))
             #print 'self.ws.location'
-            #print self.ws.location  
+            #print self.ws.location
+            #fix unicode encoding bug
             self.new_multiplex(
                 cmd, term, encoding=encoding) 
             m = term_obj['multiplex'] = self.new_multiplex(
@@ -1224,11 +1225,10 @@ class TerminalApplication(GOApplication):
             if self.plugin_env_hooks:
                 # This allows plugins to add/override environment variables
                 env.update(self.plugin_env_hooks)
-            #print 'cmd',cmd
+            #print 'cmd',cmd,type(cmd)
             #print 'cmd[0]',cmd[0]
-            #print 'rows',rows
-            #print 'cols',cols
-            #print 'env',env
+            #print 'rows',rows,type(rows)
+            #print 'cols',cols,type(cols)
             #print 'em_dimensions',self.em_dimensions
             m.spawn(rows, cols, env=env, em_dimensions=self.em_dimensions)
             # Give the terminal emulator a path to store temporary files
@@ -1781,8 +1781,11 @@ class TerminalApplication(GOApplication):
                                                                              #str(getsettings('port',8000)),
                                                                    #self.ws.request.http_session.get('gateone_user',None)['ip_address'])              
             try:
+                print 'write message to client'
+                #print 'output_dict',output_dict
                 self.ws.write_message(json_encode(output_dict))
             except IOError: # Socket was just closed, no biggie    
+                print 'error to write message to client'
                 self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
                                                                  self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
                                                                              str(getsettings('port',8000)),

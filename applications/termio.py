@@ -103,6 +103,7 @@ from itertools import izip
 from concurrent.futures import ProcessPoolExecutor
 from json import loads as json_decode
 from json import dumps as json_encode
+from django.utils.encoding import smart_str
 
 # Inernationalization support
 _ = str # So pylint doesn't show a zillion errors about a missing _() function
@@ -1361,10 +1362,21 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
                     self.shell_command = shlex.split(self.shell_command)
                 cmd = self.shell_command + [self.cmd + '; sleep .1']
             # This loop prevents UnicodeEncodeError exceptions:
+            new_env = dict()
             for k, v in env.items():
                 if isinstance(v, unicode):
-                    env[k] = v.encode('utf-8')
+                    new_env[smart_str(k)] = smart_str(v)
+            new_cmd = list()
+            for command in cmd:
+                new_cmd.append(smart_str(command))
+            cmd = new_cmd
+            env = new_env
             os.dup2(stderr, stdout) # Copy stderr to stdout (equivalent to 2>&1)
+            #for i in cmd:
+                #print 'cmd',i,type(i)
+            #for k,v in env.items():
+                #print 'key',k,type(k)
+                #print 'value',v,type(v)
             os.execvpe(cmd[0], cmd, env)
             os._exit(0)
         else: # We're inside this Python script
