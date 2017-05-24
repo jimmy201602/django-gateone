@@ -1229,6 +1229,8 @@ class TerminalApplication(GOApplication):
             #print 'cmd[0]',cmd[0]
             #print 'rows',rows,type(rows)
             #print 'cols',cols,type(cols)
+            #print 'rows',rows
+            #print 'cols',cols
             #print 'em_dimensions',self.em_dimensions
             m.spawn(rows, cols, env=env, em_dimensions=self.em_dimensions)
             # Give the terminal emulator a path to store temporary files
