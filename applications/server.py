@@ -3434,6 +3434,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         
     def write_message(self, message,):
         #print 'write_message',message
+        #if "terminal:termupdate" in message:
+            #print "terminal:termupdate",message
         if isinstance(message, dict):
             message = json_encode(message)
         return self.send(message)
