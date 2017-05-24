@@ -717,13 +717,15 @@ class TerminalApplication(GOApplication):
         """
         term = str(term) # JSON wants strings as keys
         self.term_log.debug("restore_term_settings(%s)" % term)
-        from .term_utils import restore_term_settings as _restore
+        from applications.term_utils import restore_term_settings as _restore
         def restore(settings):
             """
             Saves the *settings* returned by :func:`restore_term_settings`
             in `self.loc_terms[term]` and triggers the
             `terminal:restore_term_settings` event.
             """
+            #print 'self.ws.location',self.ws.location
+            #print 'settings',settings
             if self.ws.location in settings:
                 if term in settings[self.ws.location]:
                     termNum = int(term)
@@ -1783,7 +1785,7 @@ class TerminalApplication(GOApplication):
                                                                              #str(getsettings('port',8000)),
                                                                    #self.ws.request.http_session.get('gateone_user',None)['ip_address'])              
             try:
-                print 'write message to client'
+                #print 'write message to client'
                 #print 'output_dict',output_dict
                 self.ws.write_message(json_encode(output_dict))
             except IOError: # Socket was just closed, no biggie    
@@ -1945,20 +1947,20 @@ class TerminalApplication(GOApplication):
         #print 'self.ws.session', self.ws.session
         #print self.loc_terms
         #bug
-        print 'chars',chars
+        #print 'chars',chars
         #print 'self.current_term',self.current_term
         #print self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS
         #print 'self.loc_terms',self.loc_terms
-        print 'SESSIONS',SESSIONS
+        #print 'SESSIONS',SESSIONS
         if self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS and term in self.loc_terms:
             multiplex = self.loc_terms[term]['multiplex']
-            print 'multiplex',multiplex
+            #print 'multiplex',multiplex
             if multiplex.isalive():
-                print 'alive'
+                #print 'alive'
                 multiplex.write(chars)
                 # Handle (gracefully) the situation where a capture is stopped
                 if '\x03' in chars:
-                    print 'alived'                    
+                    #print 'alived'                    
                     if not multiplex.term.capture:
                         return # Nothing to do
                     # Make sure the call to abort_capture() comes *after* the
@@ -1968,7 +1970,7 @@ class TerminalApplication(GOApplication):
                         multiplex.term.abort_capture)
                     # Also make sure the client gets a screen update
                     refresh = partial(self.refresh_screen, term)
-                    print 'refresh',refresh
+                    #print 'refresh',refresh
                     multiplex.io_loop.add_timeout(
                         timedelta(milliseconds=1050), refresh)
 
@@ -2061,7 +2063,9 @@ class TerminalApplication(GOApplication):
         Gate One into other apps).
         """
         go_process = os.path.join(getsettings('BASE_DIR'), 'static/terminal/webworkers/term_ww.js')
-        message = {'terminal:load_webworker': go_process.decode('utf-8')}
+        with io.open(go_process, 'r', encoding="utf-8") as f:
+            js_code = f.read()
+        message = {'terminal:load_webworker': js_code}
         self.write_message(json_encode(message))
 
     def get_colors(self, settings):

@@ -1776,12 +1776,12 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
         """
         #logging.debug("MultiplexPOSIXIOLoop._write(%s)" % repr(chars))
         try:
-            print 'io open self.fd',self.fd
-            print 'self.fd chars',chars
+            #print 'io open self.fd',self.fd
+            #print 'self.fd chars',chars
             with io.open(
                 self.fd, 'wt', encoding='UTF-8', closefd=False) as writer:
                     writer.write(chars)
-            print 'self.ratelimiter_engaged',self.ratelimiter_engaged
+            #print 'self.ratelimiter_engaged',self.ratelimiter_engaged
             if self.ratelimiter_engaged:
                 if u'\x03' in chars: # Ctrl-C
                     # This will force self._read() to discard the buffer
