@@ -1287,8 +1287,6 @@ class TerminalApplication(GOApplication):
                 "WARNING: Logging is set to DEBUG.  All keystrokes will be "
                 "logged!"))
         #manually trigger ther terminal to start
-        #bug can't stop 
-        m.io_loop.start()
         self.send_term_encoding(term, encoding)
         if self.loc_terms[term]['multiplex'].cmd.startswith('dtach -a'):
             # This dtach session was resumed; restore terminal settings
@@ -1306,6 +1304,8 @@ class TerminalApplication(GOApplication):
         self.save_term_settings(
             term, {'command': command,
                    'metadata': self.loc_terms[term]['metadata']})
+        #bug can't stop 
+        m.io_loop.start()        
 
     #@require(authenticated(), policies('terminal'))
     def set_term_encoding(self, settings):
@@ -1336,7 +1336,8 @@ class TerminalApplication(GOApplication):
         the event that a terminal is reattached or when sharing a terminal).
         """
         message = {'terminal:encoding': {'term': term, 'encoding': encoding}}
-        self.write_message(message)
+        #print 'send_term_encoding',message
+        self.ws.write_message(message)
 
     #@require(authenticated(), policies('terminal'))
     def set_term_keyboard_mode(self, settings):
@@ -1776,7 +1777,7 @@ class TerminalApplication(GOApplication):
                 }
             }
             #print 'screen',screen
-            #print 'term',term
+            print 'term',term
             #print 'scrollback',scrollback
             #print 'ratelimiter',multiplex.ratelimiter_engaged
             #print 'self.write_message(json_encode(output_dict))',json_encode(output_dict)
