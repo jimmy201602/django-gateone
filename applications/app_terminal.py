@@ -263,7 +263,7 @@ class TerminalApplication(GOApplication):
         enabled_plugins = self.ws.prefs['*']['terminal'].get(
             'enabled_plugins', [])
         self.plugins = entry_point_files('go_terminal_plugins', enabled_plugins)
-        #print self.plugins
+        print 'self.plugins',self.plugins
         plugin_list = set()
         for plugin in list(
             self.plugins['py'].keys() +
@@ -273,10 +273,10 @@ class TerminalApplication(GOApplication):
                 plugin = plugin.split('.')[-1]
             plugin_list.add(plugin)
         plugin_list = sorted(plugin_list) # So there's consistent ordering
-        self.term_log.info(_(
+        self.term_log.debug(_(
             "Active Terminal Plugins: %s" % ", ".join(plugin_list)))
         # Setup some events
-        #print plugin_list
+        #print 'plugin_list',plugin_list
         terminals_func = partial(self.terminals, self)
         self.ws.on("go:set_location", terminals_func)
         # Attach plugin hooks

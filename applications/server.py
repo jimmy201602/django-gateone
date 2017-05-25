@@ -1359,9 +1359,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls.prefs = get_settings(self.settings()['settings_dir'])
         if 'cache_dir' not in cls.prefs['*']['gateone']:
             # Set the cache dir to a default if not set in the prefs
-            cache_dir = self.settings['cache_dir']
+            cache_dir = self.settings()['cache_dir']
             cls.prefs['*']['gateone']['cache_dir'] = cache_dir
-            if self.settings['debug']:
+            if self.settings()['debug']:
                 # Clean out the cache_dir every page reload when in debug mode
                 for fname in os.listdir(cache_dir):
                     filepath = os.path.join(cache_dir, fname)
@@ -2543,6 +2543,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         else:
             filename_hash = files_or_hash
         if filename_hash not in self.file_cache:
+            print 'self.file_cache',self.file_cache
             error_msg = _('File Request Error: File not found ({0})').format(
                 filename_hash)
             self.logger.warning(error_msg)
