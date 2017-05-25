@@ -827,6 +827,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.timestamps = [] # Tracks/averages client latency
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
+        current_term = None
         #WebsocketConsumer.__init__(self, message, **kwargs)
         #super(WebsocketConsumer, self).__init__(message, **kwargs)
         #super(ApplicationWebSocket, self).__init__(message, **kwargs)
@@ -3241,11 +3242,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 ]
             }
         """
+        #list all online user bug
         users = ApplicationWebSocket._list_connected_users()
+        #print 'users',users
         logging.debug('list_server_users(): %s' % repr(users))
         # Remove things that users should not see such as their session ID
         filtered_users = []
-        policy = applicable_policies('gateone', self.current_user, self.prefs)
+        policy = applicable_policies('gateone', self.request.http_session.get('gateone_user',None), self.prefs)
+        #print 'policy'
         allowed_fields = policy.get('user_list_fields', False)
         # If not set, just strip the session ID
         if not allowed_fields:
@@ -3296,7 +3300,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         out = []
         for instance in cls.instances:
             try: # We only care about authenticated users
-                out.append(instance.current_user)
+                out.append(cls.request.http_session.get('gateone_user',None))
             except AttributeError:
                 continue
         return tuple(out)
@@ -3439,8 +3443,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'write_message',message
         #if "terminal:termupdate" in message:
             #print "terminal:termupdate",message
-        if "terminal:set_title" in message:
-            print "terminal:set_title",message
+        #if "terminal:set_title" in message:
+            #print "terminal:set_title",message
         if isinstance(message, dict):
             message = json_encode(message)
         return self.send(message)

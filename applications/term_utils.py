@@ -105,5 +105,5 @@ def capture_stream(self, term, stream=None):
         stream = specials.sub('', stream) # Backspace chars and newlines
         stream = stream.replace('\r\n', '\n') # Fix ^M
         term_obj = self.loc_terms[term]
-        print 'stream',stream
+        #print 'stream',stream
         term_obj["capture"]["output"].write(stream)

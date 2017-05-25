@@ -24,7 +24,7 @@ from applications.utils import getsettings
 # Gate One imports
 #from gateone import GATEONE_DIR, SESSIONS#global variables
 GATEONE_DIR = getsettings('GATEONE_DIR', dict())
-from applications import SESSIONS
+from applications import SESSIONS, TERMINALIDS
 from applications.server import StaticHandler, BaseHandler, GOApplication
 from applications.server import ApplicationWebSocket
 from applications.auth.authorization import require, authenticated
@@ -1152,9 +1152,12 @@ class TerminalApplication(GOApplication):
                 'height': settings['em_dimensions']['h'],
                 'width': settings['em_dimensions']['w']
             }
-        user_dir = self.settings()['user_dir']
+        user_dir = self.settings()['user_dir']  
         if term not in self.loc_terms:
             # Setup the requisite dict
+            #terminal_session_id = generate_session_id()
+            #if term not in TERMINALIDS:
+                #TERMINALIDS[term] = terminal_session_id            
             self.loc_terms[term] = {
                 'last_activity': datetime.now(),
                 'title': 'Gate One',
@@ -1162,7 +1165,8 @@ class TerminalApplication(GOApplication):
                 'manual_title': False,
                 'metadata': term_metadata, # Any extra info the client gave us
                 # This is needed by the terminal sharing policies:
-                'user': current_user # So we can determine the owner
+                'user': current_user, # So we can determine the owner
+                #'terminal_session_id': terminal_session_id
             }
         term_obj = self.loc_terms[term]
         if self.ws.request.http_session.get('gateone_user',None)['session'] not in term_obj:
@@ -1286,6 +1290,7 @@ class TerminalApplication(GOApplication):
         # NOTE: refresh_screen will also take care of cleaning things up if
         #       term_obj['multiplex'].isalive() is False
         self.refresh_screen(term, True) # Send a fresh screen to the client
+        print 'new terminal set terminal id',term
         self.current_term = term
         # Restore expanded modes
         for mode, setting in m.term.expanded_modes.items():
@@ -1314,7 +1319,7 @@ class TerminalApplication(GOApplication):
                    'metadata': self.loc_terms[term]['metadata']})
         #bug can't stop 
         if not m.io_loop._running:
-            m.io_loop.start()        
+            m.io_loop.start()   
 
     #@require(authenticated(), policies('terminal'))
     def set_term_encoding(self, settings):
@@ -1777,6 +1782,7 @@ class TerminalApplication(GOApplication):
         scrollback, screen = multiplex.dump_html(
             full=full, client_id=self.ws.request.http_session.get('gateone_user',None)['session'])
         #print 'screen',screen
+        print 'term id',term
         if [a for a in screen if a]: # Checking for non-empty lines here
             output_dict = {
                 'terminal:termupdate': {
@@ -1800,7 +1806,7 @@ class TerminalApplication(GOApplication):
                 #print 'output_dict',output_dict
                 self.ws.write_message(json_encode(output_dict))
             except IOError: # Socket was just closed, no biggie    
-                print 'error to write message to client'
+                #print 'error to write message to client'
                 self.callback_id = "%s;%s%s;%s" % (self.ws.request.http_session.get('gateone_user',None)['session'], 
                                                                  self.ws.request.http_session.get('gateone_user',None)['ip_address'], 
                                                                              str(getsettings('port',8000)),
@@ -1953,8 +1959,14 @@ class TerminalApplication(GOApplication):
         self.term_log.debug("char_handler(%s, %s)" % (repr(chars), repr(term)))
         if not term:
             term = self.current_term
+        #test only
+        #print 'test only'
+        #print 'char handle term',term
+        #print 'self.loc_terms',self.loc_terms
+        #term = list(self.loc_terms)[0]
+        #print 'TERMINALIDS',TERMINALIDS
         term = int(term) # Just in case it was sent as a string
-        #print SESSIONS
+        #print 'char handle term',term 
         #print 'self.ws.session', self.ws.session
         #print self.loc_terms
         #bug
@@ -1992,6 +2004,7 @@ class TerminalApplication(GOApplication):
         is not present, *self.current_term* will be used.
         """
         #self.term_log.debug('write_chars(%s)' % message)
+        print 'write_chars(%s)' % message
         if 'chars' not in message:
             return # Invalid message
         #print 'self.current_term',self.current_term
@@ -2202,7 +2215,7 @@ class TerminalApplication(GOApplication):
             the shared terminal without having to enter a password.
         """
         self.term_log.debug("permissions(%s)" % settings)
-        from gateone.core.utils import random_words
+        from applications.utils import random_words
         share_dict = {}
         term = int(settings.get('term', self.current_term))
         # Share permissions get stored in the PERSIST global
@@ -2250,12 +2263,13 @@ class TerminalApplication(GOApplication):
         if not read and not write and not broadcast:
             return # Nothing to do
         share_id = '-'.join(random_words(2))
+        #print 'share_id',share_id
         if broadcast == True: # Generate a broadcast URL
             broadcast = broadcast_url_template.format(
                 base_url=self.ws.base_url,
                 share_id=share_id)
         share_dict.update({
-            'user': self.current_user,
+            'user': self.ws.request.http_session.get('gateone_user',None),
             'term': term,
             'term_obj': term_obj,
             'read': read,
@@ -2270,7 +2284,7 @@ class TerminalApplication(GOApplication):
         self.term_log.info(
             _("{upn} updated sharing permissions on terminal {term} ({title}))")
             .format(
-                upn=self.current_user['upn'],
+                upn=self.ws.request.http_session.get('gateone_user',None)['upn'],
                 term=term,
                 title=term_obj['title']),
                 metadata={'permissions': settings, 'share_id': share_id})
@@ -2303,7 +2317,7 @@ class TerminalApplication(GOApplication):
                 cls._deliver(message, upn=user['upn'])
         for instance in cls.instances:
             try:
-                user = instance.current_user
+                user = self.ws.request.http_session.get('gateone_user',None)
             except AttributeError:
                 continue
             if upn and user.get('upn', None) != upn:
@@ -2383,7 +2397,7 @@ class TerminalApplication(GOApplication):
 
         .. note:: The terminal must already be shared with broadcast enabled.
         """
-        from gateone.core.utils import random_words
+        from applications.utils import random_words
         if 'term' not in settings:
             return # Invalid
         if 'shared' not in self.ws.persist['terminal']:
@@ -2412,7 +2426,7 @@ class TerminalApplication(GOApplication):
         self.term_log.info(
             _("{upn} changed share ID of terminal {term} from '{old}'' to "
               "'{new}'").format(
-                upn=self.current_user['upn'],
+                upn=self.ws.request.http_session.get('gateone_user',None)['upn'],
                 term=term,
                 old=old_share_id,
                 new=new_share_id))
@@ -2498,7 +2512,7 @@ class TerminalApplication(GOApplication):
         """
         out_dict = {}
         if not user:
-            user = self.current_user
+            user = self.ws.request.http_session.get('gateone_user',None)
         shared_terms = self.ws.persist['terminal'].get('shared', {})
         for share_id, share_dict in shared_terms.items():
             owner = False
@@ -2593,7 +2607,7 @@ class TerminalApplication(GOApplication):
             return
         if not share_obj['broadcast']:
             if 'AUTHENTICATED' not in share_obj['read']:
-                if self.current_user['upn'] not in share_obj['read']:
+                if self.ws.request.http_session.get('gateone_user',None)['upn'] not in share_obj['read']:
                     self.ws.send_message(_(
                         "You are not authorized to view this terminal"))
                     return
@@ -2645,11 +2659,11 @@ class TerminalApplication(GOApplication):
         email = metadata.get('email', None)
         upn = metadata.get('upn', email)
         broadcast_viewer = True
-        if self.current_user:
-            upn = self.current_user['upn']
+        if self.ws.request.http_session.get('gateone_user',None):
+            upn = self.ws.request.http_session.get('gateone_user',None)['upn']
             broadcast_viewer = False
         # Add this user to the list of viewers
-        current_viewer = self.current_user
+        current_viewer = self.ws.request.http_session.get('gateone_user',None)
         if not current_viewer: # Anonymous broadcast viewer
             current_viewer = {
                 'upn': upn,

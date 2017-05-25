@@ -695,9 +695,9 @@ def random_words(n=1):
 
     .. note:: In Python 2 the words will be Unicode strings.
     """
-    from pkg_resources import resource_string
-    words = resource_string(
-        'gateone', 'static/english_wordlist.txt').split(b'\n')
+    words_dir = os.path.join(getsettings('BASE_DIR'), 'static/english_wordlist.txt')
+    with io.open(words_dir,'r') as f:
+        words = f.read().split(b'\n')
     out_words = []
     for i in range(n):
         word = words[random.randint(0, len(words))].lower()
