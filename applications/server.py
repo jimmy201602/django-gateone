@@ -828,7 +828,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
         #WebsocketConsumer.__init__(self, message, **kwargs)
-        super(ApplicationWebSocket, self).__init__(message, **kwargs)
         #super(WebsocketConsumer, self).__init__(message, **kwargs)
         #super(ApplicationWebSocket, self).__init__(message, **kwargs)
         #print '__init__'
@@ -836,6 +835,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'self.initialize'
         #ApplicationWebSocket.__init__(self, message, **kwargs)
         #print 'ApplicationWebSocket __init__'
+        super(ApplicationWebSocket, self).__init__(message, **kwargs)
+        from applications.app_terminal import TerminalApplication
+        self.initialize(apps=[TerminalApplication],message=message)          
 
     @classmethod
     def file_checker(cls):
@@ -1352,6 +1354,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #       eventually re-connect or reload the page).
         # NOTE: Why store prefs in the class itself?  No need for redundancy.
         #print 'cls.prefs',cls.prefs
+        if not cls.prefs:
+            cls.prefs = get_settings(self.settings()['settings_dir'])
         if 'cache_dir' not in cls.prefs['*']['gateone']:
             # Set the cache dir to a default if not set in the prefs
             cache_dir = self.settings['cache_dir']
@@ -1376,6 +1380,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             path = os.path.join(path, js_file)#get js path
             self.send_js(path)
         #print 'self.client_id',self.client_id
+        #fix bug SESSIONS key error
         for app in self.apps:
             if hasattr(app, 'open'):
                 app.open(self.client_id, '127.0.0.1:8000', '127.0.0.1') # Call applications' open() functions (if any)
@@ -3405,8 +3410,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print signing.loads()
             #print "eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"
         #print 'open prefx',self.prefs
-        from applications.app_terminal import TerminalApplication
-        self.initialize(apps=[TerminalApplication],message=message)
         return self.open(message)
     
     #@channel_session
@@ -3436,6 +3439,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'write_message',message
         #if "terminal:termupdate" in message:
             #print "terminal:termupdate",message
+        if "terminal:set_title" in message:
+            print "terminal:set_title",message
         if isinstance(message, dict):
             message = json_encode(message)
         return self.send(message)

@@ -443,7 +443,10 @@ class TerminalApplication(GOApplication):
         settings.SESSIONS = SESSIONS
         #print 'app_terminal django SESSIONS',settings.SESSIONS  
         #print 'app_terminal session', message.http_session.get('session',None)
-        sess = SESSIONS[message.http_session.get('session',None)]
+        try:
+            sess = SESSIONS[message.http_session.get('session',None)]
+        except KeyError:
+            return
         # Create a place to store app-specific stuff related to this session
         # (but not necessarily this 'location')
         if "terminal" not in sess:
@@ -718,14 +721,18 @@ class TerminalApplication(GOApplication):
         term = str(term) # JSON wants strings as keys
         self.term_log.debug("restore_term_settings(%s)" % term)
         from applications.term_utils import restore_term_settings as _restore
+        #settings {u'default': {u'1': {u'title': u'jimmy@jimmy-VirtualBox: ~/Desktop/GateOne', u'command': u'SSH', u'metadata': {}}}}    
+        #settings {u'default': {u'1': {u'title': u'jimmy@jimmy-VirtualBox: /home/jimmy/Desktop/django-gateone', u'command': u'SSH', u'metadata': {}}}}
         def restore(settings):
             """
             Saves the *settings* returned by :func:`restore_term_settings`
             in `self.loc_terms[term]` and triggers the
             `terminal:restore_term_settings` event.
             """
-            #print 'self.ws.location',self.ws.location
             #print 'settings',settings
+            #print 'self.ws.location',self.ws.location
+            #settings = {u'default': {u'1': {u'title': u'jimmy@jimmy-VirtualBox: /home/jimmy/Desktop/django-gateone', u'command': u'SSH', u'metadata': {}}}}
+            #print 'self.loc_terms',self.loc_terms
             if self.ws.location in settings:
                 if term in settings[self.ws.location]:
                     termNum = int(term)
@@ -792,6 +799,7 @@ class TerminalApplication(GOApplication):
         if not self.ws.location:
             return # WebSocket disconnected or not-yet-authenticated
         self.loc_terms = self.ws.locations[self.ws.location]['terminal']
+        #print 'term',term
         for term in list(self.loc_terms.keys()):
             if isinstance(term, int): # Only terminals are integers in the dict
                 terminals.update({
@@ -1305,7 +1313,8 @@ class TerminalApplication(GOApplication):
             term, {'command': command,
                    'metadata': self.loc_terms[term]['metadata']})
         #bug can't stop 
-        m.io_loop.start()        
+        if not m.io_loop._running:
+            m.io_loop.start()        
 
     #@require(authenticated(), policies('terminal'))
     def set_term_encoding(self, settings):
@@ -1665,6 +1674,7 @@ class TerminalApplication(GOApplication):
             # Save it in case we're restarted (only matters for dtach)
             if save:
                 self.save_term_settings(term, {'title': title})
+        #print 'title',title
         self.trigger("terminal:set_title", term, title)
 
     #@require(authenticated(), policies('terminal'))
@@ -1777,7 +1787,7 @@ class TerminalApplication(GOApplication):
                 }
             }
             #print 'screen',screen
-            print 'term',term
+            #print 'term',term
             #print 'scrollback',scrollback
             #print 'ratelimiter',multiplex.ratelimiter_engaged
             #print 'self.write_message(json_encode(output_dict))',json_encode(output_dict)

@@ -1,2 +1,4 @@
+global SESSIONS
+global PERSIST
 SESSIONS = {}
 PERSIST = {}

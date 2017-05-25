@@ -32,7 +32,7 @@ term_log = go_logger("gateone.terminal")
 # Localization support
 _ = get_translation()
 
-def save_term_settings(term, location, session, settings, session_dir=os.path.join(getsettings('BASE_DIR'), 'sessions')):
+def save_term_settings(term, location, session, settings):
     """
     Saves the *settings* associated with the given *term*, *location*, and
     *session* in the 'term_settings.json' file inside the user's session
@@ -45,7 +45,7 @@ def save_term_settings(term, location, session, settings, session_dir=os.path.jo
     term = str(term) # JSON wants strings as keys
     term_settings = RUDict()
     term_settings[location] = {term: settings}
-    session_dir = session_dir
+    session_dir = os.path.join(getsettings('BASE_DIR'), 'sessions')
     session_dir = os.path.join(session_dir, session)
     settings_path = os.path.join(session_dir, 'term_settings.json')
     # First we read in the existing settings and then update them.
@@ -56,14 +56,14 @@ def save_term_settings(term, location, session, settings, session_dir=os.path.jo
     with io.open(settings_path, 'w', encoding='utf-8') as f:
         f.write(json_encode(term_settings))
 
-def restore_term_settings(location, session, session_dir=os.path.join(getsettings('BASE_DIR'), 'sessions')):
+def restore_term_settings(location, session):
     """
     Returns the terminal settings associated with the given *location* that are
     stored in the user's session directory.
     """
     if not session:
         return # Just a viewer of a broadcast terminal
-    session_dir = session_dir
+    session_dir = os.path.join(getsettings('BASE_DIR'), 'sessions')
     session_dir = os.path.join(session_dir, session)
     settings_path = os.path.join(session_dir, 'term_settings.json')
     if not os.path.exists(settings_path):
@@ -78,6 +78,8 @@ def restore_term_settings(location, session, session_dir=os.path.join(getsetting
                     settings_path))
             os.remove(settings_path)
             return {}
+    #print 'restore_term_settings',settings
+    #settings = {u'default': {u'1': {u'title': u'jimmy@jimmy-VirtualBox: /home/jimmy/Desktop/django-gateone', u'command': u'SSH', u'metadata': {}}}}
     return settings
 
 def capture_stream(self, term, stream=None):
