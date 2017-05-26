@@ -913,8 +913,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         logger.info(_(
             "Settings have been modified.  Reloading from %s"
-            % options.settings_dir))
-        prefs = get_settings(options.settings_dir)
+            % self.settings()['settings_dir']))
+        prefs = get_settings(self.settings()['settings_dir'])
         # Only overwrite our settings if everything is proper
         if 'gateone' not in prefs['*']:
             # NOTE: get_settings() records its own errors too
@@ -969,7 +969,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             Want to broadcast a message to all the users currently connected to
             Gate One?  Just `sudo echo "your message" > /tmp/gateone/broadcast`.
         """
-        session_dir = options.session_dir
+        session_dir = self.settings()['session_dir']
         broadcast_file = os.path.join(session_dir, 'broadcast')
         broadcast_file = cls.prefs['*']['gateone'].get(
             'broadcast_file', broadcast_file)
