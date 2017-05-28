@@ -836,9 +836,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'self.initialize'
         #ApplicationWebSocket.__init__(self, message, **kwargs)
         #print 'ApplicationWebSocket __init__'
-        super(ApplicationWebSocket, self).__init__(message, **kwargs)
-        from applications.app_terminal import TerminalApplication
-        self.initialize(apps=[TerminalApplication],message=message)          
+        super(ApplicationWebSocket, self).__init__(message, **kwargs)        
 
     @classmethod
     def file_checker(cls):
@@ -2570,6 +2568,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             """
             out_dict['data'] = result
             if kind == 'js':
+                #bug
+                print 'path send_file',path
                 source_url = None
                 if 'gateone/applications/' in path:
                     application = path.split('applications/')[1].split('/')[0]
@@ -2608,6 +2608,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             except (WebSocketClosedError, AttributeError):
                 pass # WebSocket closed before we got a chance to send this
         logging.debug("file_request() for: %s" % filename)
+        result = get_or_cache(cache_dir, path, minify=False)
+        send_file(result)        
         if self.settings()['debug']:
             result = get_or_cache(cache_dir, path, minify=False)
             send_file(result)
@@ -3415,6 +3417,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print signing.loads()
             #print "eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"
         #print 'open prefx',self.prefs
+        #super(ApplicationWebSocket,self).__init__(message,**kwargs)
+        from applications.app_terminal import TerminalApplication
+        self.initialize(apps=[TerminalApplication],message=message) 
+        #instance = TerminalApplication(self)
+        #self.apps.append(instance) 
+        #instance.initialize(message=message)
+        #self.list_applications()        
         return self.open(message)
     
     #@channel_session
