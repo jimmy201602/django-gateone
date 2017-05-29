@@ -167,14 +167,12 @@ def cleanup_user_logs():
     """
     logging.debug("cleanup_user_logs()")
     disabled = timedelta(0) # If the user sets user_logs_max_age to "0"
-    settings = get_settings(options.settings_dir)
+    settings = get_settings(define_options()['settings_dir'])
     user_dir = settings['*']['gateone']['user_dir']
-    if 'user_dir' in options: # NOTE: options is global
-        user_dir = options.user_dir
+    user_dir = define_options()['user_dir']
     default = "30d"
     max_age_str = settings['*']['gateone'].get('user_logs_max_age', default)
-    if 'user_logs_max_age' in list(options):
-        max_age_str = options.user_logs_max_age
+    max_age_str = define_options()['user_logs_max_age']
     max_age = convert_to_timedelta(max_age_str)
     def descend(path):
         """
@@ -212,11 +210,11 @@ def cleanup_old_sessions():
     """
     logging.debug("cleanup_old_sessions()")
     disabled = timedelta(0) # If the user sets auth_timeout to "0"
-    settings = get_settings(options.settings_dir)
+    settings = get_settings(define_options()['settings_dir'])
     expiration_str = settings['*']['gateone'].get('auth_timeout', "14d")
     expiration = convert_to_timedelta(expiration_str)
     if expiration != disabled:
-        for session in os.listdir(options.session_dir):
+        for session in os.listdir(define_options()['session_dir']):
             # If it's in the SESSIONS dict it's still valid for sure
             if session not in SESSIONS:
                 if len(session) != 45:
@@ -225,7 +223,7 @@ def cleanup_old_sessions():
                     # session_dir.  Why not just check for 'broacast'?  Just in
                     # case we put something else there in the future.
                     continue
-                session_path = os.path.join(options.session_dir, session)
+                session_path = os.path.join(define_options()['session_dir'], session)
                 mtime = time.localtime(os.stat(session_path).st_mtime)
                 # Convert to a datetime object for easier comparison
                 mtime = datetime.fromtimestamp(time.mktime(mtime))
@@ -315,7 +313,7 @@ def gateone_policies(cls):
         'broadcast': policy_broadcast,
         'list_server_users': policy_list_users
     }
-    user = instance.current_user
+    user = instance.request.http_session.get('gateone_user',{})
     policy = applicable_policies('gateone', user, instance.ws.policies)
     if not policy: # Empty RUDict
         return True # A world without limits!
@@ -416,8 +414,8 @@ def broadcast_message(args=sys.argv, message=""):
     if '--help' in args or len(args) < 1:
         print("Usage: gateone broadcast 'Your message here.'")
         sys.exit(1)
-    prefs = get_settings(options.settings_dir)
-    broadcast_file = os.path.join(options.session_dir, 'broadcast')
+    prefs = get_settings(define_options()['settings_dir'])
+    broadcast_file = os.path.join(define_options()['session_dir'], 'broadcast')
     broadcast_file = prefs['*']['gateone'].get(
         'broadcast_file', broadcast_file) # If set
     with io.open(broadcast_file, 'w') as b:
@@ -608,8 +606,8 @@ class HTTPSRedirectHandler(BaseHandler):
     """
     def get(self):
         """Just redirects the client from HTTP to HTTPS"""
-        port = self.settings['port']
-        url_prefix = self.settings['url_prefix']
+        port = self.settings()['port']
+        url_prefix = self.settings()['url_prefix']
         host = self.request.headers.get('Host', 'localhost')
         self.redirect(
             'https://%s:%s%s' % (host, port, url_prefix))
@@ -684,7 +682,7 @@ class GOApplication(OnOffMixin):
         self.send_js = ws.send_js
         self.close = ws.close
         self.security = ws.security
-        self.request = ws.request#transfer th request
+        self.request = ws.request#transfer the request
         self.settings = ws.settings
         self.io_loop = tornado.ioloop.IOLoop.current()
         self.cpu_async = CPU_ASYNC
@@ -733,8 +731,9 @@ class GOApplication(OnOffMixin):
             If the *pattern* does not start with the configured `url_prefix` it
             will be automatically prepended.
         """
+        #print ("Adding handler: (%s, %s)" % (pattern, handler))
         logging.debug("Adding handler: (%s, %s)" % (pattern, handler))
-        url_prefix = self.ws.settings['url_prefix']
+        url_prefix = self.ws.settings()['url_prefix']
         if not pattern.startswith(url_prefix):
             if pattern.startswith('/'):
                 # Get rid of the / (it will be in the url_prefix)
@@ -1372,6 +1371,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         for js_file in additional_files:
             path = os.path.join(getsettings('BASE_DIR'), 'static')
             path = os.path.join(path, js_file)#get js path
+            #print 'self send js' ,path
             self.send_js(path)
         #print 'self.client_id',self.client_id
         #fix bug SESSIONS key error
@@ -2628,7 +2628,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if not os.path.exists(filepath):
             self.sync_log.error(_("File does not exist: {0}").format(filepath))
             return
-        cache_dir = self.settings['cache_dir']
+        cache_dir = self.settings()['cache_dir']
         mtime = os.stat(filepath).st_mtime
         filename = os.path.split(filepath)[1]
         filepath_hash = hashlib.md5(filepath.encode('utf-8')).hexdigest()[:10]
@@ -2733,7 +2733,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     'requires': requires,
                     'media': media # NOTE: Ignored if JS
                 }
-                if self.settings['debug']:
+                if self.settings()['debug']:
                     # This makes sure that the files are always re-downloaded
                     mtime = time.time()
                 out_dict['files'].append({
@@ -2857,7 +2857,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if not os.path.exists(js_path):
             self.sync_log.error(_("File does not exist: {0}").format(js_path))
             return
-        cache_dir = self.settings['cache_dir']
+        cache_dir = self.settings()['cache_dir']
         mtime = os.stat(js_path).st_mtime
         filename = os.path.split(js_path)[1]
         script = {'name': filename}
@@ -2876,6 +2876,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if os.path.exists(rendered_path):
             self.send_js(rendered_path, filename=filename, force=True, **kwargs)
             return
+        #bug need to fix
         script['source'] = resource_string('gateone', 'templates/libwrapper.js')
         rendered = self.render_string(
             libwrapper,
@@ -2943,10 +2944,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.send_css(rendered_path,
                 element_id=element_id, media=media, filename=filename)
             return
-        template_loaders = tornado.web.RequestHandler._template_loaders
+        #bug need to fix
+        #template_loaders = tornado.web.RequestHandler._template_loaders
         # This wierd little bit empties Tornado's template cache:
-        for web_template_path in template_loaders:
-            template_loaders[web_template_path].reset()
+        #for web_template_path in template_loaders:
+            #template_loaders[web_template_path].reset()
         #print 'css_path',css_path
         #print 'self.container',self.container
         #print 'self.prefix',self.prefix
@@ -3282,7 +3284,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             (message, upn, session))
         for instance in cls.instances:
             try: # Only send to users that have authenticated
-                user = instance.current_user
+                user = instance.request.http_session.get('gateone_user',None)
             except (WebSocketClosedError, AttributeError):
                 continue
             if session and user and user.get('session', None) == session:
@@ -3420,7 +3422,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #instance = TerminalApplication(self)
         #self.apps.append(instance) 
         #instance.initialize(message=message)
-        #self.list_applications()        
+        #self.list_applications()  
+        self.request = message
         return self.open(message)
     
     #@channel_session

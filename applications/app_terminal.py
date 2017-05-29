@@ -200,7 +200,8 @@ class TerminalApplication(GOApplication):
         self.em_dimensions = None
         self.race_check = False
         self.log_metadata = {'application': 'terminal'}
-        GOApplication.__init__(self, ws)      
+        GOApplication.__init__(self, ws)  
+        super(TerminalApplication,self).__init__(ws)
         #print 'init terminal application'
 
     def initialize(self,message=None):
@@ -733,6 +734,7 @@ class TerminalApplication(GOApplication):
             #print 'self.ws.location',self.ws.location
             #settings = {u'default': {u'1': {u'title': u'jimmy@jimmy-VirtualBox: /home/jimmy/Desktop/django-gateone', u'command': u'SSH', u'metadata': {}}}}
             #print 'self.loc_terms',self.loc_terms
+            print 'self.ws.location',self.ws.location
             if self.ws.location in settings:
                 if term in settings[self.ws.location]:
                     termNum = int(term)
@@ -1842,6 +1844,7 @@ class TerminalApplication(GOApplication):
                                                                                  self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
         self.term_log.debug(
             "refresh_screen (full=%s) on %s" % (full, self.callback_id))
+        #print 'refresh_screen term id',term
         if term:
             term = int(term)
         else:
@@ -2512,7 +2515,7 @@ class TerminalApplication(GOApplication):
         """
         out_dict = {}
         if not user:
-            user = self.ws.current_user
+            user = self.ws.request.http_session.get('gateone_user',None)
         shared_terms = self.ws.persist['terminal'].get('shared', {})
         for share_id, share_dict in shared_terms.items():
             owner = False
