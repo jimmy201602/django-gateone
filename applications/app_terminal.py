@@ -2512,7 +2512,7 @@ class TerminalApplication(GOApplication):
         """
         out_dict = {}
         if not user:
-            user = self.ws.request.http_session.get('gateone_user',None)
+            user = self.ws.current_user
         shared_terms = self.ws.persist['terminal'].get('shared', {})
         for share_id, share_dict in shared_terms.items():
             owner = False

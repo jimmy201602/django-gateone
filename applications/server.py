@@ -828,15 +828,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
         current_term = None
-        #WebsocketConsumer.__init__(self, message, **kwargs)
-        #super(WebsocketConsumer, self).__init__(message, **kwargs)
-        #super(ApplicationWebSocket, self).__init__(message, **kwargs)
-        #print '__init__'
-        #self.initialize(message)
-        #print 'self.initialize'
-        #ApplicationWebSocket.__init__(self, message, **kwargs)
-        #print 'ApplicationWebSocket __init__'
-        super(ApplicationWebSocket, self).__init__(message, **kwargs)        
+        super(ApplicationWebSocket, self).__init__(message, **kwargs)
+        from applications.app_terminal import TerminalApplication
+        self.initialize(apps=[TerminalApplication],message=message)
+        super(WebsocketConsumer,self).__init__(message,**kwargs)
 
     @classmethod
     def file_checker(cls):
@@ -1073,11 +1068,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             You may have to create the 'static/extra' directory before putting
             files in there.
         """
-        extra_path = resource_filename('gateone', 'static/extra')
-        if not resource_exists('gateone', '/static/extra'):
+        extra_path = os.path.join(getsettings('BASE_DIR'), 'static/extra')
+        if not os.path.exists(extra_path):
             return # Nothing to do
-        for f in resource_listdir('gateone', '/static/extra'):
-            filepath = resource_filename('gateone', '/static/extra/%s' % f)
+        for f in os.listdir(extra_path):
+            filepath = os.path.join(extra_path,f)
             if filepath.endswith('.js'):
                 self.send_js(filepath, force=True)
             elif filepath.endswith('.css'):
@@ -1395,7 +1390,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #send_ping()
         #interval = 5000 # milliseconds
         #self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
-        #self.pinger.start()
+        #self.pinger.start()    
         self.trigger("go:open")
 
     def on_message(self, message):
@@ -2140,7 +2135,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             }
         """
         cls = ApplicationWebSocket
-        broadcast_file = os.path.join(self.settings['session_dir'], 'broadcast')
+        broadcast_file = os.path.join(self.settings()['session_dir'], 'broadcast')
         broadcast_file = self.prefs['*']['gateone'].get(
             'broadcast_file', broadcast_file)
         if broadcast_file not in cls.watched_files:
@@ -2158,8 +2153,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls.file_watcher = tornado.ioloop.PeriodicCallback(
                 cls.file_checker, interval, io_loop=io_loop)
             cls.file_watcher.start()
-        if options.settings_dir not in cls.watched_files:
-            cls.watch_file(options.settings_dir, cls.load_prefs)
+        if self.settings()['settings_dir'] not in cls.watched_files:
+            cls.watch_file(self.settings()['settings_dir'], cls.load_prefs)
 
     def list_applications(self):
         """
@@ -3025,8 +3020,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 if ep.module_name.startswith('gateone.applications'):
                     application = ep.module_name.split('.')[2]
                     break
-        user = message.http_session.get('gateone_user',None)
-        user = copy.deepcopy(user)
+        if message:
+            user = message.http_session.get('gateone_user',None)
+            user = copy.deepcopy(user)
+        else:
+            user = self.request.http_session.get('gateone_user',None)
+            user = copy.deepcopy(user)
         user.pop('protocol')
         #print 'user',user
         #self.current_user {u'upn': u'ANONYMOUS', u'session': u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM', 'ip_address': '127.0.0.1'}        
@@ -3418,8 +3417,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print "eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"
         #print 'open prefx',self.prefs
         #super(ApplicationWebSocket,self).__init__(message,**kwargs)
-        from applications.app_terminal import TerminalApplication
-        self.initialize(apps=[TerminalApplication],message=message) 
         #instance = TerminalApplication(self)
         #self.apps.append(instance) 
         #instance.initialize(message=message)
@@ -3432,9 +3429,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'receive message content text',message.content.get('text',None)
         from applications.app_terminal import TerminalApplication
         instance = TerminalApplication(self)
-        self.apps.append(instance) 
+        #self.apps.append(instance) 
         instance.initialize(message=message)
-        self.list_applications()
+        #self.list_applications()
         return self.on_message(message)
 
     def disconnect(self, message, **kwargs):
