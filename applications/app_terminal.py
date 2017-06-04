@@ -263,6 +263,7 @@ class TerminalApplication(GOApplication):
         # load new plugins with a simple page reload)
         enabled_plugins = self.ws.prefs['*']['terminal'].get(
             'enabled_plugins', [])
+        print 'enabled_plugins',enabled_plugins
         self.plugins = entry_point_files('go_terminal_plugins', enabled_plugins)
         #print 'self.plugins',self.plugins
         plugin_list = set()
