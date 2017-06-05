@@ -3491,8 +3491,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if user:
             user = copy.deepcopy(user)
             user.pop('protocol')
-            return user
-        return None
+        else:
+            user = {u'upn': u'Anonymous', u'ip_address': self.settings()['address'], u'session': generate_session_id(), u'protocol': u'http'}
+        return user
     
     #@channel_session
     def raw_receive(self, message, **kwargs):
