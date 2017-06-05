@@ -1163,9 +1163,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             # worry about origins if the connection is coming from some external
             # site (e.g. to prevent spear phishing attacks; XSS and whatnot).
             return True # Origin check successful; no need to continue
-        if 'origins' in self.settings.get('cli_overrides', ''):
+        if 'origins' in self.settings().get('cli_overrides', ''):
             # If given on the command line, always use those origins
-            valid_origins = self.settings['origins']
+            valid_origins = self.settings()['origins']
         else:
             # Why have this separate?  So you can change origins on-the-fly by
             # modifying 10server.conf (or whatever other conf you put it in).
