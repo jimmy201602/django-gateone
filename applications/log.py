@@ -399,6 +399,7 @@ def go_logger(name, **kwargs):
             filename=path,
             maxBytes=define_options()['log_file_max_size'],
             backupCount=define_options()['log_file_num_backups'])
+        #log format bug
         channel.setFormatter(LogFormatter(color=False))
         logger.addHandler(channel)
     logger = JSONAdapter(logger, kwargs)

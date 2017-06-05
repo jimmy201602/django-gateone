@@ -847,7 +847,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls.file_watcher.stop()
             # Also remove the broadcast file so we know to start up the
             # file_watcher again if a user connects.
-            session_dir = options.session_dir
+            session_dir = self.settings()['session_dir']
             broadcast_file = os.path.join(session_dir, 'broadcast') # Default
             broadcast_file = cls.prefs['*']['gateone'].get(
                 'broadcast_file', broadcast_file) # If set, use that
@@ -874,7 +874,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     "Exception encountered trying to execute the file update "
                     "function for {path}...".format(path=path)))
                 logger.error(e)
-                if options.logging == 'debug':
+                if self.settings()['logging'] == 'debug':
                     import traceback
                     traceback.print_exc(file=sys.stdout)
 
@@ -972,7 +972,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             metadata = {'clients': []}
             for instance in cls.instances:
                 try: # Only send to users that have authenticated
-                    user = instance.current_user
+                    user = instance.request.http_session.get('gateone_user',None)
                 except AttributeError:
                     continue
                 user_info = {
@@ -1000,13 +1000,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug('ApplicationWebSocket.initialize(%s)' % apps)
         # Make sure we have all prefs ready for checking
         cls = ApplicationWebSocket
-        cls.prefs = get_settings(getsettings('settings_dir',os.path.join(getsettings('BASE_DIR'),'conf.d')))
+        cls.prefs = get_settings(self.settings()['settings_dir'])
         #print 'initialize cls prefix',self.prefs
         #sel.settings example
         """
         {u'dtach': True, 'version': None, u'locale': u'en_US', u'address': u'', u'pam_service': u'login', u'syslog_facility': u'daemon', 'cookie_secret': u'ZTQyZTZhYjQxZmVjNDI2M2E3MWZiYmMyOWViZDA5ZGZlM', u'enable_unix_socket': False, u'port': 10443, u'uid': u'1000', u'url_prefix': u'/', u'user_dir': u'/home/jimmy/Desktop/GateOne/users', 'settings_dir': '/home/jimmy/Desktop/GateOne/conf.d', u'unix_socket_mode': u'0600', u'multiprocessing_workers': None, u'certificate': u'/home/jimmy/Desktop/GateOne/ssl/certificate.pem', u'log_rotate_interval': 1, u'log_to_stderr': None, u'log_rotate_when': u'midnight', u'gid': u'1000', u'pid_file': u'/home/jimmy/Desktop/GateOne/gateone.pid', 'command': None, 'gzip': True, u'pam_realm': u'jimmy-linux', 'login_url': u'/auth', 'configure': False, u'sso_service': u'HTTP', 'cli_overrides': [], u'https_redirect': False, u'auth': None, 'api_keys': '', u'disable_ssl': False, u'ca_certs': None, u'cache_dir': u'/home/jimmy/Desktop/GateOne/cache', u'syslog_session_logging': False, u'user_logs_max_age': u'30d', u'sso_keytab': None, u'api_timestamp_window': datetime.timedelta(0, 30), 'static_url_prefix': u'/static/', u'log_rotate_mode': u'size', u'log_file_num_backups': 10, u'logging': u'info', u'embedded': False, u'origins': [u'localhost:10443', u'127.0.0.1:10443', u'jimmy-linux:10443', u'127.0.1.1:10443'], u'session_logging': True, u'keyfile': u'/home/jimmy/Desktop/GateOne/ssl/keyfile.pem', u'session_dir': u'/home/jimmy/Desktop/GateOne/sessions', 'static_url': '/home/jimmy/Desktop/GateOne/gateone/static', u'ssl_auth': u'none', u'log_file_max_size': 100000000, u'session_timeout': u'5d', u'sso_realm': None, u'debug': False, u'js_init': u'', u'unix_socket_path': u'/tmp/gateone.sock', u'log_file_prefix': u'/home/jimmy/Desktop/GateOne/logs/gateone.log'}
         """
-        cache_dir = getsettings('cache_dir',os.path.join(getsettings('BASE_DIR'), 'cache'))
+        cache_dir = self.settings()['cache_dir']
         if not os.path.exists(cache_dir):
             mkdir_p(cache_dir)
         #PLUGIN_HOOKS example
@@ -1092,21 +1092,26 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         difference being that when API authentication is enabled the WebSocket
         will expect and perform its own auth of the client.
         """
-        expiration = self.settings.get('auth_timeout', "14d")
+        expiration = self.settings().get('auth_timeout', "14d")
         # Need the expiration in days (which is a bit silly but whatever):
+        #print 'get_current_user'
+        # user json example
+        #user_json {"upn": "ANONYMOUS", "session": "YmM5MDU5MDgyYmVjNDU0M2E5MDMzYTg5NWMzZTI5YTBkN"}
         expiration = (
             float(total_seconds(convert_to_timedelta(expiration)))
             / float(86400))
-        user_json = self.get_secure_cookie(
-            "gateone_user", max_age_days=expiration)
+        #user_json = self.get_secure_cookie(
+            #"gateone_user", max_age_days=expiration)
+        #expiration bug
+        user_json = self.get_secure_cookie.get('gateone_user',None)
         if not user_json:
-            if not self.settings['auth']:
+            if not self.settings()['auth']:
                 # This can happen if the user's browser isn't allowing
                 # persistent cookies (e.g. incognito mode)
                 return {'upn': 'ANONYMOUS', 'session': generate_session_id()}
             return None
         user = json_decode(user_json)
-        user['ip_address'] = self.request.remote_ip
+        user['ip_address'] = self.get_secure_cookie.get('gateone_user',None)['ip_address']
         return user
 
     def write_binary(self, message):
@@ -1135,13 +1140,23 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             If '*' is in the "origins" setting (anywhere) all origins will be
             allowed.
         """
-        print 'origin',origin
+        #print 'origin',origin
         logging.debug("check_origin(%s)" % origin)
         self.checked_origin = True
         valid = False
         parsed_origin = urlparse(origin)
         self.origin = parsed_origin.netloc.lower()
-        host = self.request.headers.get("Host")
+        #headers example
+        #headers [['origin', 'http://127.0.0.1:8000'], ['upgrade', 'websocket'], ['accept-language', 'en-US,en;q=0.5'],
+        #['accept-encoding', 'gzip, deflate'], ['sec-websocket-version', '13'], ['host', '127.0.0.1:8000'], 
+        #['accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'], 
+        #['user-agent', 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:53.0) Gecko/20100101 Firefox/53.0'], 
+        #['connection', 'keep-alive, Upgrade'], 
+        #['cookie', 'csrftoken=ftNMrWT1SkwlvHbw4oshOOMhfzepNYLI4OvnLVIUelAK131uYKozgLpYBplkJ1d3; djdt=hide; sessionid=k39xsq3l4oipty53em6bir9v37ihddqg; 
+        #gateone_user="eyJ1cG4iOiJqaW1teSIsInByb3RvY29sIjoiaHR0cCIsInNlc3Npb24iOiJOekl5T0RRMk56VmxNamMwTkRjME5tSXlOV0UzTjJVeE1HSmxZVE0zTlRGbU8iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1dHlqj:hwRz89CMcwxUh6NzB8kDFMB7lrA"'], ['sec-websocket-key', 'I94wIA9q/PbanMUZeL4kuA=='],
+        #['pragma', 'no-cache'], ['cache-control', 'no-cache'], ['sec-websocket-extensions', 'permessage-deflate']]
+        #host = self.request.headers.get("Host") original
+        host = self.get_request_headers.get('host',None)
         if self.origin == host: # Reality check: Do we care?
             # If the origin matches the "Host" header it means that the user is
             # legitimately accessing Gate One directly.  We really only need to
@@ -3396,6 +3411,17 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
     #@channel_session
     def connect(self, message, **kwargs):
+        #if "headers" in message:
+            #print message['headers']
+        #else:
+            #print 'no header'
+        header = dict()
+        headers = message.get('headers',None)
+        if headers:
+            for data in headers:
+                key , value = data
+                header[key] = value
+        self.get_request_headers = header
         #print 'connected'
         #self.request(message=message)
         #print 'connect prefx',self.prefs
@@ -3449,7 +3475,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #"""
         #super(JsonWebsocketConsumer, self).send(text=self.encode_json(content), close=close)    
         
-    def write_message(self, message,):
+    def write_message(self, message,binary=False):
         #print 'write_message',message
         #if "terminal:termupdate" in message:
             #print "terminal:termupdate",message
@@ -3483,7 +3509,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             ##print 'raw message text', None  
         self.request = message
         self.get_secure_cookie = message.http_session
-        self.get_request_headers = message.get('headers',None)
         #logout will cause a bug
         client_address = message.http_session.get('gateone_user',None)['ip_address']
         self.current_user(message)
@@ -3498,8 +3523,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         else:
             self.receive(bytes=message['bytes'], **kwargs)             
 
-    def cookieconvert(self,message):
-        headers = message.get('headers',None)
+    def cookieconvert(self):
+        headers = self.get_request_headers
         #default I choose trust client cookies, this is a bug. Afterward i would fix it.
         #data example
         #(True, {'csrftoken': 'HoGOLeWKmgMvz27aXXvssqzuU8qPX57xFT8C7slyfoSSsLgMMaalkfwyksAJe7qa', \
@@ -3533,6 +3558,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         #print 'raw connect',message.content
         #print 'raw connect' 
+        #print 'message.channel',message.channel
+        #print 'message.reply_channel',message.reply_channel
         for group in self.connection_groups(**kwargs):
             Group(group, channel_layer=message.channel_layer).add(message.reply_channel)
         self.connect(message, **kwargs)    
