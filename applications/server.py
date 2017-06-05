@@ -1231,7 +1231,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
             protocol=message.http_session.get('gateone_user',None)['protocol'],
             host=client_address,
-            port=getsettings('port',8000),#self.settings['port']
+            port=self.settings()['port'],#self.settings['port']
             url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']
         user = self.current_user(message)
         # NOTE: self.current_user will call self.get_current_user() and set
@@ -1327,7 +1327,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         metadata = {'ip_address': client_address}
         #print 'client_address',client_address
         #bug for origin
-        self.origin = str(client_address + ':' + self.settings()['port'])
+        self.origin = str(client_address + ':' + str(self.settings()['port']))
         if user and 'upn' in user:
             # Update our loggers to include the user metadata
             metadata['upn'] = user['upn']
