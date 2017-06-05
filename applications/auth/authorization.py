@@ -105,6 +105,7 @@ class require(object):
                 condition.f_kwargs = kwargs
                 if not condition.check():
                     if hasattr(self, 'current_user') and self.current_user:
+                        self.current_user = self.ws.request.http_session.get('gateone_user',None)
                         if 'upn' in self.current_user:
                             auth_log.error(_(
                                 '{"ip_address": "%s"} %s -> %s '

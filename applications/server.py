@@ -1475,6 +1475,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         logging.debug("on_close()")
         ApplicationWebSocket.instances.discard(self)
+        self.current_user = self.request.http_session.get('gateone_user',None)
         user = self.current_user
         client_address = self.request.remote_ip
         if user and user['session'] in SESSIONS:
@@ -1556,6 +1557,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             The "critical" and "fatal" log levels both use the
             `logging.Logger.critical` method.
         """
+        self.current_user = self.request.http_session.get('gateone_user',None)
         if not self.current_user:
             return # Don't let unauthenticated users log messages.
             # NOTE:  We're not using the authenticated() check here so we don't
@@ -1789,6 +1791,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug("authenticate(): %s" % settings)
         # Make sure the client is authenticated if authentication is enabled
         reauth = {'go:reauthenticate': True}
+        self.current_user = self.request.http_session.get('gateone_user',None)
         user = self.current_user # Just a shortcut to keep lines short
         # Apply the container/prefix settings (if present)
         self.container = settings.get('container', self.container)
@@ -3356,6 +3359,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # the log messages show up even if I don't have logging set to debug.
         # Since this debugging function is only ever called manually there's no
         # need to use debug() logging.
+        self.current_user = self.request.http_session.get('gateone_user',None)
         metadata = {
             'upn': self.current_user['upn'],
             'ip_address': self.request.remote_ip,
@@ -3486,8 +3490,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             message = json_encode(message)
         return self.send(message)
     
-    def current_user(self, message):
-        user = message.http_session.get('gateone_user',None)
+    def current_user(self,message):
+        user = self.request.http_session.get('gateone_user',None)
         if user:
             user = copy.deepcopy(user)
             user.pop('protocol')
@@ -3513,7 +3517,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.get_secure_cookie = message.http_session
         #logout will cause a bug
         client_address = message.http_session.get('gateone_user',None)['ip_address']
-        self.current_user(message)
+        
+        if not isinstance(self.current_user,dict):
+            self.current_user(message)
         self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
             protocol=message.http_session.get('gateone_user',None)['protocol'],
             host=client_address,

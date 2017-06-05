@@ -1784,6 +1784,7 @@ class TerminalApplication(GOApplication):
         #print 'self.ws.client_id',self.ws.request.http_session.get('gateone_user',None)['session']
         scrollback, screen = multiplex.dump_html(
             full=full, client_id=self.ws.request.http_session.get('gateone_user',None)['session'])
+        self.current_user = self.ws.request.http_session.get('gateone_user',None)
         #print 'screen',screen
         print 'term id',term
         if [a for a in screen if a]: # Checking for non-empty lines here
