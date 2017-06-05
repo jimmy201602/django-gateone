@@ -1321,12 +1321,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 _("Your IP address (%s) has been blacklisted")
                 % client_address)
             message = {'go:blacklisted': blacklist_msg}
-            self.write_message()
+            self.write_message(message)
             self.close() # Close the WebSocket
             return
         metadata = {'ip_address': client_address}
         #print 'client_address',client_address
-        self.origin = str(client_address + ':' + getsettings('port', '8000'))
+        #bug for origin
+        self.origin = str(client_address + ':' + self.settings()['port'])
         if user and 'upn' in user:
             # Update our loggers to include the user metadata
             metadata['upn'] = user['upn']

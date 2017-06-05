@@ -257,7 +257,7 @@ def define_options():
     ssl_dir = os.path.join(settings_base, 'ssl')
     debug = False
     cookie_secret = getsettings('SECRET_KEY')
-    address = ""
+    address = "127.0.0.1"
     enable_unix_socket = False
     unix_socket_path = "/tmp/gateone.sock"
     unix_socket_mode = "0600"
