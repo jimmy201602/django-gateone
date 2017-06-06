@@ -1685,7 +1685,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 'event has been logged.')}
             self.write_message(json_encode(message))
             return
-        window = self.settings.get('api_timestamp_window',timedelta(seconds=30))
+        window = self.settings().get('api_timestamp_window',timedelta(seconds=30))
         then = datetime.fromtimestamp(int(timestamp)/1000)
         time_diff = datetime.now() - then
         if time_diff > window:
@@ -1724,11 +1724,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if key not in known_params:
                 user[key] = value
         # user dicts need a little extra attention for IPs...
-        user['ip_address'] = self.request.remote_ip
+        user['ip_address'] = self.request.http_session.get('gateone_user',None)['ip_address']
         # Force-set the current user:
         self._current_user = user
         # Make a directory to store this user's settings/files/logs/etc
-        user_dir = os.path.join(self.settings['user_dir'], user['upn'])
+        user_dir = os.path.join(self.settings()['user_dir'], user['upn'])
         if not os.path.exists(user_dir):
             self.logger.info(_("Creating user directory: %s" % user_dir))
             mkdir_p(user_dir)
@@ -1807,11 +1807,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             # Regular, non-API authentication
             if settings['auth']:
                 # Try authenticating with the given (encrypted) 'auth' value
-                expiration = self.settings.get('auth_timeout', "14d")
+                expiration = self.settings().get('auth_timeout', "14d")
                 expiration = (
                     float(total_seconds(convert_to_timedelta(expiration)))
                     / float(86400))
                 try:
+                    #bug need to be fixed
                     auth_data = self.get_secure_cookie("gateone_user",
                         value=settings['auth'], max_age_days=expiration)
                 except TypeError:
@@ -1826,7 +1827,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     # Force-set the current user
                     self._current_user = json_decode(auth_data)
                     # Add/update the user's IP address
-                    self._current_user['ip_address'] = self.request.remote_ip
+                    self._current_user['ip_address'] = self.request.http_session.get('gateone_user',None)['ip_address']
                     user = self.current_user
             try:
                 if not user:
