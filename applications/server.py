@@ -1086,6 +1086,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         return True
 
+    #this is the tornado web request function, to determin the current user.
     def get_current_user(self):
         """
         Mostly identical to the function of the same name in MainHandler.  The
@@ -1124,6 +1125,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         self.write_message(message, binary=True)
 
+    #this is a function which detect where user is login to application
     def check_origin(self, origin):
         #this function is overwrite for tornado request header check. It won't be invoked by applicationwebsocket.
         """
@@ -1232,7 +1234,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             protocol=message.http_session.get('gateone_user',None)['protocol'],
             host=client_address,
             port=self.settings()['port'],#self.settings['port']
-            url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']
+            url_prefix=self.settings()['url_prefix'])#self.settings['url_prefix']
         user = self.current_user(message)
         # NOTE: self.current_user will call self.get_current_user() and set
         # self._current_user the first time it is used.
@@ -1364,7 +1366,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # NOTE: Why store prefs in the class itself?  No need for redundancy.
         #print 'cls.prefs',cls.prefs
         if not cls.prefs:
-            cls.prefs = get_settings(self.settings()['settings_dir'])
+            cls.prefs = self.settings()['settings_dir']
         if 'cache_dir' not in cls.prefs['*']['gateone']:
             # Set the cache dir to a default if not set in the prefs
             cache_dir = self.settings()['cache_dir']
@@ -1393,7 +1395,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #fix bug SESSIONS key error
         for app in self.apps:
             if hasattr(app, 'open'):
-                app.open(self.client_id, '127.0.0.1:8000', '127.0.0.1') # Call applications' open() functions (if any)
+                #client_id, host, remote_ip
+                #bug need to be fixed
+                app.open(self.client_id, '127.0.0.1:8000', client_address) # Call applications' open() functions (if any)
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
         #def send_ping():
@@ -1420,11 +1424,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'on_message',repr(message)
         #print 'on_message',message.content.get('text',None)
         logging.debug("message: %s" % repr(message))
-        #bug need to be fixed
-        #if self.origin_denied:
-            #self.auth_log.error(_("Message rejected due to invalid origin."))
-            #self.close() # Close the WebSocket
-        #message_obj = None
         try:
             message_obj = json_decode(message.content.get('text',None)) # JSON FTW!
             if not isinstance(message_obj, dict):
@@ -1438,21 +1437,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 if key in self.actions:
                     try:
                         if value is None:
-                            try:
-                                self.actions[key]()
-                            except Exception,e:
-                                print key
-                                import traceback
-                                print traceback.print_exc()
+                            self.actions[key]()
                         else:
-                            # Try, try again
-                            try:
-                                self.actions[key](value)
-                            except Exception,e:
-                                import traceback
-                                print key
-                                print value
-                                print traceback.print_exc()
+                            self.actions[key](value)
                     except (KeyError, TypeError, AttributeError) as e:
                         import traceback
                         for frame in traceback.extract_tb(sys.exc_info()[2]):
@@ -1477,7 +1464,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         ApplicationWebSocket.instances.discard(self)
         self.current_user = self.request.http_session.get('gateone_user',None)
         user = self.current_user
-        client_address = self.request.remote_ip
+        client_address = self.request.http_session.get('gateone_user',None)['ip_address']
         if user and user['session'] in SESSIONS:
             if self.client_id in SESSIONS[user['session']]['client_ids']:
                 SESSIONS[user['session']]['client_ids'].remove(self.client_id)
@@ -1492,8 +1479,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 _("WebSocket closed (%s %s).") % (user['upn'], client_address))
         else:
             self.auth_log.info(_("WebSocket closed (unknown user)."))
-        if self.pinger:
-            self.pinger.stop()
+        #if self.pinger:
+            #self.pinger.stop()
         # Call applications' on_close() functions (if any)
         for app in self.apps:
             if hasattr(app, 'on_close'):
