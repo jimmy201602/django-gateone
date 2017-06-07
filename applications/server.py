@@ -1366,7 +1366,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # NOTE: Why store prefs in the class itself?  No need for redundancy.
         #print 'cls.prefs',cls.prefs
         if not cls.prefs:
-            cls.prefs = self.settings()['settings_dir']
+            cls.prefs = get_settings(self.settings()['settings_dir'])
         if 'cache_dir' not in cls.prefs['*']['gateone']:
             # Set the cache dir to a default if not set in the prefs
             cache_dir = self.settings()['cache_dir']

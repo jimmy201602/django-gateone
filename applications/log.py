@@ -295,7 +295,6 @@ def define_options():
             u'js_init': js_init,
             u'unix_socket_path': unix_socket_path,
             u'log_file_prefix': os.path.join(log_file_prefix,'django-gateone.log'),
-            u'logging':'debug',#new bug
 })
     return settings
 
@@ -329,7 +328,7 @@ def string_to_syslog_facility(facility):
     else:
         raise UnknownFacility(
             "%s does not match a known syslog facility" % repr(facility))
-
+    
 def go_logger(name, **kwargs):
     """
     Returns a new `logging.Logger` instance using the given *name*
@@ -366,9 +365,6 @@ def go_logger(name, **kwargs):
         [I 130828 15:00:56 app.py:10] {"user": "bob", "ip": "10.1.1.100"} test3
     """
     logger = logging.getLogger(name)
-    if '--help' in sys.argv:
-        # Skip log file creation if the user is just getting help on the CLI
-        return logger
     if not define_options()['log_file_prefix'] or define_options()['logging'].upper() == 'NONE':
         # Logging is disabled but we still have to return the adapter so that
         # passing metadata to the logger won't throw exceptions
@@ -383,7 +379,7 @@ def go_logger(name, **kwargs):
     logger.handlers = []
     if preserve: # Add back the one we preserved (if any)
         logger.handlers.append(preserve)
-    logger.setLevel(getattr(logging, options.logging.upper()))
+    logger.setLevel(getattr(logging, define_options()['logging'].upper()))
     if define_options()['log_file_prefix']:
         if name:
             basepath = os.path.split(define_options()['log_file_prefix'])[0]
