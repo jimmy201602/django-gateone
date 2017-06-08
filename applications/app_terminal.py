@@ -55,34 +55,34 @@ _ = get_translation()
 
 # Terminal-specific command line options.  These become options you can pass to
 # gateone.py (e.g. --session_logging)
-if not hasattr(options, 'session_logging'):
-    define(
-        "session_logging",
-        default=True,
-        group='terminal',
-        help=_("If enabled, logs of user sessions will be saved in "
-                "<user_dir>/<user>/logs.  Default: Enabled")
-    )
-    define( # This is an easy way to support cetralized logging
-        "syslog_session_logging",
-        default=False,
-        group='terminal',
-        help=_("If enabled, logs of user sessions will be written to syslog.")
-    )
-    define(
-        "dtach",
-        default=True,
-        group='terminal',
-        help=_("Wrap terminals with dtach. Allows sessions to be resumed even "
-                "if Gate One is stopped and started (which is a sweet feature).")
-    )
-    define(
-        "kill",
-        default=False,
-        group='terminal',
-        help=_("Kill any running Gate One terminal processes including dtach'd "
-                "processes.")
-    )
+#if not hasattr(options, 'session_logging'):
+    #define(
+        #"session_logging",
+        #default=True,
+        #group='terminal',
+        #help=_("If enabled, logs of user sessions will be saved in "
+                #"<user_dir>/<user>/logs.  Default: Enabled")
+    #)
+    #define( # This is an easy way to support cetralized logging
+        #"syslog_session_logging",
+        #default=False,
+        #group='terminal',
+        #help=_("If enabled, logs of user sessions will be written to syslog.")
+    #)
+    #define(
+        #"dtach",
+        #default=True,
+        #group='terminal',
+        #help=_("Wrap terminals with dtach. Allows sessions to be resumed even "
+                #"if Gate One is stopped and started (which is a sweet feature).")
+    #)
+    #define(
+        #"kill",
+        #default=False,
+        #group='terminal',
+        #help=_("Kill any running Gate One terminal processes including dtach'd "
+                #"processes.")
+    #)
 
 def kill_session(session, kill_dtach=False):
     """
@@ -119,61 +119,6 @@ def timeout_session(session):
     """
     kill_session(session, kill_dtach=True)
 
-@atexit.register
-def quit():
-    from applications.utils import killall
-    try:
-        commands = options.parse_command_line()
-    except Error: # options.Error
-        return # Bad command line options provided--let the parent handle it
-    if commands or options.help:
-        # Don't call killall() if the user is invoking gateone --help or a
-        # CLI command like 'broadcast' or 'termlog'
-        return
-    if not options.dtach:
-        # If we're not using dtach play it safe by cleaning up any leftover
-        # processes.  When passwords are used with the ssh_conenct.py script
-        # it runs os.setsid() on the child process which means it won't die
-        # when Gate One is closed.  This is primarily to handle that
-        # specific situation.
-        killall(options.session_dir, options.pid_file)
-
-# NOTE:  THE BELOW IS A WORK IN PROGRESS
-class SharedTermHandler(BaseHandler):
-    """
-    Renders shared.html which allows an anonymous user to view a shared
-    terminal.
-    """
-    def get(self, share_id):
-        hostname = os.uname()[1]
-        prefs = self.get_argument("prefs", None)
-        gateone_js = "%sstatic/gateone.js" % self.settings['url_prefix']
-        minified_js_abspath = resource_filename(
-            'gateone', '/static/gateone.min.js')
-        # Use the minified version if it exists
-        if os.path.exists(minified_js_abspath):
-            gateone_js = "%sstatic/gateone.min.js" % self.settings['url_prefix']
-        index_path = resource_filename(
-            'gateone.applications.terminal', '/templates/share.html')
-        self.render(
-            index_path,
-            share_id=share_id,
-            hostname=hostname,
-            gateone_js=gateone_js,
-            url_prefix=self.settings['url_prefix'],
-            prefs=prefs
-        )
-
-class TermStaticFiles(StaticHandler):
-    """
-    Serves static files in the `gateone/applications/terminal/static` directory.
-
-    .. note::
-
-        This is configured via the `web_handlers` global (a feature inherent to
-        Gate One applications).
-    """
-    pass
 
 class TerminalApplication(GOApplication):
     """
@@ -263,6 +208,7 @@ class TerminalApplication(GOApplication):
         # load new plugins with a simple page reload)
         enabled_plugins = self.ws.prefs['*']['terminal'].get(
             'enabled_plugins', [])
+        #enabled plugins bug
         #print 'enabled_plugins',enabled_plugins
         self.plugins = entry_point_files('go_terminal_plugins', enabled_plugins)
         #print 'self.plugins',self.plugins
@@ -735,7 +681,7 @@ class TerminalApplication(GOApplication):
             #print 'self.ws.location',self.ws.location
             #settings = {u'default': {u'1': {u'title': u'jimmy@jimmy-VirtualBox: /home/jimmy/Desktop/django-gateone', u'command': u'SSH', u'metadata': {}}}}
             #print 'self.loc_terms',self.loc_terms
-            print 'self.ws.location',self.ws.location
+            #print 'self.ws.location',self.ws.location
             if self.ws.location in settings:
                 if term in settings[self.ws.location]:
                     termNum = int(term)
@@ -909,7 +855,7 @@ class TerminalApplication(GOApplication):
         Sets up all the callbacks associated with the given *term*, *multiplex*
         instance and *callback_id*.
         """
-        import terminal
+        from applications import terminal
         refresh = partial(self.refresh_screen, term)
         multiplex.add_callback(multiplex.CALLBACK_UPDATE, refresh, callback_id)
         ended = partial(self.term_ended, term)
@@ -946,7 +892,7 @@ class TerminalApplication(GOApplication):
         Removes all the Multiplex and terminal emulator callbacks attached to
         the given *multiplex* instance and *callback_id*.
         """
-        import terminal
+        from applications import terminal
         multiplex.remove_callback(multiplex.CALLBACK_UPDATE, callback_id)
         multiplex.remove_callback(multiplex.CALLBACK_EXIT, callback_id)
         term_emulator = multiplex.term
@@ -1293,7 +1239,7 @@ class TerminalApplication(GOApplication):
         # NOTE: refresh_screen will also take care of cleaning things up if
         #       term_obj['multiplex'].isalive() is False
         self.refresh_screen(term, True) # Send a fresh screen to the client
-        print 'new terminal set terminal id',term
+        #print 'new terminal set terminal id',term
         self.current_term = term
         # Restore expanded modes
         for mode, setting in m.term.expanded_modes.items():
@@ -1786,7 +1732,8 @@ class TerminalApplication(GOApplication):
             full=full, client_id=self.ws.request.http_session.get('gateone_user',None)['session'])
         self.current_user = self.ws.request.http_session.get('gateone_user',None)
         #print 'screen',screen
-        print 'term id',term
+        #print 'term id',term
+        print multiplex.dump()       
         if [a for a in screen if a]: # Checking for non-empty lines here
             output_dict = {
                 'terminal:termupdate': {
@@ -1985,6 +1932,7 @@ class TerminalApplication(GOApplication):
             #print 'multiplex',multiplex
             if multiplex.isalive():
                 #print 'alive'
+                print 'chars',chars
                 multiplex.write(chars)
                 # Handle (gracefully) the situation where a capture is stopped
                 if '\x03' in chars:
@@ -2838,6 +2786,7 @@ class TerminalApplication(GOApplication):
         m = self.loc_terms[term]['multiplex']
         term_obj = m.term
         screen = term_obj.screen
+        #print 'screen',screen
         renditions = term_obj.renditions
         for i, line in enumerate(screen):
             # This gets rid of images:
@@ -2854,33 +2803,33 @@ class TerminalApplication(GOApplication):
             pass # No biggie
         self.ws.debug() # Do regular debugging as well
 
-def apply_cli_overrides(settings):
-    """
-    Updates *settings* in-place with values given on the command line and
-    updates the `options` global with the values from *settings* if not provided
-    on the command line.
-    """
-    # Figure out which options are being overridden on the command line
-    arguments = []
-    terminal_options = ('dtach', 'syslog_session_logging', 'session_logging')
-    for arg in list(sys.argv)[1:]:
-        if not arg.startswith('-'):
-            break
-        else:
-            arguments.append(arg.lstrip('-').split('=', 1)[0])
-    for argument in arguments:
-        if argument not in terminal_options:
-            continue
-        if argument in options:
-            settings[argument] = options[argument]
-    for key, value in settings.items():
-        if key in options:
-            if str == bytes: # Python 2
-                if isinstance(value, unicode):
-                    # For whatever reason Tornado doesn't like unicode values
-                    # for its own settings unless you're using Python 3...
-                    value = str(value)
-            setattr(options, key, value)
+#def apply_cli_overrides(settings):
+    #"""
+    #Updates *settings* in-place with values given on the command line and
+    #updates the `options` global with the values from *settings* if not provided
+    #on the command line.
+    #"""
+    ## Figure out which options are being overridden on the command line
+    #arguments = []
+    #terminal_options = ('dtach', 'syslog_session_logging', 'session_logging')
+    #for arg in list(sys.argv)[1:]:
+        #if not arg.startswith('-'):
+            #break
+        #else:
+            #arguments.append(arg.lstrip('-').split('=', 1)[0])
+    #for argument in arguments:
+        #if argument not in terminal_options:
+            #continue
+        #if argument in options:
+            #settings[argument] = options[argument]
+    #for key, value in settings.items():
+        #if key in options:
+            #if str == bytes: # Python 2
+                #if isinstance(value, unicode):
+                    ## For whatever reason Tornado doesn't like unicode values
+                    ## for its own settings unless you're using Python 3...
+                    #value = str(value)
+            #setattr(options, key, value)
 
 def init(settings):
     """
@@ -2989,7 +2938,7 @@ def init(settings):
     if not which('dtach'):
         term_log.warning(
             _("dtach command not found.  dtach support has been disabled."))
-    apply_cli_overrides(term_settings)
+    #apply_cli_overrides(term_settings)
     # Fix the path to known_hosts if using the old default command
     for name, command in term_settings['commands'].items():
         if '\"%USERDIR%/%USER%/ssh/known_hosts\"' in command:

@@ -295,6 +295,7 @@ def define_options():
             u'js_init': js_init,
             u'unix_socket_path': unix_socket_path,
             u'log_file_prefix': os.path.join(log_file_prefix,'django-gateone.log'),
+            u'kill': False#new variable
 })
     return settings
 

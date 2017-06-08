@@ -2348,7 +2348,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             # So we don't repeat this message a zillion times in the logs:
             self.logged_css_message = True
             return
-        self.sync_log.info('Sync Theme: %s' % settings['theme'])
+        #self.sync_log.info('Sync Theme: %s' % settings['theme'])
         use_client_cache = self.prefs['*']['gateone'].get(
             'use_client_cache', True)
         go_url = settings['go_url'] # Used to prefix the url_prefix
@@ -2585,7 +2585,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         out_dict.update(self.file_cache[filename_hash])
         del out_dict['path'] # Don't want the client knowing this
         url_prefix = self.settings()['url_prefix']
-        self.sync_log.info(_("Sending: {0}").format(filename))
+        #self.sync_log.info(_("Sending: {0}").format(filename))
         cache_dir = self.settings()['cache_dir']
         def send_file(result):
             """
@@ -2750,8 +2750,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     path = file_obj.name
                     if not filename:
                         filename = os.path.split(file_obj.name)[1]
-                self.sync_log.info(
-                    "Sync Check: {filename}".format(filename=filename))
+                #self.sync_log.info(
+                    #"Sync Check: {filename}".format(filename=filename))
                 mtime = os.stat(path).st_mtime
                 filename_hash = hashlib.md5(
                     filename.encode('utf-8')).hexdigest()[:10]
@@ -2792,8 +2792,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             path = paths_or_fileobj.name
             if not filename:
                 filename = os.path.split(paths_or_fileobj.name)[1]
-        self.sync_log.info(
-            "Sync check: {filename}".format(filename=filename))
+        #self.sync_log.info(
+            #"Sync check: {filename}".format(filename=filename))
         # NOTE: The .split('.') above is so the hash we generate is always the
         # same.  The tail end of the filename will have its modification date.
         # Cache the metadata for sync
