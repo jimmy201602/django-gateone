@@ -123,6 +123,9 @@ auth_log = go_logger('gateone.auth')
 msg_log = go_logger('gateone.message')
 client_log = go_logger('gateone.client')
 
+#try to fix logging format bug
+import coloredlogs
+coloredlogs.install(fmt='%(asctime)s  %(name)s[%(process)d] %(levelname)s %(message)s')
 # Setup the locale functions before anything else
 locale.set_default_locale('en_US')
 server_locale = None # Replaced with the actual server locale object in __main__
@@ -1235,7 +1238,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             host=client_address,
             port=self.settings()['port'],#self.settings['port']
             url_prefix=self.settings()['url_prefix'])#self.settings['url_prefix']
-        user = self.current_user(message)
+        user = message.http_session.get('gateone_user',None)
         # NOTE: self.current_user will call self.get_current_user() and set
         # self._current_user the first time it is used.
         policy = applicable_policies("gateone", user, self.prefs)
@@ -1397,7 +1400,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if hasattr(app, 'open'):
                 #client_id, host, remote_ip
                 #bug need to be fixed
-                app.open(self.client_id, '127.0.0.1:8000', client_address) # Call applications' open() functions (if any)
+                app.open(self.client_id, self.origin, client_address) # Call applications' open() functions (if any)
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
         #def send_ping():
@@ -2331,6 +2334,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             This will send the theme files for all applications and plugins that
             have a matching stylesheet in their 'templates' directory.
         """
+        #print 'get_theme opened'
+        #print settings
+        #settings example 
+        #{u'go_url': u'http://127.0.0.1:8000/', u'theme': u'black', u'container': u'gateone', u'prefix': u'go_default_'}
         self.logger.debug('get_theme(%s)' % settings)
         send_css = self.prefs['*']['gateone'].get('send_css', True)
         #print 'send_css',send_css
@@ -2377,50 +2384,68 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # Now enumerate all applications/plugins looking for their own
         # implementations of this theme (must have same name)...
         # Find plugin's theme-specific CSS files:
-        for ep in iter_entry_points(group='go_plugins'):
-            try:
-                exists = resource_exists(ep.module_name, theme_relpath)
-            except ImportError: # Plugin has an issue or has been removed
-                continue
-            if exists:
-                theme_path = resource_filename(ep.module_name, theme_relpath)
-                theme_files.append(theme_path)
-                mtime = os.stat(theme_path).st_mtime
-                if (theme_path not in theme_mtimes
-                    or mtime != theme_mtimes[theme_path]):
-                    theme_mtimes[theme_path] = mtime
-                    modifications = True
+        #print 'theme_relpath',theme_relpath
+        #theme_relpath themes/black.css
+        #Thi is still a bug, I'm not consider how to fix it.
+        static_dir = os.path.join(getsettings('BASE_DIR'), 'static')
+        #for ep in iter_entry_points(group='go_plugins'):
+            #try:
+                #exists = resource_exists(ep.module_name, theme_relpath)
+            #except ImportError: # Plugin has an issue or has been removed
+                #continue
+        theme_path = os.path.join(static_dir,theme_relpath)
+        if os.path.exists(theme_path) and os.path.isfile(theme_path):
+            exists = True
+        else:
+            exists = False
+        if exists:
+            #theme_path = resource_filename(ep.module_name, theme_relpath)
+            theme_files.append(theme_path)
+            mtime = os.stat(theme_path).st_mtime
+            if (theme_path not in theme_mtimes
+                or mtime != theme_mtimes[theme_path]):
+                theme_mtimes[theme_path] = mtime
+                modifications = True
         # Find application's theme-specific CSS files:
-        for ep in iter_entry_points(group='go_applications'):
-            try:
-                exists = resource_exists(ep.module_name, theme_relpath)
-            except ImportError: # Plugin has an issue or has been removed
-                continue
-            if exists:
-                theme_path = resource_filename(ep.module_name, theme_relpath)
-                theme_files.append(theme_path)
-                mtime = os.stat(theme_path).st_mtime
-                if (theme_path not in theme_mtimes
-                    or mtime != theme_mtimes[theme_path]):
-                    theme_mtimes[theme_path] = mtime
-                    modifications = True
-            # Find application plugin's theme-specific CSS files
-            entry_point = 'go_%s_plugins' % ep.name
-            for plugin_ep in iter_entry_points(group=entry_point):
-                try:
-                    exists = resource_exists(
-                        plugin_ep.module_name, theme_relpath)
-                except ImportError: # Plugin has an issue or has been removed
-                    continue
-                if exists:
-                    theme_path = resource_filename(
-                        plugin_ep.module_name, theme_relpath)
-                    theme_files.append(theme_path)
-                    mtime = os.stat(theme_path).st_mtime
-                    if (theme_path not in theme_mtimes
-                        or mtime != theme_mtimes[theme_path]):
-                        theme_mtimes[theme_path] = mtime
-                        modifications = True
+        #bug need to be fixed in the future
+        #for ep in iter_entry_points(group='go_applications'):
+            ##try:
+                ##exists = resource_exists(ep.module_name, theme_relpath)
+            ##except ImportError: # Plugin has an issue or has been removed
+                ##continue
+            #theme_path = os.path.join(static_dir,theme_relpath)
+            #if os.path.exists(theme_path) and os.path.isfile(theme_path):
+                #exists = True
+            #else:
+                #exists = False            
+            #if exists:
+                ##theme_path = resource_filename(ep.module_name, theme_relpath)
+                ##go_applications theme_path /home/jimmy/Desktop/GateOne/gateone/applications/terminal/templates/themes/black.css
+                ##ep.module_name gateone.applications.terminal
+                ##theme_relpath /templates/themes/black.css                
+                #theme_files.append(theme_path)
+                #mtime = os.stat(theme_path).st_mtime
+                #if (theme_path not in theme_mtimes
+                    #or mtime != theme_mtimes[theme_path]):
+                    #theme_mtimes[theme_path] = mtime
+                    #modifications = True
+            ## Find application plugin's theme-specific CSS files
+            #entry_point = 'go_%s_plugins' % ep.name
+            #for plugin_ep in iter_entry_points(group=entry_point):
+                #try:
+                    #exists = resource_exists(
+                        #plugin_ep.module_name, theme_relpath)
+                #except ImportError: # Plugin has an issue or has been removed
+                    #continue
+                #if exists:
+                    #theme_path = resource_filename(
+                        #plugin_ep.module_name, theme_relpath)
+                    #theme_files.append(theme_path)
+                    #mtime = os.stat(theme_path).st_mtime
+                    #if (theme_path not in theme_mtimes
+                        #or mtime != theme_mtimes[theme_path]):
+                        #theme_mtimes[theme_path] = mtime
+                        #modifications = True
         # Grab the modification times for each theme file
         if modifications or not os.path.exists(cached_theme_path):
             logging.debug(_(
@@ -2428,10 +2453,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 "Theme will be recreated."))
             # Combine the theme files into one
             rendered_theme_files = []
-            template_loaders = tornado.web.RequestHandler._template_loaders
+            #template_loaders = tornado.web.RequestHandler._template_loaders
             # This wierd little bit empties Tornado's template cache:
-            for web_template_path in template_loaders:
-                template_loaders[web_template_path].reset()
+            #for web_template_path in template_loaders:
+                #template_loaders[web_template_path].reset()
             for template_file in theme_files:
                 rendered_path = self.render_style(
                     template_file, **template_args)
@@ -2543,7 +2568,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         else:
             filename_hash = files_or_hash
         if filename_hash not in self.file_cache:
-            print 'self.file_cache',self.file_cache
             error_msg = _('File Request Error: File not found ({0})').format(
                 filename_hash)
             self.logger.warning(error_msg)
@@ -2571,7 +2595,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             out_dict['data'] = result
             if kind == 'js':
                 #bug
-                print 'path send_file',path
+                #print 'path send_file',path
                 source_url = None
                 if 'gateone/applications/' in path:
                     application = path.split('applications/')[1].split('/')[0]
@@ -2607,7 +2631,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 message = {'go:cache_file': out_dict}
             try:
                 self.write_message(message)
-            except (WebSocketClosedError, AttributeError):
+            except (AttributeError):
                 pass # WebSocket closed before we got a chance to send this
         logging.debug("file_request() for: %s" % filename)
         result = get_or_cache(cache_dir, path, minify=False)
@@ -2824,6 +2848,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.send_js_or_css(path, 'css', **kwargs)
 
     def wrap_and_send_js(self, js_path, exports={}, **kwargs):
+        #bug 
         """
         Wraps the JavaScript code at *js_path* in a (JavaScript) sandbox which
         exports whatever global variables are provided via *exports* then
@@ -3053,6 +3078,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             allowed_client_side_plugins = globally_enabled_plugins
         # Get the list of plugins
         plugins = entry_point_files(entry_point, allowed_client_side_plugins)
+        #plugins {'py': {}, 'css': {}, 'js': {}}        
         if send_js:
             for plugin, asset_list in plugins['js'].items():
                 for asset in asset_list:
@@ -3142,6 +3168,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #return if locale is en_us
             if locale.lower().startswith('en'):
                 return # Gate One strings are English by default
+            #bug need to be fix
             if not path:
                 path = '/i18n/{locale}/LC_MESSAGES/gateone_js.json'
             if locale not in supported_locales: # Try next-closest match
@@ -3207,6 +3234,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
         if *upn* is 'AUTHENTICATED' all users will get the message.
         """
+        #print 'send_message session',session
         message_dict = {'go:user_message': message}
         if upn:
             ApplicationWebSocket._deliver(message_dict, upn=upn)
@@ -3563,6 +3591,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def request(self):
         return self.request()
     
+    @classmethod
     def settings(self):
         from applications.configuration import define_options
         settings = define_options()
@@ -3573,6 +3602,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
     def get_request_headers(self):
         return self.get_request_headers()
+    
         
         
 class ErrorHandler(tornado.web.RequestHandler):
@@ -3945,7 +3975,7 @@ def validate_licenses(licenses):
 global CPU_ASYNC
 global IO_ASYNC
 IO_ASYNC = ThreadedRunner()
-cores = getsettings('multiprocessing_workers',None)
+cores = define_options()['multiprocessing_workers']
 try:
     cores = int(cores)
 except TypeError:

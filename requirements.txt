@@ -60,3 +60,4 @@ typing==3.6.1
 wcwidth==0.1.7
 webencodings==0.5.1
 zope.interface==4.4.0
+coloredlogs==7.0
