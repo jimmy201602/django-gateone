@@ -1733,7 +1733,7 @@ class TerminalApplication(GOApplication):
         self.current_user = self.ws.request.http_session.get('gateone_user',None)
         #print 'screen',screen
         #print 'term id',term
-        print multiplex.dump()       
+        #print multiplex.dump()       
         if [a for a in screen if a]: # Checking for non-empty lines here
             output_dict = {
                 'terminal:termupdate': {
@@ -1932,7 +1932,7 @@ class TerminalApplication(GOApplication):
             #print 'multiplex',multiplex
             if multiplex.isalive():
                 #print 'alive'
-                print 'chars',chars
+                #print 'chars',chars
                 multiplex.write(chars)
                 # Handle (gracefully) the situation where a capture is stopped
                 if '\x03' in chars:
@@ -1957,7 +1957,7 @@ class TerminalApplication(GOApplication):
         is not present, *self.current_term* will be used.
         """
         #self.term_log.debug('write_chars(%s)' % message)
-        print 'write_chars(%s)' % message
+        #print 'write_chars(%s)' % message
         if 'chars' not in message:
             return # Invalid message
         #print 'self.current_term',self.current_term

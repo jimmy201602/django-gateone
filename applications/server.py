@@ -877,7 +877,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     "Exception encountered trying to execute the file update "
                     "function for {path}...".format(path=path)))
                 logger.error(e)
-                if self.settings()['logging'] == 'debug':
+                if cls.settings()['logging'] == 'debug':
                     import traceback
                     traceback.print_exc(file=sys.stdout)
 
@@ -3235,6 +3235,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if *upn* is 'AUTHENTICATED' all users will get the message.
         """
         #print 'send_message session',session
+        #print 'send_message',message
         message_dict = {'go:user_message': message}
         if upn:
             ApplicationWebSocket._deliver(message_dict, upn=upn)
