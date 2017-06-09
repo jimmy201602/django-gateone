@@ -1620,6 +1620,7 @@ class TerminalApplication(GOApplication):
             return
         title = term_obj['multiplex'].term.get_title()
         # Only send a title update if it actually changed
+        #print 'title',title
         if title != term_obj['title'] or force:
             term_obj['title'] = title
             title_message = {

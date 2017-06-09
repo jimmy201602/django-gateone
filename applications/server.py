@@ -324,6 +324,14 @@ def gateone_policies(cls):
         return policy_functions[function.__name__](cls, policy)
     return True # Default to permissive if we made it this far
 
+@atexit.register
+def clean_cache():
+    cache_dir = define_options()['cache_dir']
+    logging.debug('clean cache dir')
+    for file in os.listdir(cache_dir):
+        file_name = os.path.join(cache_dir,file)
+        os.remove(file_name)
+    
 @atexit.register # I love this feature!
 def kill_all_sessions(timeout=False):
     """
@@ -345,7 +353,7 @@ def kill_all_sessions(timeout=False):
                 if SESSIONS[session]["kill_session_callbacks"]:
                     for callback in SESSIONS[session]["kill_session_callbacks"]:
                         callback(session)
-
+    
 def timeout_sessions():
     """
     Loops over the SESSIONS dict killing any sessions that haven't been used
@@ -771,7 +779,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     watched_files = {}     # Format: {<file path>: <modification time>}
     file_update_funcs = {} # Format: {<file path>: <function called on update>}
     file_watcher = None    # Will be replaced with a PeriodicCallback
-    prefs = {} # Gets updated with every call to initialize()
+    prefs = get_settings(define_options()['settings_dir']) # Gets updated with every call to initialize()
     http_user = True
     http_user_and_session = True
     channel_session = True
@@ -1393,6 +1401,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             path = os.path.join(getsettings('BASE_DIR'), 'static')
             path = os.path.join(path, js_file)#get js path
             #print 'self send js' ,path
+            #print 'opened send js'
             self.send_js(path)
         #print 'self.client_id',self.client_id
         #fix bug SESSIONS key error
@@ -1440,9 +1449,19 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 if key in self.actions:
                     try:
                         if value is None:
-                            self.actions[key]()
+                            try:
+                                self.actions[key]()
+                            except Exception,e:
+                                import traceback
+                                print 'key exception',key
+                                print traceback.print_exc()
                         else:
-                            self.actions[key](value)
+                            try:
+                                self.actions[key](value)
+                            except Exception,e:
+                                import traceback
+                                print 'key exception',key
+                                print traceback.print_exc()                            
                     except (KeyError, TypeError, AttributeError) as e:
                         import traceback
                         for frame in traceback.extract_tb(sys.exc_info()[2]):
@@ -2348,7 +2367,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             # So we don't repeat this message a zillion times in the logs:
             self.logged_css_message = True
             return
-        #self.sync_log.info('Sync Theme: %s' % settings['theme'])
+        self.sync_log.info('Sync Theme: %s' % settings['theme'])
         use_client_cache = self.prefs['*']['gateone'].get(
             'use_client_cache', True)
         go_url = settings['go_url'] # Used to prefix the url_prefix
@@ -2503,6 +2522,150 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         filenames = message['filenames']
         kind = message['kind']
         expired = []
+        #print 'cache_cleanup self.file_cache',self.file_cache
+        """
+        {
+            'b58e0e7f1a': {
+              'kind': 'css',
+              'filename_hash': 'b58e0e7f1a',
+              'filename': u'black.css',
+              'mtime': 1496989873.711529,
+              'path': u'/home/jimmy/Desktop/django-gateone/cache/black.css',
+              'element_id': 'theme'
+            },
+            '9e11a98811': {
+              'kind': 'js',
+              'media': 'screen',
+              'filename_hash': '9e11a98811',
+              'filename': 'doT.js',
+              'mtime': 1493711594.012282,
+              'path': '/home/jimmy/Desktop/django-gateone/static/doT.js',
+              'element_id': None,
+              'requires': None
+            },
+            'e79230eaab': {
+              'kind': 'js',
+              'media': 'screen',
+              'filename_hash': 'e79230eaab',
+              'filename': 'gateone_misc.js',
+              'mtime': 1493711594.016282,
+              'path': '/home/jimmy/Desktop/django-gateone/static/gateone_misc.js',
+              'element_id': None,
+              'requires': None
+            },
+            '24318f1dac': {
+              'kind': 'css',
+              'media': u'print',
+              'filename_hash': '24318f1dac',
+              'filename': u'printing.css',
+              'mtime': 1496989873.111529,
+              'path': '/home/jimmy/Desktop/django-gateone/cache/rendered_f267d17b51_1493711593',
+              'element_id': u'terminal_print_css',
+              'requires': None
+            },
+            '1b658ea216': {
+              'kind': 'js',
+              'media': 'screen',
+              'filename_hash': '1b658ea216',
+              'filename': u'terminal_input.js',
+              'mtime': 1493711593.904282,
+              'path': u'/home/jimmy/Desktop/django-gateone/static/terminal/terminal_input.js',
+              'element_id': None,
+              'requires': [
+                u'terminal.js'
+              ]
+            },
+            '585acf9cfe': {
+              'kind': 'js',
+              'media': 'screen',
+              'filename_hash': '585acf9cfe',
+              'filename': 'gateone_input.js',
+              'mtime': 1493711594.016282,
+              'path': '/home/jimmy/Desktop/django-gateone/static/gateone_input.js',
+              'element_id': None,
+              'requires': None
+            },
+            'd1617aeb92': {
+              'kind': 'css',
+              'media': 'screen',
+              'filename': u'gnome-terminal.css',
+              'mtime': 1496989875.711529,
+              'path': '/home/jimmy/Desktop/django-gateone/cache/rendered_fe8a356b27_1493711593',
+              'element_id': u'text_colors',
+              'requires': None
+            },
+            '018c078385': {
+              'kind': 'js',
+              'media': 'screen',
+              'filename_hash': '018c078385',
+              'filename': 'gateone_visual_extra.js',
+              'mtime': 1493711594.016282,
+              'path': '/home/jimmy/Desktop/django-gateone/static/gateone_visual_extra.js',
+              'element_id': None,
+              'requires': None
+            },
+            'b820c989d2': {
+              'kind': 'js',
+              'media': 'screen',
+              'filename_hash': 'b820c989d2',
+              'filename': u'terminal.js',
+              'mtime': 1496974887.729488,
+              'path': u'/home/jimmy/Desktop/django-gateone/static/terminal/terminal.js',
+              'element_id': None,
+              'requires': [
+                u'terminal.css'
+              ]
+            },
+            '8b7ab92018': {
+              'kind': 'css',
+              'media': 'screen',
+              'filename_hash': '8b7ab92018',
+              'filename': u'256_colors.css',
+              'mtime': 1496989873.107529,
+              'path': u'/home/jimmy/Desktop/django-gateone/cache/256_colors.css',
+              'element_id': None,
+              'requires': None
+            },
+            '12a50d7561': {
+              'kind': 'css',
+              'media': 'screen',
+              'filename': u'terminal.css',
+              'mtime': 1496989873.099529,
+              'path': '/home/jimmy/Desktop/django-gateone/cache/rendered_1892166322_1493711593',
+              'element_id': u'terminal.css',
+              'requires': None
+            },
+            'b2dd27ee3c': {
+              'kind': 'js',
+              'media': 'screen',
+              'filename_hash': 'b2dd27ee3c',
+              'filename': 'gateone_utils_extra.js',
+              'mtime': 1493711594.016282,
+              'path': '/home/jimmy/Desktop/django-gateone/static/gateone_utils_extra.js',
+              'element_id': None,
+              'requires': None
+            }
+          }
+        """
+        #print 'cache_cleanup message',message
+        """
+        {
+            u'kind': u'css',
+            u'filenames': [
+              u'8b7ab92018',
+              u'b58e0e7f1a',
+              u'14339c5c8d',
+              u'dddabab940',
+              u'277545e5c0',
+              u'd1617aeb92',
+              u'24318f1dac',
+              u'5b9854c837',
+              u'12a50d7561',
+              u'9dc1025da5'
+            ]
+          }
+        """
+        #print 'self.file_cache',self.file_cache
         for filename_hash in filenames:
             if filename_hash not in self.file_cache:
                 expired.append(filename_hash)
@@ -2514,6 +2677,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug(_(
             "Requesting deletion of expired files at client %s: %s" % (
             self.request.http_session.get('gateone_user',None)['ip_address'], filenames)))
+        print 'expired',expired
         message = {'go:cache_expired': message}
         self.write_message(message)
         # Also clean up stale files in the cache while we're at it
@@ -2585,7 +2749,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         out_dict.update(self.file_cache[filename_hash])
         del out_dict['path'] # Don't want the client knowing this
         url_prefix = self.settings()['url_prefix']
-        #self.sync_log.info(_("Sending: {0}").format(filename))
+        self.sync_log.info(_("Sending: {0}").format(filename))
         cache_dir = self.settings()['cache_dir']
         def send_file(result):
             """
@@ -2656,6 +2820,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
         .. note:: This kind of file sending *always* uses the client-side cache.
         """
+        #print 'self.send_file function called'
         if not os.path.exists(filepath):
             self.sync_log.error(_("File does not exist: {0}").format(filepath))
             return
@@ -2750,8 +2915,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     path = file_obj.name
                     if not filename:
                         filename = os.path.split(file_obj.name)[1]
-                #self.sync_log.info(
-                    #"Sync Check: {filename}".format(filename=filename))
+                self.sync_log.info(
+                    "Sync Check: {filename}".format(filename=filename))
                 mtime = os.stat(path).st_mtime
                 filename_hash = hashlib.md5(
                     filename.encode('utf-8')).hexdigest()[:10]
@@ -2792,8 +2957,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             path = paths_or_fileobj.name
             if not filename:
                 filename = os.path.split(paths_or_fileobj.name)[1]
-        #self.sync_log.info(
-            #"Sync check: {filename}".format(filename=filename))
+        self.sync_log.info(
+            "Sync check: {filename}".format(filename=filename))
         # NOTE: The .split('.') above is so the hash we generate is always the
         # same.  The tail end of the filename will have its modification date.
         # Cache the metadata for sync
@@ -2828,6 +2993,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'media': media # NOTE: Ignored if JS
         }]}
         #print 'out_dict',out_dict
+        self.sync_log.info(json_encode(out_dict))
         if use_client_cache:
             message = {'go:file_sync': out_dict}
             self.write_message(message)
@@ -3437,6 +3603,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print message['headers']
         #else:
             #print 'no header'
+        #from applications.app_terminal import TerminalApplication
+        #instance = TerminalApplication(self)  
+        #instance.initialize(message=message)
         header = dict()
         headers = message.get('headers',None)
         if headers:
@@ -3444,6 +3613,19 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 key , value = data
                 header[key] = value
         self.get_request_headers = header
+        self.request = message
+        self.get_secure_cookie = message.http_session
+        #logout will cause a bug
+        client_address = message.http_session.get('gateone_user',None)['ip_address']
+        
+        if not isinstance(self.current_user,dict):
+            self.current_user(message)
+        self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
+            protocol=message.http_session.get('gateone_user',None)['protocol'],
+            host=client_address,
+            port=getsettings('port',8000),#self.settings['port']
+            url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']
+        #self.base_url https://127.0.0.1:10443/                
         #print 'connected'
         #self.request(message=message)
         #print 'connect prefx',self.prefs
@@ -3471,18 +3653,16 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #self.apps.append(instance) 
         #instance.initialize(message=message)
         #self.list_applications()  
-        self.request = message
+        #self.request = message
         return self.open(message)
     
     #@channel_session
     def receive(self, message, **kwargs):
-        #print 'receive message',message,kwargs
+        print 'receive message',message.content.get('text',None),kwargs
         #print 'receive message content text',message.content.get('text',None)
-        from applications.app_terminal import TerminalApplication
-        instance = TerminalApplication(self)
         #self.apps.append(instance) 
-        instance.initialize(message=message)
         #self.list_applications()
+        self.request = message
         return self.on_message(message)
 
     def disconnect(self, message, **kwargs):
@@ -3530,19 +3710,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             ##print dir(message)
             ##print type(message.content)
             ##print 'raw message text', None  
-        self.request = message
-        self.get_secure_cookie = message.http_session
-        #logout will cause a bug
-        client_address = message.http_session.get('gateone_user',None)['ip_address']
-        
-        if not isinstance(self.current_user,dict):
-            self.current_user(message)
-        self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
-            protocol=message.http_session.get('gateone_user',None)['protocol'],
-            host=client_address,
-            port=getsettings('port',8000),#self.settings['port']
-            url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']
-        #self.base_url https://127.0.0.1:10443:10443/        
         if 'text' in message:
             self.receive(message, **kwargs)
         else:
