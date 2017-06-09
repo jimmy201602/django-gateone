@@ -2972,8 +2972,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if not filename:
                 filename = os.path.split(paths_or_fileobj.name)[1]
         #print 'paths_or_fileobj',paths_or_fileobj
-        self.sync_log.info(
-            "Sync check: {filename}".format(filename=filename))
+        #remove annonying log info
+        #self.sync_log.info(
+            #"Sync check: {filename}".format(filename=filename))
         # NOTE: The .split('.') above is so the hash we generate is always the
         # same.  The tail end of the filename will have its modification date.
         # Cache the metadata for sync
