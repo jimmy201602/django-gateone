@@ -785,6 +785,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     channel_session = True
     channel_session_user = True    
     base_url = ''
+    request = None
     def __init__(self,  message, **kwargs):
         #print message
         #print 'initialize the websocket'
@@ -2686,6 +2687,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if 'dddabab940' in expired:
             dddabab940 = 'default.css'
             expired.remove('dddabab940')
+        if '277545e5c0' in expired:
+            t277545e5c0 = 'font.css'
+            expired.remove('277545e5c0')
         if len(expired) == 0:
             return
         print 'expired',expired
@@ -3771,8 +3775,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             Group(group, channel_layer=message.channel_layer).add(message.reply_channel)
         self.connect(message, **kwargs)    
     
-    def request(self):
-        return self.request()
+    #def request(self):
+        #return self.request()
     
     @classmethod
     def settings(self):

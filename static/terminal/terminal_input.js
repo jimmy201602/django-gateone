@@ -74,6 +74,7 @@ GateOne.Base.update(GateOne.Terminal.Input, {
             for (var i=0; i<=cb.length; i++) { charString += cb.pop(); }
             if (charString != "undefined") {
                 var message = {'c': charString};
+                //console.log(charString);
                 E.trigger("terminal:send_chars", message); // Called before the message is sent so it can be manipulated.
                 go.ws.send(JSON.stringify(message));
                 t.doingUpdate = false;

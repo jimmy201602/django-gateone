@@ -5604,7 +5604,7 @@ GateOne.Base.update(GateOne.Storage, {
             logDebug('cleanupFiles()');
             var filenames = [];
             u.toArray(objects).forEach(function(jsObj) {
-                console.log(jsObj);
+                //console.log(jsObj);
                 filenames.push(jsObj['hash']); // The filenames are actually the hashes of their names
             });
             if (filenames.length) {
