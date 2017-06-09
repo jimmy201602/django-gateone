@@ -784,6 +784,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     http_user_and_session = True
     channel_session = True
     channel_session_user = True    
+    base_url = ''
     def __init__(self,  message, **kwargs):
         #print message
         #print 'initialize the websocket'
@@ -1423,6 +1424,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #interval = 5000 # milliseconds
         #self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
         #self.pinger.start()    
+        #bug
+        self.list_applications()
         self.trigger("go:open")
 
     def on_message(self, message):
@@ -1896,7 +1899,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                         / float(86400))
                     #cookie_data {"upn": "ANONYMOUS", "session": "MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM"}    
                     #{u'upn': u'jimmy', u'ip_address': u'127.0.0.1', u'session': u'NjhlOTY0YjUzZDdiNDVmYjlhZDllNGFiOWNkOTFlMjM0Y', u'protocol': u'http'}
-                    cookie_data = self.get_secure_cookie['gateone_user']
+                    cookie_data = self.request.http_session.get('gateone_user',None)
                     # NOTE: The above doesn't actually touch any cookies
                 else:
                     # Someone is attempting to perform API-based authentication
@@ -1953,7 +1956,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'self.get_secure_cookie[gateone_user]',self.get_secure_cookie['gateone_user']['ip_address']
         metadata = {
             'upn': user['upn'],
-            'ip_address': self.get_secure_cookie['gateone_user']['ip_address'],
+            'ip_address': self.request.http_session.get('gateone_user',None)['ip_address'],
             'location': self.location
         }
         self.logger = go_logger(None, **metadata)
@@ -1968,7 +1971,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             u"User {upn} authenticated successfully via origin {origin} "
             u"(location {location}).").format(
                 upn=user['upn'],
-                origin=self.get_secure_cookie['gateone_user']['ip_address'],#origin=self.origin
+                origin=self.request.http_session.get('gateone_user',None)['ip_address'],#origin=self.origin
                 location=self.location)
         auth_log.info(log_msg)
         # This check is to make sure there's no existing session so we don't
@@ -1980,7 +1983,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if self.session not in SESSIONS:
             # Start a new session:
             SESSIONS[self.session] = {
-                'client_ids': [self.get_secure_cookie['session']],#'client_ids': [self.client_id]
+                'client_ids': [self.request.http_session.get('gateone_user',None)['session']],#'client_ids': [self.client_id]
                 'last_seen': 'connected',
                 'user': user,
                 'kill_session_callbacks': [
@@ -1995,9 +1998,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             }
         else:
             SESSIONS[self.session]['last_seen'] = 'connected'
-            session_id = self.get_secure_cookie['session']
+            session_id = self.request.http_session.get('gateone_user',None)['session']
             if session_id not in SESSIONS[self.session]['client_ids']:
-                SESSIONS[self.session]['client_ids'].append(self.get_secure_cookie['session'])#SESSIONS[self.session]['client_ids'].append(self.client_id)
+                SESSIONS[self.session]['client_ids'].append(self.request.http_session.get('gateone_user',None)['session'])#SESSIONS[self.session]['client_ids'].append(self.client_id)
             if self.location not in SESSIONS[self.session]['locations']:
                 SESSIONS[self.session]['locations'][self.location] = {}
         # A shortcut:
@@ -2677,6 +2680,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug(_(
             "Requesting deletion of expired files at client %s: %s" % (
             self.request.http_session.get('gateone_user',None)['ip_address'], filenames)))
+        if 'b58e0e7f1a' in expired:
+            b58e0e7f1a = 'black.css'
+            expired.remove('b58e0e7f1a')
+        if 'dddabab940' in expired:
+            dddabab940 = 'default.css'
+            expired.remove('dddabab940')
+        if len(expired) == 0:
+            return
         print 'expired',expired
         message = {'go:cache_expired': message}
         self.write_message(message)
@@ -2721,6 +2732,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         If the `cssmin` module is installed CSS files will be minified before
         being sent to the client.
         """
+        #print 'files_or_hash',files_or_hash
         self.sync_log.debug(
             "file_request(%s, use_client_cache=%s)" % (
                 files_or_hash, use_client_cache))
@@ -2751,6 +2763,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         url_prefix = self.settings()['url_prefix']
         self.sync_log.info(_("Sending: {0}").format(filename))
         cache_dir = self.settings()['cache_dir']
+        #print 'file_request path',path
         def send_file(result):
             """
             Adds our minified data to the out_dict and sends it to the
@@ -2799,6 +2812,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 pass # WebSocket closed before we got a chance to send this
         logging.debug("file_request() for: %s" % filename)
         result = get_or_cache(cache_dir, path, minify=False)
+        #print 'result',result
         send_file(result)        
         if self.settings()['debug']:
             result = get_or_cache(cache_dir, path, minify=False)
@@ -2957,6 +2971,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             path = paths_or_fileobj.name
             if not filename:
                 filename = os.path.split(paths_or_fileobj.name)[1]
+        #print 'paths_or_fileobj',paths_or_fileobj
         self.sync_log.info(
             "Sync check: {filename}".format(filename=filename))
         # NOTE: The .split('.') above is so the hash we generate is always the
@@ -2993,7 +3008,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'media': media # NOTE: Ignored if JS
         }]}
         #print 'out_dict',out_dict
-        self.sync_log.info(json_encode(out_dict))
         if use_client_cache:
             message = {'go:file_sync': out_dict}
             self.write_message(message)
@@ -3658,8 +3672,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     
     #@channel_session
     def receive(self, message, **kwargs):
-        print 'receive message',message.content.get('text',None),kwargs
-        #print 'receive message content text',message.content.get('text',None)
+        #print 'receive message',message.content.get('text',None),kwargs
+        print 'receive message content text',message.content.get('text',None)
         #self.apps.append(instance) 
         #self.list_applications()
         self.request = message
