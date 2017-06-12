@@ -788,7 +788,16 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     request = None
     def __init__(self,  message, **kwargs):
         #print message
+        super(WebsocketConsumer,self).__init__(message,**kwargs)
         #print 'initialize the websocket'
+        #print message.content
+        """
+        
+        {u'reply_channel': u'daphne.response.zaVmWIEROh!bVGRBKiRYz', u'server': ['127.0.0.1', 8000], u'headers': [['origin', 'http://127.0.0.1:8000'], ['upgrade', 'websocket'], ['accept-language', 'en-US,en;q=0.8'], ['accept-encoding', 'gzip, deflate, br'], ['sec-websocket-version', '13'], ['host', '127.0.0.1:8000'], ['sec-websocket-key', 't7gYSdhD89Ir2xERiGfcHA=='], ['user-agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.86 Safari/537.36'], ['connection', 'Upgrade'], ['cookie', 'csrftoken=2OLFifLswIbqAaKkZk5KhVBM4OQCtR8TPrtpxH5kFGLVsHOXwZPT5Nsihtnw735A; sessionid=599nhdu3krvaaie3zsl8m007ckemu985; gateone_user="eyJ1cG4iOiJqaW1teSIsInByb3RvY29sIjoiaHR0cCIsInNlc3Npb24iOiJZMlV4WWpOa1pXUTRZVEEwTkRZd01EZzJNR1ppTTJFME9UZ3pOell4T0RGbFoiLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1dJeyV:CGDSBqWa8TXvVjhgBFi-MtyEgR4"'], ['pragma', 'no-cache'], ['cache-control', 'no-cache'], ['sec-websocket-extensions', 'permessage-deflate; client_max_window_bits']], u'client': ['127.0.0.1', 36720], u'query_string': u'', u'path': u'/ws', u'order': 0}
+        """
+        #print dir(message)
+        print message.content
+        print os.getpid()
         self.actions = {
             'go:ping': self.pong,
             'go:log': self.log_message,
@@ -840,10 +849,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
         current_term = None
-        super(ApplicationWebSocket, self).__init__(message, **kwargs)
-        from applications.app_terminal import TerminalApplication
-        self.initialize(apps=[TerminalApplication],message=message)
-        super(WebsocketConsumer,self).__init__(message,**kwargs)
+        #super(ApplicationWebSocket, self).__init__(message, **kwargs)
+        #from applications.app_terminal import TerminalApplication
+        #self.initialize(apps=[TerminalApplication],message=message)
+        #super(WebsocketConsumer,self).__init__(message,**kwargs)
 
     @classmethod
     def file_checker(cls):
@@ -1013,12 +1022,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug('ApplicationWebSocket.initialize(%s)' % apps)
         # Make sure we have all prefs ready for checking
         cls = ApplicationWebSocket
-        cls.prefs = get_settings(self.settings()['settings_dir'])
+        #cls.prefs = get_settings(self.settings()['settings_dir'])
         #print 'initialize cls prefix',self.prefs
         #sel.settings example
         """
         {u'dtach': True, 'version': None, u'locale': u'en_US', u'address': u'', u'pam_service': u'login', u'syslog_facility': u'daemon', 'cookie_secret': u'ZTQyZTZhYjQxZmVjNDI2M2E3MWZiYmMyOWViZDA5ZGZlM', u'enable_unix_socket': False, u'port': 10443, u'uid': u'1000', u'url_prefix': u'/', u'user_dir': u'/home/jimmy/Desktop/GateOne/users', 'settings_dir': '/home/jimmy/Desktop/GateOne/conf.d', u'unix_socket_mode': u'0600', u'multiprocessing_workers': None, u'certificate': u'/home/jimmy/Desktop/GateOne/ssl/certificate.pem', u'log_rotate_interval': 1, u'log_to_stderr': None, u'log_rotate_when': u'midnight', u'gid': u'1000', u'pid_file': u'/home/jimmy/Desktop/GateOne/gateone.pid', 'command': None, 'gzip': True, u'pam_realm': u'jimmy-linux', 'login_url': u'/auth', 'configure': False, u'sso_service': u'HTTP', 'cli_overrides': [], u'https_redirect': False, u'auth': None, 'api_keys': '', u'disable_ssl': False, u'ca_certs': None, u'cache_dir': u'/home/jimmy/Desktop/GateOne/cache', u'syslog_session_logging': False, u'user_logs_max_age': u'30d', u'sso_keytab': None, u'api_timestamp_window': datetime.timedelta(0, 30), 'static_url_prefix': u'/static/', u'log_rotate_mode': u'size', u'log_file_num_backups': 10, u'logging': u'info', u'embedded': False, u'origins': [u'localhost:10443', u'127.0.0.1:10443', u'jimmy-linux:10443', u'127.0.1.1:10443'], u'session_logging': True, u'keyfile': u'/home/jimmy/Desktop/GateOne/ssl/keyfile.pem', u'session_dir': u'/home/jimmy/Desktop/GateOne/sessions', 'static_url': '/home/jimmy/Desktop/GateOne/gateone/static', u'ssl_auth': u'none', u'log_file_max_size': 100000000, u'session_timeout': u'5d', u'sso_realm': None, u'debug': False, u'js_init': u'', u'unix_socket_path': u'/tmp/gateone.sock', u'log_file_prefix': u'/home/jimmy/Desktop/GateOne/logs/gateone.log'}
         """
+        from applications.app_terminal import TerminalApplication
+        apps = [TerminalApplication]
         cache_dir = self.settings()['cache_dir']
         if not os.path.exists(cache_dir):
             mkdir_p(cache_dir)
@@ -1228,8 +1239,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             settings for other applications and scopes).
         """
         #print 'websocket opened'
+        self.initialize(message=message)
         cls = ApplicationWebSocket
         cls.instances.add(self)
+        self.request = message
         #print 'websocket opened self.prefx',self.prefs
         #if hasattr(self, 'set_nodelay'):
             ## New feature of Tornado 3.1 that can reduce latency:
@@ -3343,8 +3356,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             ``pojson /path/to/translation.po`` conversion.
         """
         from applications.locale import supported_locales
-        if not locales:
-            locales = self.user_locales
+        #if not locales:
+            #locales = self.user_locales
         if not locales: # Use the server's locale
             locales = [self.prefs['*']['gateone'].get('locale')]
         logging.debug("send_js_translation() locales: %s" % locales)
@@ -3625,6 +3638,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #from applications.app_terminal import TerminalApplication
         #instance = TerminalApplication(self)  
         #instance.initialize(message=message)
+        print 'connect'
         header = dict()
         headers = message.get('headers',None)
         if headers:
