@@ -1245,8 +1245,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print self.actions
         from applications.app_terminal import TerminalApplication
         self.initialize(message=message,apps=[TerminalApplication],**kwargs)
-        #cls = ApplicationWebSocket(message)
-        #cls.instances.add(self)
+        cls = ApplicationWebSocket
+        cls.instances.add(self)        
         print self.instances
         self.request = message
         #print 'websocket opened self.prefx',self.prefs
@@ -3700,7 +3700,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     #@channel_session
     def receive(self, message, **kwargs):
         #print 'receive message',message.content.get('text',None),kwargs
-        print 'receive message content text',message.content.get('text',None)
+        #print 'receive message content text',message.content.get('text',None)
         #self.apps.append(instance) 
         #self.list_applications()
         self.request = message
