@@ -788,7 +788,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     request = None
     def __init__(self,  message, **kwargs):
         #print message
-        super(WebsocketConsumer,self).__init__(message,**kwargs)
+        #super(WebsocketConsumer,self).__init__(message,**kwargs)
         #print 'initialize the websocket'
         #print message.content
         """
@@ -853,6 +853,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #from applications.app_terminal import TerminalApplication
         #self.initialize(apps=[TerminalApplication],message=message)
         #super(WebsocketConsumer,self).__init__(message,**kwargs)
+        super(WebsocketConsumer,self).__init__(message,**kwargs)        
 
     @classmethod
     def file_checker(cls):
@@ -1021,15 +1022,15 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         logging.debug('ApplicationWebSocket.initialize(%s)' % apps)
         # Make sure we have all prefs ready for checking
-        cls = ApplicationWebSocket
+        #cls = ApplicationWebSocket
         #cls.prefs = get_settings(self.settings()['settings_dir'])
         #print 'initialize cls prefix',self.prefs
         #sel.settings example
         """
         {u'dtach': True, 'version': None, u'locale': u'en_US', u'address': u'', u'pam_service': u'login', u'syslog_facility': u'daemon', 'cookie_secret': u'ZTQyZTZhYjQxZmVjNDI2M2E3MWZiYmMyOWViZDA5ZGZlM', u'enable_unix_socket': False, u'port': 10443, u'uid': u'1000', u'url_prefix': u'/', u'user_dir': u'/home/jimmy/Desktop/GateOne/users', 'settings_dir': '/home/jimmy/Desktop/GateOne/conf.d', u'unix_socket_mode': u'0600', u'multiprocessing_workers': None, u'certificate': u'/home/jimmy/Desktop/GateOne/ssl/certificate.pem', u'log_rotate_interval': 1, u'log_to_stderr': None, u'log_rotate_when': u'midnight', u'gid': u'1000', u'pid_file': u'/home/jimmy/Desktop/GateOne/gateone.pid', 'command': None, 'gzip': True, u'pam_realm': u'jimmy-linux', 'login_url': u'/auth', 'configure': False, u'sso_service': u'HTTP', 'cli_overrides': [], u'https_redirect': False, u'auth': None, 'api_keys': '', u'disable_ssl': False, u'ca_certs': None, u'cache_dir': u'/home/jimmy/Desktop/GateOne/cache', u'syslog_session_logging': False, u'user_logs_max_age': u'30d', u'sso_keytab': None, u'api_timestamp_window': datetime.timedelta(0, 30), 'static_url_prefix': u'/static/', u'log_rotate_mode': u'size', u'log_file_num_backups': 10, u'logging': u'info', u'embedded': False, u'origins': [u'localhost:10443', u'127.0.0.1:10443', u'jimmy-linux:10443', u'127.0.1.1:10443'], u'session_logging': True, u'keyfile': u'/home/jimmy/Desktop/GateOne/ssl/keyfile.pem', u'session_dir': u'/home/jimmy/Desktop/GateOne/sessions', 'static_url': '/home/jimmy/Desktop/GateOne/gateone/static', u'ssl_auth': u'none', u'log_file_max_size': 100000000, u'session_timeout': u'5d', u'sso_realm': None, u'debug': False, u'js_init': u'', u'unix_socket_path': u'/tmp/gateone.sock', u'log_file_prefix': u'/home/jimmy/Desktop/GateOne/logs/gateone.log'}
         """
-        from applications.app_terminal import TerminalApplication
-        apps = [TerminalApplication]
+        #from applications.app_terminal import TerminalApplication
+        #apps = [TerminalApplication]
         cache_dir = self.settings()['cache_dir']
         if not os.path.exists(cache_dir):
             mkdir_p(cache_dir)
@@ -1213,7 +1214,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             logging.error("Origin check failed for: %s" % origin)
         return valid
 
-    def open(self, message):
+    def open(self, message,**kwargs):
         """
         Called when a new WebSocket is opened.  Will deny access to any
         origin that is not defined in `self.settings['origin']`.  Also sends
@@ -1239,10 +1240,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             settings for other applications and scopes).
         """
         #print 'websocket opened'
-        self.initialize(message=message)
-        cls = ApplicationWebSocket(message)
-        cls.instances.add(self)
-        print cls.instances
+        #super(ApplicationWebSocket,self).__init__(message)
+        #self.__init__(message,**kwargs)
+        #print self.actions
+        from applications.app_terminal import TerminalApplication
+        self.initialize(message=message,apps=[TerminalApplication],**kwargs)
+        #cls = ApplicationWebSocket(message)
+        #cls.instances.add(self)
+        print self.instances
         self.request = message
         #print 'websocket opened self.prefx',self.prefs
         #if hasattr(self, 'set_nodelay'):
@@ -3640,6 +3645,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #instance = TerminalApplication(self)  
         #instance.initialize(message=message)
         print 'connect'
+        #print message.content
         #self.__init__(message,**kwargs)
         header = dict()
         headers = message.get('headers',None)
@@ -3689,12 +3695,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #instance.initialize(message=message)
         #self.list_applications()  
         #self.request = message
-        try:
-            self.open(message)
-        except Exception,e:
-            import traceback
-            print traceback.print_exc()
-        return self.open(message)
+        return self.open(message,**kwargs)
     
     #@channel_session
     def receive(self, message, **kwargs):
