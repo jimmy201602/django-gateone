@@ -1078,8 +1078,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if hasattr(instance, 'initialize'):
                 #print 'initialize app_terminal'
                 instance.initialize(message=message)
-            if hasattr(instance, 'authenticate'):
-                instance.authenticate(message=message)
+            #if hasattr(instance, 'authenticate'):
+                #instance.authenticate(message=message)
 
     def send_extra(self):
         """
@@ -1247,7 +1247,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.initialize(message=message,apps=[TerminalApplication],**kwargs)
         cls = ApplicationWebSocket
         cls.instances.add(self)        
-        print self.instances
+        #print self.instances
         self.request = message
         #print 'websocket opened self.prefx',self.prefs
         #if hasattr(self, 'set_nodelay'):
@@ -1426,11 +1426,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.send_js(path)
         #print 'self.client_id',self.client_id
         #fix bug SESSIONS key error
-        for app in self.apps:
+        for app in self.apps:      
             if hasattr(app, 'open'):
                 #client_id, host, remote_ip
                 #bug need to be fixed
                 app.open(self.client_id, self.origin, client_address) # Call applications' open() functions (if any)
+            #bug
+            if hasattr(app, 'authenticate'):
+                app.authenticate(message=message)            
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
         #def send_ping():

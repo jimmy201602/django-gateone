@@ -201,7 +201,6 @@ class TerminalApplication(GOApplication):
             'terminal:stop_capture': self.stop_capture,
             'terminal:debug_terminal': self.debug_terminal
         })
-        #print self.ws.actions
         if 'terminal' not in self.ws.persist:
             self.ws.persist['terminal'] = {}
         # Initialize plugins (every time a connection is established so we can
