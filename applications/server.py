@@ -796,8 +796,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         {u'reply_channel': u'daphne.response.zaVmWIEROh!bVGRBKiRYz', u'server': ['127.0.0.1', 8000], u'headers': [['origin', 'http://127.0.0.1:8000'], ['upgrade', 'websocket'], ['accept-language', 'en-US,en;q=0.8'], ['accept-encoding', 'gzip, deflate, br'], ['sec-websocket-version', '13'], ['host', '127.0.0.1:8000'], ['sec-websocket-key', 't7gYSdhD89Ir2xERiGfcHA=='], ['user-agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.86 Safari/537.36'], ['connection', 'Upgrade'], ['cookie', 'csrftoken=2OLFifLswIbqAaKkZk5KhVBM4OQCtR8TPrtpxH5kFGLVsHOXwZPT5Nsihtnw735A; sessionid=599nhdu3krvaaie3zsl8m007ckemu985; gateone_user="eyJ1cG4iOiJqaW1teSIsInByb3RvY29sIjoiaHR0cCIsInNlc3Npb24iOiJZMlV4WWpOa1pXUTRZVEEwTkRZd01EZzJNR1ppTTJFME9UZ3pOell4T0RGbFoiLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1dJeyV:CGDSBqWa8TXvVjhgBFi-MtyEgR4"'], ['pragma', 'no-cache'], ['cache-control', 'no-cache'], ['sec-websocket-extensions', 'permessage-deflate; client_max_window_bits']], u'client': ['127.0.0.1', 36720], u'query_string': u'', u'path': u'/ws', u'order': 0}
         """
         #print dir(message)
-        print message.content
-        print os.getpid()
+        #print message.content
+        #print os.getpid()
         self.actions = {
             'go:ping': self.pong,
             'go:log': self.log_message,
@@ -1240,8 +1240,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         #print 'websocket opened'
         self.initialize(message=message)
-        cls = ApplicationWebSocket
+        cls = ApplicationWebSocket(message)
         cls.instances.add(self)
+        print cls.instances
         self.request = message
         #print 'websocket opened self.prefx',self.prefs
         #if hasattr(self, 'set_nodelay'):
@@ -3639,6 +3640,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #instance = TerminalApplication(self)  
         #instance.initialize(message=message)
         print 'connect'
+        #self.__init__(message,**kwargs)
         header = dict()
         headers = message.get('headers',None)
         if headers:
@@ -3687,6 +3689,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #instance.initialize(message=message)
         #self.list_applications()  
         #self.request = message
+        try:
+            self.open(message)
+        except Exception,e:
+            import traceback
+            print traceback.print_exc()
         return self.open(message)
     
     #@channel_session
