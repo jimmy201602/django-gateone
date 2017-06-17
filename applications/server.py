@@ -705,30 +705,30 @@ class GOApplication(OnOffMixin):
     def __str__(self):
         return self.info['name']
 
-    def initialize(self):
-        """
-        Called by :meth:`ApplicationWebSocket.open` after __init__().
-        GOApplications can override this function to perform their own actions
-        when the Application is initialized (happens just before the WebSocket
-        is opened).
-        """
-        pass
+    #def initialize(self):
+        #"""
+        #Called by :meth:`ApplicationWebSocket.open` after __init__().
+        #GOApplications can override this function to perform their own actions
+        #when the Application is initialized (happens just before the WebSocket
+        #is opened).
+        #"""
+        #pass
 
-    def open(self):
-        """
-        Called by :meth:`ApplicationWebSocket.open` after the WebSocket is
-        opened.  GOApplications can override this function to perform their own
-        actions when the WebSocket is opened.
-        """
-        pass
+    #def open(self):
+        #"""
+        #Called by :meth:`ApplicationWebSocket.open` after the WebSocket is
+        #opened.  GOApplications can override this function to perform their own
+        #actions when the WebSocket is opened.
+        #"""
+        #pass
 
-    def on_close(self):
-        """
-        Called by :meth:`ApplicationWebSocket.on_close` after the WebSocket is
-        closed.  GOApplications can override this function to perform their own
-        actions when the WebSocket is closed.
-        """
-        pass
+    #def on_close(self):
+        #"""
+        #Called by :meth:`ApplicationWebSocket.on_close` after the WebSocket is
+        #closed.  GOApplications can override this function to perform their own
+        #actions when the WebSocket is closed.
+        #"""
+        #pass
 
     def add_handler(self, pattern, handler, **kwargs):
         """
@@ -766,7 +766,6 @@ class GOApplication(OnOffMixin):
         if isinstance(timeout, basestring):
             timeout = convert_to_timedelta(timeout)
         self.io_loop.add_timeout(timeout, func)
-
 class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     """
     The main WebSocket interface for Gate One, this class is setup to call
@@ -1080,6 +1079,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 instance.initialize(message=message)
             #if hasattr(instance, 'authenticate'):
                 #instance.authenticate(message=message)
+        print 'self.initialize actions',len(self.actions)
 
     def send_extra(self):
         """
@@ -1450,8 +1450,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #bug
         self.list_applications()
         self.trigger("go:open")
+        print 'open self.actions',len(self.actions)
 
-    def on_message(self, message):
+    def on_message(self, message,**kwargs):
         """
         Called when we receive a message from the client.  Performs some basic
         validation of the message, decodes it (JSON), and finally calls an
@@ -1461,6 +1462,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # This is super useful when debugging:
         #print 'on_message',repr(message)
         #print 'on_message',message.content.get('text',None)
+        print 'self.on_messages initialize',len(self.actions)
         logging.debug("message: %s" % repr(message))
         try:
             message_obj = json_decode(message.content.get('text',None)) # JSON FTW!
@@ -3648,6 +3650,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #instance = TerminalApplication(self)  
         #instance.initialize(message=message)
         print 'connect'
+        print 'connect self.actions', len(self.actions)
         #print message.content
         #self.__init__(message,**kwargs)
         header = dict()
@@ -3707,7 +3710,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #self.apps.append(instance) 
         #self.list_applications()
         self.request = message
-        return self.on_message(message)
+        return self.on_message(message,**kwargs)
 
     def disconnect(self, message, **kwargs):
         print 'disconnect websocket',message
