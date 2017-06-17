@@ -166,6 +166,7 @@ class TerminalApplication(GOApplication):
         # Register our security policy function
         self.ws.security.update({'terminal': terminal_policies})
         # Register our WebSocket actions
+        #print self.ws.actions.keys()
         self.ws.actions.update({
             'terminal:new_terminal': self.new_terminal,
             'terminal:set_terminal': self.set_terminal,

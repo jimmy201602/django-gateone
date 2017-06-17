@@ -766,6 +766,8 @@ class GOApplication(OnOffMixin):
         if isinstance(timeout, basestring):
             timeout = convert_to_timedelta(timeout)
         self.io_loop.add_timeout(timeout, func)
+global action_list
+action_list = dict()
 class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     """
     The main WebSocket interface for Gate One, this class is setup to call
@@ -1079,7 +1081,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 instance.initialize(message=message)
             #if hasattr(instance, 'authenticate'):
                 #instance.authenticate(message=message)
-        print 'self.initialize actions',len(self.actions)
+        #print 'self.initialize actions',len(self.actions)
+        self.authenticate(self.settings())
 
     def send_extra(self):
         """
@@ -1450,7 +1453,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #bug
         self.list_applications()
         self.trigger("go:open")
-        print 'open self.actions',len(self.actions)
+        #print 'open self.actions',len(self.actions)
+        #fix a global bug
+        #action_list is a dict to keep sel.actions when websocket open
+        action_list.update(self.actions)
 
     def on_message(self, message,**kwargs):
         """
@@ -1462,7 +1468,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # This is super useful when debugging:
         #print 'on_message',repr(message)
         #print 'on_message',message.content.get('text',None)
-        print 'self.on_messages initialize',len(self.actions)
+        #print 'self.on_messages action_list',len(action_list)
+        #print 'self.on_messages initialize',len(self.actions)
         logging.debug("message: %s" % repr(message))
         try:
             message_obj = json_decode(message.content.get('text',None)) # JSON FTW!
@@ -1471,7 +1478,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 return
         except ValueError: # We didn't get JSON
             self.write_message(_("'Error: We only accept JSON here.'"))
-            return   
+            return
+        self.actions.update(action_list)
         if message_obj:
             for key, value in message_obj.items():
                 if key in self.actions:
@@ -3649,8 +3657,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #from applications.app_terminal import TerminalApplication
         #instance = TerminalApplication(self)  
         #instance.initialize(message=message)
-        print 'connect'
-        print 'connect self.actions', len(self.actions)
+        #print 'connect'
+        #print 'connect self.actions', len(self.actions)
         #print message.content
         #self.__init__(message,**kwargs)
         header = dict()
