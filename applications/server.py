@@ -617,8 +617,8 @@ class HTTPSRedirectHandler(BaseHandler):
     """
     def get(self):
         """Just redirects the client from HTTP to HTTPS"""
-        port = self.settings()['port']
-        url_prefix = self.settings()['url_prefix']
+        port = self.settings['port']
+        url_prefix = self.settings['url_prefix']
         host = self.request.headers.get('Host', 'localhost')
         self.redirect(
             'https://%s:%s%s' % (host, port, url_prefix))
@@ -744,7 +744,7 @@ class GOApplication(OnOffMixin):
         """
         #print ("Adding handler: (%s, %s)" % (pattern, handler))
         logging.debug("Adding handler: (%s, %s)" % (pattern, handler))
-        url_prefix = self.ws.settings()['url_prefix']
+        url_prefix = self.ws.settings['url_prefix']
         if not pattern.startswith(url_prefix):
             if pattern.startswith('/'):
                 # Get rid of the / (it will be in the url_prefix)
@@ -871,7 +871,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls.file_watcher.stop()
             # Also remove the broadcast file so we know to start up the
             # file_watcher again if a user connects.
-            session_dir = self.settings()['session_dir']
+            session_dir = self.settings['session_dir']
             broadcast_file = os.path.join(session_dir, 'broadcast') # Default
             broadcast_file = cls.prefs['*']['gateone'].get(
                 'broadcast_file', broadcast_file) # If set, use that
@@ -898,7 +898,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     "Exception encountered trying to execute the file update "
                     "function for {path}...".format(path=path)))
                 logger.error(e)
-                if cls.settings()['logging'] == 'debug':
+                if cls.settings['logging'] == 'debug':
                     import traceback
                     traceback.print_exc(file=sys.stdout)
 
@@ -929,11 +929,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         logger.info(_(
             "Settings have been modified.  Reloading from %s"
-            % self.settings()['settings_dir']))
-        prefs = get_settings(self.settings()['settings_dir'])
+            % self.settings['settings_dir']))
+        prefs = get_settings(self.settings['settings_dir'])
         # Only overwrite our settings if everything is proper
         if 'gateone' not in prefs['*']:
-            # NOTE: get_settings() records its own errors too
+            # NOTE: get_settings records its own errors too
             logger.info(_("Settings have NOT been loaded."))
             return
         cls.prefs = prefs
@@ -985,7 +985,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             Want to broadcast a message to all the users currently connected to
             Gate One?  Just `sudo echo "your message" > /tmp/gateone/broadcast`.
         """
-        session_dir = self.settings()['session_dir']
+        session_dir = self.settings['session_dir']
         broadcast_file = os.path.join(session_dir, 'broadcast')
         broadcast_file = cls.prefs['*']['gateone'].get(
             'broadcast_file', broadcast_file)
@@ -1024,7 +1024,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug('ApplicationWebSocket.initialize(%s)' % apps)
         # Make sure we have all prefs ready for checking
         #cls = ApplicationWebSocket
-        #cls.prefs = get_settings(self.settings()['settings_dir'])
+        #cls.prefs = get_settings(self.settings['settings_dir'])
         #print 'initialize cls prefix',self.prefs
         #sel.settings example
         """
@@ -1032,7 +1032,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         #from applications.app_terminal import TerminalApplication
         #apps = [TerminalApplication]
-        cache_dir = self.settings()['cache_dir']
+        cache_dir = self.settings['cache_dir']
         if not os.path.exists(cache_dir):
             mkdir_p(cache_dir)
         #PLUGIN_HOOKS example
@@ -1082,7 +1082,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #if hasattr(instance, 'authenticate'):
                 #instance.authenticate(message=message)
         #print 'self.initialize actions',len(self.actions)
-        self.authenticate(self.settings())
+        self.authenticate(self.settings)
 
     def send_extra(self):
         """
@@ -1121,7 +1121,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         difference being that when API authentication is enabled the WebSocket
         will expect and perform its own auth of the client.
         """
-        expiration = self.settings().get('auth_timeout', "14d")
+        expiration = self.settings.get('auth_timeout', "14d")
         # Need the expiration in days (which is a bit silly but whatever):
         #print 'get_current_user'
         # user json example
@@ -1134,7 +1134,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #expiration bug
         user_json = self.get_secure_cookie.get('gateone_user',None)
         if not user_json:
-            if not self.settings()['auth']:
+            if not self.settings['auth']:
                 # This can happen if the user's browser isn't allowing
                 # persistent cookies (e.g. incognito mode)
                 return {'upn': 'ANONYMOUS', 'session': generate_session_id()}
@@ -1193,9 +1193,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             # worry about origins if the connection is coming from some external
             # site (e.g. to prevent spear phishing attacks; XSS and whatnot).
             return True # Origin check successful; no need to continue
-        if 'origins' in self.settings().get('cli_overrides', ''):
+        if 'origins' in self.settings.get('cli_overrides', ''):
             # If given on the command line, always use those origins
-            valid_origins = self.settings()['origins']
+            valid_origins = self.settings['origins']
         else:
             # Why have this separate?  So you can change origins on-the-fly by
             # modifying 10server.conf (or whatever other conf you put it in).
@@ -1268,8 +1268,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
             protocol=message.http_session.get('gateone_user',None)['protocol'],
             host=client_address,
-            port=self.settings()['port'],#self.settings['port']
-            url_prefix=self.settings()['url_prefix'])#self.settings['url_prefix']
+            port=self.settings['port'],#self.settings['port']
+            url_prefix=self.settings['url_prefix'])#self.settings['url_prefix']
         user = message.http_session.get('gateone_user',None)
         # NOTE: self.current_user will call self.get_current_user() and set
         # self._current_user the first time it is used.
@@ -1364,7 +1364,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         metadata = {'ip_address': client_address}
         #print 'client_address',client_address
         #bug for origin
-        self.origin = str(client_address + ':' + str(self.settings()['port']))
+        self.origin = str(client_address + ':' + str(self.settings['port']))
         if user and 'upn' in user:
             # Update our loggers to include the user metadata
             metadata['upn'] = user['upn']
@@ -1401,12 +1401,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # NOTE: Why store prefs in the class itself?  No need for redundancy.
         #print 'cls.prefs',cls.prefs
         if not cls.prefs:
-            cls.prefs = get_settings(self.settings()['settings_dir'])
+            cls.prefs = get_settings(self.settings['settings_dir'])
         if 'cache_dir' not in cls.prefs['*']['gateone']:
             # Set the cache dir to a default if not set in the prefs
-            cache_dir = self.settings()['cache_dir']
+            cache_dir = self.settings['cache_dir']
             cls.prefs['*']['gateone']['cache_dir'] = cache_dir
-            if self.settings()['debug']:
+            if self.settings['debug']:
                 # Clean out the cache_dir every page reload when in debug mode
                 for fname in os.listdir(cache_dir):
                     filepath = os.path.join(cache_dir, fname)
@@ -1505,7 +1505,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                         self.logger.error(
                            _("Error in WebSocket action, %s: %s (%s line %s)") %
                            (key, e, fname, lineno))
-                        if self.settings().get('logging',None) == 'debug':
+                        if self.settings.get('logging',None) == 'debug':
                             traceback.print_exc(file=sys.stdout)
                 else:
                     self.logger.error(
@@ -1743,7 +1743,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 'event has been logged.')}
             self.write_message(json_encode(message))
             return
-        window = self.settings().get('api_timestamp_window',timedelta(seconds=30))
+        window = self.settings.get('api_timestamp_window',timedelta(seconds=30))
         then = datetime.fromtimestamp(int(timestamp)/1000)
         time_diff = datetime.now() - then
         if time_diff > window:
@@ -1786,7 +1786,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # Force-set the current user:
         self._current_user = user
         # Make a directory to store this user's settings/files/logs/etc
-        user_dir = os.path.join(self.settings()['user_dir'], user['upn'])
+        user_dir = os.path.join(self.settings['user_dir'], user['upn'])
         if not os.path.exists(user_dir):
             self.logger.info(_("Creating user directory: %s" % user_dir))
             mkdir_p(user_dir)
@@ -1859,13 +1859,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if orig_base_url != self.base_url:
                 self.logger.info(_(
                     "Proxy in use: Client URL differs from server."))
-        auth_method = self.settings().get('auth', None)
+        auth_method = self.settings.get('auth', None)
         #print 'authenticate auth_method',auth_method
         if auth_method and auth_method != 'api':
             # Regular, non-API authentication
             if settings['auth']:
                 # Try authenticating with the given (encrypted) 'auth' value
-                expiration = self.settings().get('auth_timeout', "14d")
+                expiration = self.settings.get('auth_timeout', "14d")
                 expiration = (
                     float(total_seconds(convert_to_timedelta(expiration)))
                     / float(86400))
@@ -1926,7 +1926,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     # The client is trying to authenticate using the
                     # 'gateone_user' parameter in localStorage.
                     # Authenticate/decode the encoded auth info
-                    expiration = self.settings().get('auth_timeout', "14d")
+                    expiration = self.settings.get('auth_timeout', "14d")
                     expiration = (
                         float(total_seconds(convert_to_timedelta(expiration)))
                         / float(86400))
@@ -2200,7 +2200,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             }
         """
         cls = ApplicationWebSocket
-        broadcast_file = os.path.join(self.settings()['session_dir'], 'broadcast')
+        broadcast_file = os.path.join(self.settings['session_dir'], 'broadcast')
         broadcast_file = self.prefs['*']['gateone'].get(
             'broadcast_file', broadcast_file)
         if broadcast_file not in cls.watched_files:
@@ -2218,8 +2218,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls.file_watcher = tornado.ioloop.PeriodicCallback(
                 cls.file_checker, interval, io_loop=io_loop)
             cls.file_watcher.start()
-        if self.settings()['settings_dir'] not in cls.watched_files:
-            cls.watch_file(self.settings()['settings_dir'], cls.load_prefs)
+        if self.settings['settings_dir'] not in cls.watched_files:
+            cls.watch_file(self.settings['settings_dir'], cls.load_prefs)
 
     def list_applications(self):
         """
@@ -2338,7 +2338,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
         This method also cleans up older versions of the same rendered template.
         """
-        cache_dir = self.settings()['cache_dir']
+        cache_dir = self.settings['cache_dir']
         if not isinstance(cache_dir, str):
             cache_dir = cache_dir.decode('utf-8')
         if not isinstance(style_path, str):
@@ -2416,11 +2416,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             container=container,
             prefix=prefix,
             url_prefix=go_url,
-            embedded=self.settings()['embedded']
+            embedded=self.settings['embedded']
         )
         out_dict = {'files': []}
         theme_mtimes = self.persist['theme_mtimes']
-        cache_dir = self.settings()['cache_dir']
+        cache_dir = self.settings['cache_dir']
         theme_file = "%s.css" % theme
         theme_relpath = 'themes/%s' % theme_file
         #theme_path = resource_filename('gateone', theme_relpath)
@@ -2522,7 +2522,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     f.write(io.open(path, 'rb').read())
             os.rename(new_theme_path, cached_theme_path)
         mtime = os.stat(cached_theme_path).st_mtime
-        if self.settings()['debug']:
+        if self.settings['debug']:
             # This makes sure that the files are always re-downloaded
             mtime = time.time()
         kind = 'css'
@@ -2796,9 +2796,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         out_dict = {'result': 'Success', 'hash': filename_hash}
         out_dict.update(self.file_cache[filename_hash])
         del out_dict['path'] # Don't want the client knowing this
-        url_prefix = self.settings()['url_prefix']
+        url_prefix = self.settings['url_prefix']
         self.sync_log.info(_("Sending: {0}").format(filename))
-        cache_dir = self.settings()['cache_dir']
+        cache_dir = self.settings['cache_dir']
         #print 'file_request path',path
         def send_file(result):
             """
@@ -2850,7 +2850,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         result = get_or_cache(cache_dir, path, minify=False)
         #print 'result',result
         send_file(result)        
-        if self.settings()['debug']:
+        if self.settings['debug']:
             result = get_or_cache(cache_dir, path, minify=False)
             send_file(result)
         else:
@@ -2874,7 +2874,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if not os.path.exists(filepath):
             self.sync_log.error(_("File does not exist: {0}").format(filepath))
             return
-        cache_dir = self.settings()['cache_dir']
+        cache_dir = self.settings['cache_dir']
         mtime = os.stat(filepath).st_mtime
         filename = os.path.split(filepath)[1]
         filepath_hash = hashlib.md5(filepath.encode('utf-8')).hexdigest()[:10]
@@ -2979,7 +2979,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     'requires': requires,
                     'media': media # NOTE: Ignored if JS
                 }
-                if self.settings()['debug']:
+                if self.settings['debug']:
                     # This makes sure that the files are always re-downloaded
                     mtime = time.time()
                 out_dict['files'].append({
@@ -3032,7 +3032,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'requires': requires,
             'media': media # NOTE: Ignored if JS
         }
-        if self.settings()['debug']:
+        if self.settings['debug']:
             # This makes sure that the files are always re-downloaded
             mtime = time.time()
         out_dict = {'files': [{
@@ -3106,7 +3106,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if not os.path.exists(js_path):
             self.sync_log.error(_("File does not exist: {0}").format(js_path))
             return
-        cache_dir = self.settings()['cache_dir']
+        cache_dir = self.settings['cache_dir']
         mtime = os.stat(js_path).st_mtime
         filename = os.path.split(js_path)[1]
         script = {'name': filename}
@@ -3175,7 +3175,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if not os.path.exists(css_path):
             self.sync_log.error(_("File does not exist: {0}").format(css_path))
             return
-        cache_dir = self.settings()['cache_dir']
+        cache_dir = self.settings['cache_dir']
         mtime = os.stat(css_path).st_mtime
         filename = os.path.split(css_path)[1]
         filepath_hash = hashlib.md5(css_path.encode('utf-8')).hexdigest()[:10]
@@ -3201,13 +3201,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'css_path',css_path
         #print 'self.container',self.container
         #print 'self.prefix',self.prefix
-        #print '''self.settings()['url_prefix']''',self.settings()['url_prefix']
+        #print '''self.settings['url_prefix']''',self.settings['url_prefix']
         #print 'kwargs', kwargs
         """
         css_path /home/jimmy/Desktop/django-gateone/static/templates/terminal.css
         self.container 
         self.prefix 
-        self.settings()['url_prefix'] /
+        self.settings['url_prefix'] /
         kwargs {}
         """
         with io.open(css_path, 'r') as f:
@@ -3748,7 +3748,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             user = copy.deepcopy(user)
             user.pop('protocol')
         else:
-            user = {u'upn': u'Anonymous', u'ip_address': self.settings()['address'], u'session': generate_session_id(), u'protocol': u'http'}
+            user = {u'upn': u'Anonymous', u'ip_address': self.settings['address'], u'session': generate_session_id(), u'protocol': u'http'}
         return user
     
     #@channel_session
@@ -3814,7 +3814,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     #def request(self):
         #return self.request()
     
-    @classmethod
+    @property
     def settings(self):
         from applications.configuration import define_options
         settings = define_options()

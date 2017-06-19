@@ -708,7 +708,7 @@ class TerminalApplication(GOApplication):
         self.term_log.debug("clear_term_settings(%s)" % term)
         term_settings = RUDict()
         term_settings[self.ws.location] = {term: {}}
-        session_dir = self.settings()['session_dir']
+        session_dir = self.settings['session_dir']
         session_dir = os.path.join(session_dir, self.ws.request.http_session.get('gateone_user',None)['session'])
         settings_path = os.path.join(session_dir, 'term_settings.json')
         if not os.path.exists(settings_path):
@@ -763,17 +763,17 @@ class TerminalApplication(GOApplication):
         if not self.ws.session:
             return # Just a broadcast terminal viewer
         # Check for any dtach'd terminals we might have missed
-        #print 'self.ws.settings', self.ws.settings()
+        #print 'self.ws.settings', self.ws.settings
         #print 'self.ws.session', self.ws.session
         #print '''which('dtach')''', which('dtach')
-        if self.ws.settings()['dtach'] is True and which('dtach'):
+        if self.ws.settings['dtach'] is True and which('dtach'):
             from applications.term_utils import restore_term_settings
             #print 'self.ws.session', self.ws.session
-            #print 'self.ws.settings', self.ws.settings()    
+            #print 'self.ws.settings', self.ws.settings    
             #print 'self.ws.location', self.ws.location
             term_settings = restore_term_settings(
                 self.ws.location, self.ws.session)
-            session_dir = self.ws.settings()['session_dir']
+            session_dir = self.ws.settings['session_dir']
             #print 'session_dir', session_dir
             session_dir = os.path.join(session_dir, self.ws.session)
             if not os.path.exists(session_dir):
@@ -938,13 +938,13 @@ class TerminalApplication(GOApplication):
         #print 'enabled_filetypes',enabled_filetypes
         use_shell = policies.get('use_shell', True)
         #print 'use_shell',use_shell
-        user_dir = self.settings()['user_dir']
+        user_dir = self.settings['user_dir']
         try:
             user = current_user['upn']
         except:
             # No auth, use ANONYMOUS (% is there to prevent conflicts)
             user = r'ANONYMOUS' # Don't get on this guy's bad side
-        session_dir = self.settings()['session_dir']
+        session_dir = self.settings['session_dir']
         session_dir = os.path.join(session_dir, self.ws.request.http_session.get('gateone_user',None)['session'])
         log_path = None
         syslog_logging = False
@@ -961,7 +961,7 @@ class TerminalApplication(GOApplication):
                 log_name = datetime.now().strftime(
                     '%Y%m%d%H%M%S%f') + log_suffix
                 log_path = os.path.join(log_dir, log_name)
-        facility = string_to_syslog_facility(self.settings()['syslog_facility'])
+        facility = string_to_syslog_facility(self.settings['syslog_facility'])
         # This allows plugins to transform the command however they like
         if self.plugin_command_hooks:
             for func in self.plugin_command_hooks:
@@ -1055,8 +1055,8 @@ class TerminalApplication(GOApplication):
         if not encoding: # Was passed as None or 'null'
             encoding = default_encoding
         term_metadata = settings.get('metadata', {})
-        settings_dir = self.settings()['settings_dir']
-        user_session_dir = os.path.join(self.settings()['session_dir'], self.ws.request.http_session.get('gateone_user',None)['session'])
+        settings_dir = self.settings['settings_dir']
+        user_session_dir = os.path.join(self.settings['session_dir'], self.ws.request.http_session.get('gateone_user',None)['session'])
         # NOTE: 'command' here is actually just the short name of the command.
         #       ...which maps to what's configured the 'commands' part of your
         #       terminal settings.
@@ -1101,7 +1101,7 @@ class TerminalApplication(GOApplication):
                 'height': settings['em_dimensions']['h'],
                 'width': settings['em_dimensions']['w']
             }
-        user_dir = self.settings()['user_dir']  
+        user_dir = self.settings['user_dir']  
         if term not in self.loc_terms:
             # Setup the requisite dict
             #terminal_session_id = generate_session_id()
@@ -1136,7 +1136,7 @@ class TerminalApplication(GOApplication):
             cmd = cmd_var_swap(full_command, # Swap out variables like %USER%
                 gateone_dir=GATEONE_DIR,
                 session=self.ws.request.http_session.get('gateone_user',None)['session'], # with their real-world values.
-                session_dir=self.settings()['session_dir'],
+                session_dir=self.settings['session_dir'],
                 session_hash=short_hash(self.ws.request.http_session.get('gateone_user',None)['session'] ),
                 userdir=user_dir,
                 user=user,
@@ -1149,7 +1149,7 @@ class TerminalApplication(GOApplication):
             if not os.path.exists(user_session_dir):
                 mkdir_p(user_session_dir)
                 os.chmod(user_session_dir, 0o770)
-            if self.settings()['dtach'] and which('dtach') and cmd_dtach_enabled:
+            if self.settings['dtach'] and which('dtach') and cmd_dtach_enabled:
                 # Wrap in dtach (love this tool!)
                 dtach_path = "{session_dir}/dtach_{location}_{term}".format(
                     session_dir=user_session_dir,
@@ -1180,7 +1180,7 @@ class TerminalApplication(GOApplication):
                 'GO_TERM': str(term),
                 'GO_LOCATION': self.ws.location,
                 'GO_SESSION': self.ws.request.http_session.get('gateone_user',None)['session'],
-                'GO_SESSION_DIR': self.settings()['session_dir'],
+                'GO_SESSION_DIR': self.settings['session_dir'],
                 'GO_USER_SESSION_DIR': user_session_dir,
             }
             env.update(os.environ) # Add the defaults for this system
@@ -1244,7 +1244,7 @@ class TerminalApplication(GOApplication):
         # Restore expanded modes
         for mode, setting in m.term.expanded_modes.items():
             self.mode_handler(term, mode, setting)
-        if self.settings()['logging'] == 'debug':
+        if self.settings['logging'] == 'debug':
             self.ws.send_message(_(
                 "WARNING: Logging is set to DEBUG.  All keystrokes will be "
                 "logged!"))
@@ -1535,7 +1535,7 @@ class TerminalApplication(GOApplication):
                                              self.ws.request.http_session.get('gateone_user',None)['ip_address'])        
         multiplex.remove_callback(multiplex.CALLBACK_EXIT, self.callback_id)
         try:
-            if self.settings()['dtach']: # dtach needs special love
+            if self.settings['dtach']: # dtach needs special love
                 from applications.utils import kill_dtached_proc
                 kill_dtached_proc(self.ws.request.http_session.get('gateone_user',None)['session'], self.ws.location, term)
             if multiplex.isalive():
@@ -2728,7 +2728,7 @@ class TerminalApplication(GOApplication):
         #        has yet to be implemented but this function will enable use to
         #        eventually do that.
         # Use the get_settings() function to import our 256 colors (convenient)
-        cache_dir = self.ws.settings()['cache_dir']
+        cache_dir = self.ws.settings['cache_dir']
         cached_256_colors = os.path.join(cache_dir, '256_colors.css')
         if os.path.exists(cached_256_colors):
             return cached_256_colors
