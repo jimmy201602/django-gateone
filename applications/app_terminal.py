@@ -386,11 +386,9 @@ class TerminalApplication(GOApplication):
             u'session': u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM', 'ip_address': '127.0.0.1'}, 'timeout_callbacks': [], 'last_seen': 'connected'}}
         """        
         #print 'self.ws.session',self.ws.session
-        #print 'SESSIONS',SESSIONS
-        from django.conf import settings
-        settings.SESSIONS = SESSIONS
         #print 'app_terminal django SESSIONS',settings.SESSIONS  
         #print 'app_terminal session', message.http_session.get('session',None)
+        print SESSIONS[message.http_session.get('session',None)]
         try:
             sess = SESSIONS[message.http_session.get('session',None)]
         except KeyError:
@@ -1013,6 +1011,8 @@ class TerminalApplication(GOApplication):
             return 1 # Broadcast terminal viewer
         if not location:
             location = self.ws.location
+        print 'highest_term_num SESSIONS',SESSIONS
+        print 'highest_term_num self.ws.session',self.ws.session
         loc = SESSIONS[self.ws.session]['locations'][location]['terminal']
         highest = 0
         for term in list(loc.keys()):

@@ -1082,7 +1082,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #if hasattr(instance, 'authenticate'):
                 #instance.authenticate(message=message)
         #print 'self.initialize actions',len(self.actions)
-        self.authenticate(self.settings)
+        #self.authenticate(self.settings)
 
     def send_extra(self):
         """
@@ -2036,11 +2036,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 SESSIONS[self.session]['client_ids'].append(self.request.http_session.get('gateone_user',None)['session'])#SESSIONS[self.session]['client_ids'].append(self.client_id)
             if self.location not in SESSIONS[self.session]['locations']:
                 SESSIONS[self.session]['locations'][self.location] = {}
-        # A shortcut:
-        from django.conf import settings
-        settings.SESSIONS = SESSIONS
-        #print 'SESSIONS',SESSIONS
-        #print 'server django SESSIONS', settings.SESSIONS
         """
         SESSIONS {u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM':\
         {'client_ids': [u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM', u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM'],\
