@@ -827,7 +827,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.client_log = go_logger('gateone.client')
         self._events = {}
         self.user_locales = []
-        self.session = None # Just a placeholder; gets set in authenticate()
+        #self.session = None # Just a placeholder; gets set in authenticate()
         self.locations = {} # Just a placeholder; gets set in authenticate()
         self.location = "default" # Just a placeholder; gets set in authenticate()
         # This is used to keep track of used API authentication signatures so
@@ -1078,7 +1078,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print "Initializing %s" % instance
             if hasattr(instance, 'initialize'):
                 #print 'initialize app_terminal'
-                instance.initialize(message=message)
+                instance.initialize()
             #if hasattr(instance, 'authenticate'):
                 #instance.authenticate(message=message)
         #print 'self.initialize actions',len(self.actions)
@@ -1263,7 +1263,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # client_id is unique to the browser/client whereas session_id is unique
         # to the user.  It isn't used much right now but it will be useful in
         # the future once more stuff is running over WebSockets.
-        self.client_id = message.http_session.get('session',None)
+        #self.client_id = self.message.http_session.get('session',None)
         #print message.http_session.get('gateone_user',None)
         self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
             protocol=message.http_session.get('gateone_user',None)['protocol'],
@@ -1433,10 +1433,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if hasattr(app, 'open'):
                 #client_id, host, remote_ip
                 #bug need to be fixed
-                app.open(self.client_id, self.origin, client_address) # Call applications' open() functions (if any)
+                app.open() # Call applications' open() functions (if any)
             #bug
             if hasattr(app, 'authenticate'):
-                app.authenticate(message=message)            
+                app.authenticate()            
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
         #def send_ping():
@@ -1602,7 +1602,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             The "critical" and "fatal" log levels both use the
             `logging.Logger.critical` method.
         """
-        self.current_user = self.request.http_session.get('gateone_user',None)
+        #self.current_user = self.request.http_session.get('gateone_user',None)
         if not self.current_user:
             return # Don't let unauthenticated users log messages.
             # NOTE:  We're not using the authenticated() check here so we don't
@@ -1836,7 +1836,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug("authenticate(): %s" % settings)
         # Make sure the client is authenticated if authentication is enabled
         reauth = {'go:reauthenticate': True}
-        self.current_user = self.request.http_session.get('gateone_user',None)
+        #self.current_user = self.request.http_session.get('gateone_user',None)
         user = self.current_user # Just a shortcut to keep lines short
         # Apply the container/prefix settings (if present)
         self.container = settings.get('container', self.container)
@@ -1975,7 +1975,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 return
         #print 'self.request', self.request.http_session.get('gateone_user',None)
         if self.request.http_session.get('gateone_user',None) and 'session' in self.request.http_session.get('gateone_user',None):#if self.current_user and 'session' in self.current_user:
-            self.session = self.request.http_session.get('gateone_user',None)['session']
+            #self.session = self.request.http_session.get('gateone_user',None)['session']
+            pass
         else:
             self.auth_log.error(_("Authentication failed for unknown user"))
             message = {'go:notice': _('AUTHENTICATION ERROR: User unknown')}
@@ -2053,7 +2054,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #print 'self.apps',self.apps
             app.current_user = self.current_user
             if hasattr(app, 'authenticate'):
-                app.authenticate(message=self.request)
+                app.authenticate()
         # This is just so the client has a human-readable point of reference:
         #print self.request.http_session['gateone_user']['upn']
         message = {'go:set_username': self.request.http_session['gateone_user']['upn']}#{'go:set_username': self.current_user['upn']}
