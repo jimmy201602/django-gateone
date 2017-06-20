@@ -1187,8 +1187,8 @@ class TerminalApplication(GOApplication):
             m.term.linkpath = "{server_url}downloads".format(
                 server_url=self.ws.base_url)
             # Make sure it can generate pretty icons for file downloads
-            #bug fixed
-            m.term.icondir = resource_filename('gateone', '/static/icons')
+            #m.term.icondir = resource_filename('gateone', '/static/icons')
+            m.term.icondir = os.path.join(getsettings('BASE_DIR'), 'static/icons')
             if resumed_dtach:
                 # Send an extra Ctrl-L to refresh the screen and fix the sizing
                 # after it has been reattached.
@@ -1212,8 +1212,6 @@ class TerminalApplication(GOApplication):
                 self.term_ended(term)
                 return
         # Setup callbacks so that everything gets called when it should
-        print 'self.callback_id',self.callback_id
-        print self.current_user
         self.add_terminal_callbacks(
             term, term_obj['multiplex'], self.callback_id)
         # NOTE: refresh_screen will also take care of cleaning things up if
