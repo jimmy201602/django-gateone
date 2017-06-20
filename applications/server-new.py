@@ -22,7 +22,309 @@ __author__ = 'Dan McDougall <daniel.mcdougall@liftoffsoftware.com>'
 __commit__ = "20160618135724" # Gets replaced by git (holds the date/time)
 
 # NOTE: Docstring includes reStructuredText markup for use with Sphinx.
-__doc__ = ''''''
+__doc__ = '''\
+.. _gateone.py:
+
+Gate One
+========
+Gate One is a web-based terminal emulator written in Python using the Tornado
+web framework.  This module runs the primary daemon process and acts as a
+central controller for all running terminals and terminal programs.  It supports
+numerous configuration options and can also be called with the --kill switch
+to kill all running terminal programs (if using dtach--otherwise they die on
+their own when gateone.py is stopped).
+
+Dependencies
+------------
+Gate One requires Python 2.6+ but runs best with Python 2.7+.  It also depends
+on the following 3rd party Python modules:
+
+ * `Tornado <http://www.tornadoweb.org/>`_ 3.1+ - A non-blocking web server framework that powers FriendFeed.
+
+The following modules are optional and can provide Gate One with additional
+functionality:
+
+ * `pyOpenSSL <https://launchpad.net/pyopenssl>`_ 0.10+ - An OpenSSL module/wrapper for Python.  Only used to generate self-signed SSL keys and certificates.  If pyOpenSSL isn't available Gate One will fall back to using the 'openssl' command to generate self-signed certificates.
+ * `kerberos <http://pypi.python.org/pypi/kerberos>`_ 1.0+ - A high-level Kerberos interface for Python.  Only necessary if you plan to use the Kerberos authentication module.
+ * `python-pam <http://packages.debian.org/lenny/python-pam>`_ 0.4.2+ - A Python module for interacting with PAM (the Pluggable Authentication Module present on nearly every Unix).  Only necessary if you plan to use PAM authentication.
+ * `PIL (Python Imaging Library) <http://www.pythonware.com/products/pil/>`_ 1.1.7+ - A Python module for manipulating images.  **Alternative:** `Pillow <https://github.com/python-imaging/Pillow>`_ 2.0+ - A "friendly fork" of PIL that works with Python 3.
+ * `mutagen <https://code.google.com/p/mutagen/>`_ 1.21+ - A Python module to handle audio metadata.  Makes it so that if you ``cat music_file.ogg`` in a terminal you'll get useful track/tag information.
+
+With the exception of python-pam, all required and optional modules can usually be installed via one of these commands:
+
+    .. ansi-block::
+
+        \x1b[1;34muser\x1b[0m@modern-host\x1b[1;34m:~ $\x1b[0m sudo pip install --upgrade tornado pyopenssl kerberos pillow mutagen
+
+...or:
+
+    .. ansi-block::
+
+        \x1b[1;34muser\x1b[0m@legacy-host\x1b[1;34m:~ $\x1b[0m sudo easy_install tornado pyopenssl kerberos pillow mutagen
+
+.. note:: The use of pip is recommended.  See http://www.pip-installer.org/en/latest/installing.html if you don't have it.
+
+The python-pam module is available in most Linux distribution repositories.  Simply executing one of the following should take care of it:
+
+    .. ansi-block::
+
+        \x1b[1;34muser\x1b[0m@debian-or-ubuntu-host\x1b[1;34m:~ $\x1b[0m sudo apt-get install python-pam
+
+    .. ansi-block::
+
+        \x1b[1;34muser\x1b[0m@redhat-host\x1b[1;34m:~ $\x1b[0m sudo yum install python-pam
+
+    .. ansi-block::
+
+        \x1b[1;34muser\x1b[0m@gentoo-host\x1b[1;34m:~ $\x1b[0m sudo emerge python-pam
+
+    .. ansi-block::
+
+        \x1b[1;34muser\x1b[0m@suse-host\x1b[1;34m:~ $\x1b[0m sudo yast -i python-pam
+
+Settings
+--------
+Most of Gate One's options can be controlled by command line switches or via
+.conf files in the settings directory.  If you haven't configured Gate One
+before a number of .conf files will be automatically generated using defaults
+and/or the command line switches provided the first time you run `gateone.py`.
+
+Settings in the various `settings/*.conf` files are JSON-formatted:
+
+.. note::
+
+    Technically, JSON doesn't allow comments but Gate One's .conf files do.
+
+.. code-block:: javascript
+
+    { // You can use single-line comments like this
+    /*
+    Or multi-line comments like this.
+    */
+        "*": { // The * here designates this as "default" values
+            "gateone": { // Settings in this dict are specific to the "gateone" app
+                "address": "10.0.0.100", // A string value
+                "log_file_num_backups": 10, // An integer value
+                // Here's an example list:
+                "origins": ["localhost", "127.0.0.1", "10.0.0.100"],
+                "https_redirect": false, // Booleans are all lower case
+                "log_to_stderr": null // Same as `None` in Python (also lower case)
+                // NOTE: No comma after last item
+            },
+            "terminal": { // Example of a different application's settings
+                "default_command": "SSH", // <-- don't leave traling commas like this!
+                ... // So on and so forth
+            }
+        }
+    }
+
+.. note::
+
+    You *must* use double quotes ("") to define strings.  Single quotes *can* be
+    used inside double quotes, however.  `"example": "of 'single' quotes"`  To
+    escape a double-quote inside a double quote use three slashes:
+    `"\\\\\\\\\\\\"foo\\\\\\\\\\\\""`
+
+.. All those slashes above are so Sphinx won't mangle it in HTML.
+
+You can have as many .conf files in your settings directory as you like.  When
+Gate One runs it reads all files in alphanumeric order and combines all settings
+into a single Python dictionary.  Files loaded last will override settings from
+earlier files.  Example:
+
+.. topic:: 20example.conf
+
+    .. code-block:: javascript
+
+        {
+            "*": {
+                "terminal": {
+                    "session_logging": true,
+                    "default_command": "SSH"
+                }
+            }
+        }
+
+.. topic:: 99override.conf
+
+    .. code-block:: javascript
+
+        {
+            "*": {
+                "terminal": {
+                    "default_command": "my_override"
+                }
+            }
+        }
+
+If Gate One loaded the above example .conf files the resulting dict would be:
+
+.. topic:: Merged settings
+
+    .. code-block:: javascript
+
+        {
+            "*": {
+                "terminal": {
+                    "session_logging": true,
+                    "default_command": "my_override"
+                }
+            }
+        }
+
+.. note::
+
+    These settings are loaded using the `~utils.RUDict` (Recusive Update Dict)
+    class.
+
+There are a few important differences between the configuration file and
+command line switches in regards to boolean values (True/False).  A switch such
+as `--debug` is equivalent to ``"debug" = true`` in 10server.conf:
+
+.. code-block:: javascript
+
+    "debug" = true // Booleans are all lower case (not in quotes)
+
+.. tip::
+
+    Use `--setting=True`, `--setting=False`, or `--setting=None` to avoid
+    confusion.
+
+.. note::
+
+    The following values in 10server.conf are case sensitive: `true`, `false`
+    and `null` (and should not be placed in quotes).
+
+Gate One's configuration files also provide access control mechanisms.  These
+are controlled by setting the *scope* of the configuration block.  In this
+example all users that match the given IP address will be denied access to
+Gate One::
+
+    {
+        "user.ip_address=(127.0.0.1|10.1.1.100)": { // Replaces "*"
+            "gateone": { // These settings apply to all of Gate One
+                "blacklist": true,
+            }
+        }
+    }
+
+You can define scopes however you like using user's attributes.  For example::
+
+    {
+        "user.email=.*@company.com": {
+            "terminal": {
+                "commands": {"extra": "/some/extra/command.sh"}
+            }
+        }
+    }
+
+The above example would make it so that all users with an email address ending
+in '@company.com' will get access to the "extra" command when using the
+"terminal" application.
+
+.. note::
+
+    Different authentication types provide different user attributes.  For
+    example, if you have "auth" set to "google" authenticated users will have a
+    'gender' attribute.  So for example--if you wanted to be evil--you could
+    provide different settings for men and women (e.g. "user.gender=male").
+
+.. tip::
+
+    When using API authentication you can pass whatever extra user attributes
+    you want via the 'auth' object.  These attributes will be automatically
+    assigned to the user and can be used with the policy mechanism to control
+    access and settings.
+
+Running gateone.py with the `--help` switch will print the usage information as
+well as descriptions of what each configurable option does:
+
+.. command-output:: gateone --help
+
+File Paths
+----------
+Gate One stores its files, temporary session information, and persistent user
+data in the following locations (Note: Many of these are configurable):
+
+==================  ==========================================================================================
+File/Directory      Description
+==================  ==========================================================================================
+authpam.py          Contains the PAM authentication Mixin used by auth.py.
+auth.py             Authentication classes.
+babel_gateone.cfg   Pybabel configuration for generating localized translations of Gate One's strings.
+certificate.pem     The default certificate Gate One will use in SSL communications.
+docs/               Gate One's documentation.
+gateone.py          Gate One's primary executable/script. Also, the file containing this documentation.
+gopam.py            PAM (Authentication) Python module (used by authpam.py).
+i18n/               Gate One's internationalization (i18n) support and locale/translation files.
+keyfile.pem         The default private key used with SSL communications.
+logviewer.py        A utility to view Gate One session logs.
+plugins/            (Global) Plugins go here in the form of ./plugins/<plugin name>/<plugin files|directories>
+settings/           All Gate One settings files live here (.conf files).
+sso.py              A Kerberos Single Sign-on module for Tornado (used by auth.py)
+static/             Non-dynamic files that get served to clients (e.g. gateone.js, gateone.css, etc).
+templates/          Tornado template files such as index.html.
+tests/              Various scripts and tools to test Gate One's functionality.
+utils.py            Various supporting functions.
+users/              Persistent user data in the form of ./users/<username>/<user-specific files>
+users/<user>/logs   This is where session logs get stored if session_logging is set.
+/tmp/gateone        Temporary session data in the form of /tmp/gateone/<session ID>/<files>
+/tmp/gateone_cache  Used to store cached files such as minified JavaScript and CSS.
+==================  ==========================================================================================
+
+Running
+-------
+Executing Gate One is as simple as:
+
+.. ansi-block::
+
+    \x1b[1;31mroot\x1b[0m@host\x1b[1;34m:~ $\x1b[0m gateone
+
+.. note::
+
+    By default Gate One will run on port 443 which requires root on most
+    systems.  Use `--port=(something higher than 1024)` for non-root users.
+
+Applications and Plugins
+------------------------
+Gate One supports both *applications* and *plugins*.  The difference is mostly
+architectural.  Applications go in the `gateone/applications` directory while
+(global) plugins reside in `gateone/plugins`.  The scope of application code
+applies only to the application wheras global Gate One plugin code will apply
+to Gate One itself and all applications.
+
+.. note:: Applications may have plugins of their own (e.g. terminal/plugins).
+
+Gate One applications and plugins can be written using any combination of the
+following:
+
+ * Python
+ * JavaScript
+ * CSS
+
+Applications and Python plugins can integrate with Gate One in a number ways:
+
+ * Adding or overriding request handlers to provide custom URLs (with a given regex).
+ * Adding or overriding methods in `GOApplication` to handle asynchronous WebSocket "actions".
+ * Adding or overriding events via the :meth:`on`, :meth:`off`, :meth:`once`, and :meth:`trigger` functions.
+ * Delivering custom content to clients (e.g. JavaScript and CSS templates).
+
+JavaScript and CSS plugins will be delivered over the WebSocket and cached at
+the client by way of a novel synchronization mechanism.  Once JavaScript and CSS
+assets have been delivered they will only ever have to be re-delivered to
+clients if they have been modified (on the server).  This mechanism is extremely
+bandwidth efficient and should allow clients to load Gate One content much more
+quickly than traditional HTTP GET requests.
+
+.. tip::
+
+    If you install the `cssmin` and/or `slimit` Python modules all JavaScript
+    and CSS assets will be automatically minified before being delivered to
+    clients.
+
+Class Docstrings
+================
+'''
 
 # Standard library modules
 import os
@@ -71,61 +373,53 @@ try:
     from tornado import version as tornado_version
     from tornado import version_info as tornado_version_info
 except (ImportError, NameError):
-    pass
+    MISSING_DEPS.append('tornado >= 4.0')
 
-from applications.utils import getsettings
+if 'tornado >= 4.0' not in MISSING_DEPS:
+    if tornado_version_info[0] < 3:
+        MISSING_DEPS.append('tornado >= 4.0')
+    if tornado_version_info[0] < 3 and tornado_version_info[1] < 2:
+        MISSING_DEPS.append('tornado >= 4.0')
+
+if MISSING_DEPS:
+    print("\x1b[31;1mERROR:\x1b[0m: This host is missing dependencies:")
+    for dep in MISSING_DEPS:
+        print("    %s" % dep)
+    modules = [a.split()[0] for a in MISSING_DEPS]
+    print("\x1b[1m  sudo pip install --upgrade %s\x1b[0m." %
+        ' '.join(MISSING_DEPS))
+    sys.exit(1)
+
+# We want this turned on right away
+tornado.log.enable_pretty_logging()
 
 # Our own modules
-from applications import SESSIONS
-from applications import PERSIST
+from gateone import SESSIONS, PERSIST
+from gateone.auth.authentication import NullAuthHandler, KerberosAuthHandler
+from gateone.auth.authentication import GoogleAuthHandler, APIAuthHandler
+from gateone.auth.authentication import CASAuthHandler, PAMAuthHandler
+from gateone.auth.authentication import SSLAuthHandler
+from gateone.auth.authorization import require, authenticated, policies
+from gateone.auth.authorization import applicable_policies
+from gateone.async import MultiprocessRunner, ThreadedRunner
+from .utils import generate_session_id, mkdir_p, touch, noop
+from .utils import gen_self_signed_ssl, entry_point_files
+from .utils import merge_handlers, none_fix, convert_to_timedelta, short_hash
+from .utils import json_encode, recursive_chown, ChownError, get_or_cache
+from .utils import write_pid, read_pid, remove_pid, drop_privileges
+from .utils import check_write_permissions, valid_hostname
+from .utils import total_seconds, MEMO, bind
+from .configuration import apply_cli_overrides, define_options, SettingsError
+from .configuration import get_settings
+from onoff import OnOffMixin
 
-#from gateone import SESSIONS, PERSIST
-#from gateone.auth.authentication import NullAuthHandler, KerberosAuthHandler
-#from gateone.auth.authentication import GoogleAuthHandler, APIAuthHandler
-#from gateone.auth.authentication import CASAuthHandler, PAMAuthHandler
-#from gateone.auth.authentication import SSLAuthHandler
-#from gateone.auth.authorization import require, authenticated, policies
-from applications.auth.authorization import applicable_policies
-from applications.async import MultiprocessRunner, ThreadedRunner
-from applications.utils import generate_session_id, mkdir_p, touch, noop
-from applications.utils import gen_self_signed_ssl, entry_point_files
-from applications.utils import merge_handlers, none_fix, convert_to_timedelta, short_hash
-from applications.utils import json_encode, recursive_chown, ChownError, get_or_cache
-from applications.utils import write_pid, read_pid, remove_pid, drop_privileges
-from applications.utils import check_write_permissions, valid_hostname
-from applications.utils import total_seconds, MEMO, bind
-from applications.configuration import apply_cli_overrides, define_options, SettingsError
-from applications.configuration import get_settings
-from applications.onoff import OnOffMixin
-
-#replace tornado websocket handler
-from channels.generic.websockets import WebsocketConsumer
-from channels.sessions import channel_session,channel_and_http_session,http_session
-from channels import Group
-
-from itertools import izip
-
-
-
-from django.core import signing
-from django.utils.encoding import smart_bytes
-from django.template import Context, Template
-
-
-from applications.utils import short_hash, create_data_uri, which
-from applications.utils import process_opt_esc_sequence, bind, MimeTypeFail
-
-#from applications.app_terminal import TerminalApplication
 # Setup our base loggers (these get overwritten in main())
-from applications.log import go_logger, LOGS
+from gateone.core.log import go_logger, LOGS
 logger = go_logger(None)
 auth_log = go_logger('gateone.auth')
 msg_log = go_logger('gateone.message')
 client_log = go_logger('gateone.client')
 
-#try to fix logging format bug
-import coloredlogs
-coloredlogs.install(fmt='%(asctime)s  %(name)s[%(process)d] %(levelname)s %(message)s')
 # Setup the locale functions before anything else
 locale.set_default_locale('en_US')
 server_locale = None # Replaced with the actual server locale object in __main__
@@ -153,8 +447,8 @@ PLUGINS = {}
 PLUGIN_HOOKS = {} # Gives plugins the ability to hook into various things.
 
 # Secondary locale setup
-#locale_dir = resource_filename('gateone', '/i18n')
-#locale.load_gettext_translations(locale_dir, 'gateone')
+locale_dir = resource_filename('gateone', '/i18n')
+locale.load_gettext_translations(locale_dir, 'gateone')
 # NOTE: The locale gets set in __main__
 
 def cleanup_user_logs():
@@ -170,12 +464,14 @@ def cleanup_user_logs():
     """
     logging.debug("cleanup_user_logs()")
     disabled = timedelta(0) # If the user sets user_logs_max_age to "0"
-    settings = get_settings(define_options()['settings_dir'])
+    settings = get_settings(options.settings_dir)
     user_dir = settings['*']['gateone']['user_dir']
-    user_dir = define_options()['user_dir']
+    if 'user_dir' in options: # NOTE: options is global
+        user_dir = options.user_dir
     default = "30d"
     max_age_str = settings['*']['gateone'].get('user_logs_max_age', default)
-    max_age_str = define_options()['user_logs_max_age']
+    if 'user_logs_max_age' in list(options):
+        max_age_str = options.user_logs_max_age
     max_age = convert_to_timedelta(max_age_str)
     def descend(path):
         """
@@ -213,11 +509,11 @@ def cleanup_old_sessions():
     """
     logging.debug("cleanup_old_sessions()")
     disabled = timedelta(0) # If the user sets auth_timeout to "0"
-    settings = get_settings(define_options()['settings_dir'])
+    settings = get_settings(options.settings_dir)
     expiration_str = settings['*']['gateone'].get('auth_timeout', "14d")
     expiration = convert_to_timedelta(expiration_str)
     if expiration != disabled:
-        for session in os.listdir(define_options()['session_dir']):
+        for session in os.listdir(options.session_dir):
             # If it's in the SESSIONS dict it's still valid for sure
             if session not in SESSIONS:
                 if len(session) != 45:
@@ -226,13 +522,13 @@ def cleanup_old_sessions():
                     # session_dir.  Why not just check for 'broacast'?  Just in
                     # case we put something else there in the future.
                     continue
-                session_path = os.path.join(define_options()['session_dir'], session)
+                session_path = os.path.join(options.session_dir, session)
                 mtime = time.localtime(os.stat(session_path).st_mtime)
                 # Convert to a datetime object for easier comparison
                 mtime = datetime.fromtimestamp(time.mktime(mtime))
                 if datetime.now() - mtime > expiration:
                     import shutil
-                    from applications.utils import kill_session_processes
+                    from .utils import kill_session_processes
                     # The log is older than expiration, remove it and kill any
                     # processes that may be remaining.
                     kill_session_processes(session)
@@ -316,7 +612,7 @@ def gateone_policies(cls):
         'broadcast': policy_broadcast,
         'list_server_users': policy_list_users
     }
-    user = instance.request.http_session.get('gateone_user',{})
+    user = instance.current_user
     policy = applicable_policies('gateone', user, instance.ws.policies)
     if not policy: # Empty RUDict
         return True # A world without limits!
@@ -324,14 +620,6 @@ def gateone_policies(cls):
         return policy_functions[function.__name__](cls, policy)
     return True # Default to permissive if we made it this far
 
-@atexit.register
-def clean_cache():
-    cache_dir = define_options()['cache_dir']
-    logging.debug('clean cache dir')
-    for file in os.listdir(cache_dir):
-        file_name = os.path.join(cache_dir,file)
-        os.remove(file_name)
-    
 @atexit.register # I love this feature!
 def kill_all_sessions(timeout=False):
     """
@@ -353,7 +641,7 @@ def kill_all_sessions(timeout=False):
                 if SESSIONS[session]["kill_session_callbacks"]:
                     for callback in SESSIONS[session]["kill_session_callbacks"]:
                         callback(session)
-    
+
 def timeout_sessions():
     """
     Loops over the SESSIONS dict killing any sessions that haven't been used
@@ -425,8 +713,8 @@ def broadcast_message(args=sys.argv, message=""):
     if '--help' in args or len(args) < 1:
         print("Usage: gateone broadcast 'Your message here.'")
         sys.exit(1)
-    prefs = get_settings(define_options()['settings_dir'])
-    broadcast_file = os.path.join(define_options()['session_dir'], 'broadcast')
+    prefs = get_settings(options.settings_dir)
+    broadcast_file = os.path.join(options.session_dir, 'broadcast')
     broadcast_file = prefs['*']['gateone'].get(
         'broadcast_file', broadcast_file) # If set
     with io.open(broadcast_file, 'w') as b:
@@ -623,6 +911,134 @@ class HTTPSRedirectHandler(BaseHandler):
         self.redirect(
             'https://%s:%s%s' % (host, port, url_prefix))
 
+class DownloadHandler(BaseHandler):
+    """
+    A :class:`tornado.web.RequestHandler` to serve up files that wind up in a
+    given user's `session_dir` in the 'downloads' directory.  Generally speaking
+    these files are generated by the terminal emulator (e.g. cat somefile.pdf)
+    but it can be used by applications and plugins as a way to serve up
+    all sorts of (temporary/transient) files to users.
+    """
+    # NOTE:  This is a modified version of torando.web.StaticFileHandler
+    @tornado.web.authenticated
+    def get(self, path, include_body=True):
+        session_dir = self.settings['session_dir']
+        user = self.current_user
+        print 'path',path
+        #print user#{u'upn': u'ANONYMOUS', u'session': u'NDg1YTg2MDY1MzRiNDQ1NmJkYmZjYmZkMDc0NzYwZjFmN', 'ip_address': '127.0.0.1'}
+        if user and 'session' in user:
+            session = user['session']
+        else:
+            logger.error(_("DownloadHandler: Could not determine use session"))
+            return # Something is wrong
+        filepath = os.path.join(session_dir, session, 'downloads', path)
+        abspath = os.path.abspath(filepath)
+        if not os.path.exists(abspath):
+            self.set_status(404)
+            self.write(self.get_error_html(404))
+            return
+        if not os.path.isfile(abspath):
+            raise tornado.web.HTTPError(403, "%s is not a file", path)
+        import stat, mimetypes
+        stat_result = os.stat(abspath)
+        modified = datetime.fromtimestamp(stat_result[stat.ST_MTIME])
+        self.set_header("Last-Modified", modified)
+        mime_type, encoding = mimetypes.guess_type(abspath)
+        if mime_type:
+            self.set_header("Content-Type", mime_type)
+        # Set the Cache-Control header to private since this file is not meant
+        # to be public.
+        self.set_header("Cache-Control", "private")
+        # Add some additional headers
+        self.set_header('Access-Control-Allow-Origin', '*')
+        # Check the If-Modified-Since, and don't send the result if the
+        # content has not been modified
+        ims_value = self.request.headers.get("If-Modified-Since")
+        if ims_value is not None:
+            import email.utils
+            date_tuple = email.utils.parsedate(ims_value)
+            if_since = datetime.fromtimestamp(time.mktime(date_tuple))
+            if if_since >= modified:
+                self.set_status(304)
+                return
+        # Finally, deliver the file
+        with io.open(abspath, "rb") as file:
+            data = file.read()
+            hasher = hashlib.sha1()
+            hasher.update(data)
+            self.set_header("Etag", '"%s"' % hasher.hexdigest())
+            if include_body:
+                self.write(data)
+            else:
+                assert self.request.method == "HEAD"
+                self.set_header("Content-Length", len(data))
+
+    def get_error_html(self, status_code, **kwargs):
+        self.require_setting("static_url")
+        if status_code in [404, 500, 503, 403]:
+            filename = os.path.join(self.settings['static_url'], '%d.html' % status_code)
+            if os.path.exists(filename):
+                with io.open(filename, 'r') as f:
+                    data = f.read()
+                return data
+        import httplib
+        return "<html><title>%(code)d: %(message)s</title>" \
+                "<body class='bodyErrorPage'>%(code)d: %(message)s</body></html>" % {
+            "code": status_code,
+            "message": httplib.responses[status_code],
+        }
+
+class MainHandler(BaseHandler):
+    """
+    Renders index.html which loads Gate One.
+
+    Will include the minified version of gateone.js if available as
+    gateone.min.js.
+    """
+    @tornado.web.authenticated
+    @tornado.web.addslash
+    def get(self):
+        # Set our server header so it doesn't say TornadoServer/<version>
+        hostname = os.uname()[1]
+        location = self.get_argument("location", "default")
+        prefs = self.get_argument("prefs", None)
+        gateone_js = "%sstatic/gateone.js" % self.settings['url_prefix']
+        minified_js_abspath = resource_filename(
+            'gateone', '/static/gateone.min.js')
+        js_init = self.settings['js_init']
+        # Use the minified version if it exists and we're not debugging
+        if options.logging.lower() != 'debug':
+            if os.path.exists(minified_js_abspath):
+                gateone_js = (
+                    "%sstatic/gateone.min.js" % self.settings['url_prefix'])
+        index_path = resource_filename('gateone', 'templates/index.html')
+        head_html = ""
+        body_html = ""
+        for plugin, hooks in PLUGIN_HOOKS.items():
+            if 'HTML' in hooks:
+                if 'head' in hooks['HTML']:
+                    if hooks['HTML']['head']:
+                        for item in hooks['HTML']['head']:
+                            head_html += "%s\n" % item
+                if 'body' in hooks['HTML']:
+                    if hooks['HTML']['body']:
+                        for item in hooks['HTML']['body']:
+                            body_html += "%s\n" % item   
+        #print gateone_js
+        #print js_init
+        #print head_html
+        #print body_html
+        self.render(
+            index_path,
+            hostname=hostname,
+            gateone_js=gateone_js,
+            location=location,
+            js_init=js_init,
+            url_prefix=self.settings['url_prefix'],
+            head=head_html,
+            body=body_html,
+            prefs=prefs
+        )
 
 class GOApplication(OnOffMixin):
     """
@@ -693,7 +1109,7 @@ class GOApplication(OnOffMixin):
         self.send_js = ws.send_js
         self.close = ws.close
         self.security = ws.security
-        self.request = ws.request#transfer the request
+        self.request = ws.request
         self.settings = ws.settings
         self.io_loop = tornado.ioloop.IOLoop.current()
         self.cpu_async = CPU_ASYNC
@@ -705,30 +1121,30 @@ class GOApplication(OnOffMixin):
     def __str__(self):
         return self.info['name']
 
-    #def initialize(self):
-        #"""
-        #Called by :meth:`ApplicationWebSocket.open` after __init__().
-        #GOApplications can override this function to perform their own actions
-        #when the Application is initialized (happens just before the WebSocket
-        #is opened).
-        #"""
-        #pass
+    def initialize(self):
+        """
+        Called by :meth:`ApplicationWebSocket.open` after __init__().
+        GOApplications can override this function to perform their own actions
+        when the Application is initialized (happens just before the WebSocket
+        is opened).
+        """
+        pass
 
-    #def open(self):
-        #"""
-        #Called by :meth:`ApplicationWebSocket.open` after the WebSocket is
-        #opened.  GOApplications can override this function to perform their own
-        #actions when the WebSocket is opened.
-        #"""
-        #pass
+    def open(self):
+        """
+        Called by :meth:`ApplicationWebSocket.open` after the WebSocket is
+        opened.  GOApplications can override this function to perform their own
+        actions when the WebSocket is opened.
+        """
+        pass
 
-    #def on_close(self):
-        #"""
-        #Called by :meth:`ApplicationWebSocket.on_close` after the WebSocket is
-        #closed.  GOApplications can override this function to perform their own
-        #actions when the WebSocket is closed.
-        #"""
-        #pass
+    def on_close(self):
+        """
+        Called by :meth:`ApplicationWebSocket.on_close` after the WebSocket is
+        closed.  GOApplications can override this function to perform their own
+        actions when the WebSocket is closed.
+        """
+        pass
 
     def add_handler(self, pattern, handler, **kwargs):
         """
@@ -742,7 +1158,6 @@ class GOApplication(OnOffMixin):
             If the *pattern* does not start with the configured `url_prefix` it
             will be automatically prepended.
         """
-        #print ("Adding handler: (%s, %s)" % (pattern, handler))
         logging.debug("Adding handler: (%s, %s)" % (pattern, handler))
         url_prefix = self.ws.settings['url_prefix']
         if not pattern.startswith(url_prefix):
@@ -766,9 +1181,8 @@ class GOApplication(OnOffMixin):
         if isinstance(timeout, basestring):
             timeout = convert_to_timedelta(timeout)
         self.io_loop.add_timeout(timeout, func)
-global action_list
-action_list = dict()
-class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
+
+class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
     """
     The main WebSocket interface for Gate One, this class is setup to call
     WebSocket 'actions' which are methods registered in `self.actions`.
@@ -780,25 +1194,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     watched_files = {}     # Format: {<file path>: <modification time>}
     file_update_funcs = {} # Format: {<file path>: <function called on update>}
     file_watcher = None    # Will be replaced with a PeriodicCallback
-    prefs = get_settings(define_options()['settings_dir']) # Gets updated with every call to initialize()
-    http_user = True
-    http_user_and_session = True
-    channel_session = True
-    channel_session_user = True    
-    base_url = ''
-    request = None
-    def __init__(self,  message, **kwargs):
-        #print message
-        #super(WebsocketConsumer,self).__init__(message,**kwargs)
-        #print 'initialize the websocket'
-        #print message.content
-        """
-        
-        {u'reply_channel': u'daphne.response.zaVmWIEROh!bVGRBKiRYz', u'server': ['127.0.0.1', 8000], u'headers': [['origin', 'http://127.0.0.1:8000'], ['upgrade', 'websocket'], ['accept-language', 'en-US,en;q=0.8'], ['accept-encoding', 'gzip, deflate, br'], ['sec-websocket-version', '13'], ['host', '127.0.0.1:8000'], ['sec-websocket-key', 't7gYSdhD89Ir2xERiGfcHA=='], ['user-agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.86 Safari/537.36'], ['connection', 'Upgrade'], ['cookie', 'csrftoken=2OLFifLswIbqAaKkZk5KhVBM4OQCtR8TPrtpxH5kFGLVsHOXwZPT5Nsihtnw735A; sessionid=599nhdu3krvaaie3zsl8m007ckemu985; gateone_user="eyJ1cG4iOiJqaW1teSIsInByb3RvY29sIjoiaHR0cCIsInNlc3Npb24iOiJZMlV4WWpOa1pXUTRZVEEwTkRZd01EZzJNR1ppTTJFME9UZ3pOell4T0RGbFoiLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1dJeyV:CGDSBqWa8TXvVjhgBFi-MtyEgR4"'], ['pragma', 'no-cache'], ['cache-control', 'no-cache'], ['sec-websocket-extensions', 'permessage-deflate; client_max_window_bits']], u'client': ['127.0.0.1', 36720], u'query_string': u'', u'path': u'/ws', u'order': 0}
-        """
-        #print dir(message)
-        #print message.content
-        #print os.getpid()
+    prefs = {} # Gets updated with every call to initialize()
+    def __init__(self, application, request, **kwargs):
+        #print 'application',application.__class__
+        #print 'request',request
+        #print 'kwargs',kwargs
         self.actions = {
             'go:ping': self.pong,
             'go:log': self.log_message,
@@ -816,7 +1216,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'go:set_dimensions': self.set_dimensions,
             'go:license_info': self.license_info,
             'go:debug': self.debug,
-        }      
+        }
         # Setup some instance-specific loggers that we can later update with
         # more metadata
         self.io_loop = tornado.ioloop.IOLoop.current()
@@ -849,12 +1249,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.timestamps = [] # Tracks/averages client latency
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
-        current_term = None
-        #super(ApplicationWebSocket, self).__init__(message, **kwargs)
-        #from applications.app_terminal import TerminalApplication
-        #self.initialize(apps=[TerminalApplication],message=message)
-        #super(WebsocketConsumer,self).__init__(message,**kwargs)
-        super(WebsocketConsumer,self).__init__(message,**kwargs)        
+        WebSocketHandler.__init__(self, application, request, **kwargs)
 
     @classmethod
     def file_checker(cls):
@@ -871,7 +1266,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls.file_watcher.stop()
             # Also remove the broadcast file so we know to start up the
             # file_watcher again if a user connects.
-            session_dir = self.settings['session_dir']
+            session_dir = options.session_dir
             broadcast_file = os.path.join(session_dir, 'broadcast') # Default
             broadcast_file = cls.prefs['*']['gateone'].get(
                 'broadcast_file', broadcast_file) # If set, use that
@@ -898,7 +1293,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     "Exception encountered trying to execute the file update "
                     "function for {path}...".format(path=path)))
                 logger.error(e)
-                if cls.settings['logging'] == 'debug':
+                if options.logging == 'debug':
                     import traceback
                     traceback.print_exc(file=sys.stdout)
 
@@ -929,11 +1324,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         logger.info(_(
             "Settings have been modified.  Reloading from %s"
-            % self.settings['settings_dir']))
-        prefs = get_settings(self.settings['settings_dir'])
+            % options.settings_dir))
+        prefs = get_settings(options.settings_dir)
         # Only overwrite our settings if everything is proper
         if 'gateone' not in prefs['*']:
-            # NOTE: get_settings records its own errors too
+            # NOTE: get_settings() records its own errors too
             logger.info(_("Settings have NOT been loaded."))
             return
         cls.prefs = prefs
@@ -985,7 +1380,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             Want to broadcast a message to all the users currently connected to
             Gate One?  Just `sudo echo "your message" > /tmp/gateone/broadcast`.
         """
-        session_dir = self.settings['session_dir']
+        session_dir = options.session_dir
         broadcast_file = os.path.join(session_dir, 'broadcast')
         broadcast_file = cls.prefs['*']['gateone'].get(
             'broadcast_file', broadcast_file)
@@ -996,7 +1391,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             metadata = {'clients': []}
             for instance in cls.instances:
                 try: # Only send to users that have authenticated
-                    user = instance.request.http_session.get('gateone_user',None)
+                    user = instance.current_user
                 except AttributeError:
                     continue
                 user_info = {
@@ -1009,7 +1404,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls._deliver(message_dict, upn="AUTHENTICATED")
             io.open(broadcast_file, 'w').write(u'') # Empty it out
 
-    def initialize(self, apps=None,message=None, **kwargs):
+    def initialize(self, apps=None, **kwargs):
         """
         This gets called by the Tornado framework when `ApplicationWebSocket` is
         instantiated.  It will be passed the list of *apps* (Gate One
@@ -1023,22 +1418,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         logging.debug('ApplicationWebSocket.initialize(%s)' % apps)
         # Make sure we have all prefs ready for checking
-        #cls = ApplicationWebSocket
-        #cls.prefs = get_settings(self.settings['settings_dir'])
-        #print 'initialize cls prefix',self.prefs
-        #sel.settings example
-        """
-        {u'dtach': True, 'version': None, u'locale': u'en_US', u'address': u'', u'pam_service': u'login', u'syslog_facility': u'daemon', 'cookie_secret': u'ZTQyZTZhYjQxZmVjNDI2M2E3MWZiYmMyOWViZDA5ZGZlM', u'enable_unix_socket': False, u'port': 10443, u'uid': u'1000', u'url_prefix': u'/', u'user_dir': u'/home/jimmy/Desktop/GateOne/users', 'settings_dir': '/home/jimmy/Desktop/GateOne/conf.d', u'unix_socket_mode': u'0600', u'multiprocessing_workers': None, u'certificate': u'/home/jimmy/Desktop/GateOne/ssl/certificate.pem', u'log_rotate_interval': 1, u'log_to_stderr': None, u'log_rotate_when': u'midnight', u'gid': u'1000', u'pid_file': u'/home/jimmy/Desktop/GateOne/gateone.pid', 'command': None, 'gzip': True, u'pam_realm': u'jimmy-linux', 'login_url': u'/auth', 'configure': False, u'sso_service': u'HTTP', 'cli_overrides': [], u'https_redirect': False, u'auth': None, 'api_keys': '', u'disable_ssl': False, u'ca_certs': None, u'cache_dir': u'/home/jimmy/Desktop/GateOne/cache', u'syslog_session_logging': False, u'user_logs_max_age': u'30d', u'sso_keytab': None, u'api_timestamp_window': datetime.timedelta(0, 30), 'static_url_prefix': u'/static/', u'log_rotate_mode': u'size', u'log_file_num_backups': 10, u'logging': u'info', u'embedded': False, u'origins': [u'localhost:10443', u'127.0.0.1:10443', u'jimmy-linux:10443', u'127.0.1.1:10443'], u'session_logging': True, u'keyfile': u'/home/jimmy/Desktop/GateOne/ssl/keyfile.pem', u'session_dir': u'/home/jimmy/Desktop/GateOne/sessions', 'static_url': '/home/jimmy/Desktop/GateOne/gateone/static', u'ssl_auth': u'none', u'log_file_max_size': 100000000, u'session_timeout': u'5d', u'sso_realm': None, u'debug': False, u'js_init': u'', u'unix_socket_path': u'/tmp/gateone.sock', u'log_file_prefix': u'/home/jimmy/Desktop/GateOne/logs/gateone.log'}
-        """
-        #from applications.app_terminal import TerminalApplication
-        #apps = [TerminalApplication]
-        cache_dir = self.settings['cache_dir']
-        if not os.path.exists(cache_dir):
-            mkdir_p(cache_dir)
-        #PLUGIN_HOOKS example
-        """
-         {'gateone.plugins.editor': {'WebSocket': {'go:get_editor_mode': <function get_editor_mode at 0x7fec2b339b90>}}}
-        """
+        cls = ApplicationWebSocket
+        cls.prefs = get_settings(options.settings_dir)
+        if not os.path.exists(self.settings['cache_dir']):
+            mkdir_p(self.settings['cache_dir'])
         for plugin_name, hooks in PLUGIN_HOOKS.items():
             if 'Events' in hooks:
                 for event, callback in hooks['Events'].items():
@@ -1071,18 +1454,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.on("go:close", timeout_sessions)
         if not apps:
             return
+        #print apps
         for app in apps:
             instance = app(self)
             self.apps.append(instance)
             logging.debug("Initializing %s" % instance)
-            #print "Initializing %s" % instance
             if hasattr(instance, 'initialize'):
-                #print 'initialize app_terminal'
-                instance.initialize(message=message)
-            #if hasattr(instance, 'authenticate'):
-                #instance.authenticate(message=message)
-        #print 'self.initialize actions',len(self.actions)
-        #self.authenticate(self.settings)
+                instance.initialize()
 
     def send_extra(self):
         """
@@ -1095,11 +1473,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             You may have to create the 'static/extra' directory before putting
             files in there.
         """
-        extra_path = os.path.join(getsettings('BASE_DIR'), 'static/extra')
-        if not os.path.exists(extra_path):
+        extra_path = resource_filename('gateone', 'static/extra')
+        if not resource_exists('gateone', '/static/extra'):
             return # Nothing to do
-        for f in os.listdir(extra_path):
-            filepath = os.path.join(extra_path,f)
+        for f in resource_listdir('gateone', '/static/extra'):
+            filepath = resource_filename('gateone', '/static/extra/%s' % f)
             if filepath.endswith('.js'):
                 self.send_js(filepath, force=True)
             elif filepath.endswith('.css'):
@@ -1114,7 +1492,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         return True
 
-    #this is the tornado web request function, to determin the current user.
     def get_current_user(self):
         """
         Mostly identical to the function of the same name in MainHandler.  The
@@ -1123,16 +1500,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         expiration = self.settings.get('auth_timeout', "14d")
         # Need the expiration in days (which is a bit silly but whatever):
-        #print 'get_current_user'
-        # user json example
-        #user_json {"upn": "ANONYMOUS", "session": "YmM5MDU5MDgyYmVjNDU0M2E5MDMzYTg5NWMzZTI5YTBkN"}
         expiration = (
             float(total_seconds(convert_to_timedelta(expiration)))
             / float(86400))
-        #user_json = self.get_secure_cookie(
-            #"gateone_user", max_age_days=expiration)
-        #expiration bug
-        user_json = self.get_secure_cookie.get('gateone_user',None)
+        user_json = self.get_secure_cookie(
+            "gateone_user", max_age_days=expiration)
+        #print 'user_json',user_json
+        #user_json {"upn": "ANONYMOUS", "session": "YmM5MDU5MDgyYmVjNDU0M2E5MDMzYTg5NWMzZTI5YTBkN"}
         if not user_json:
             if not self.settings['auth']:
                 # This can happen if the user's browser isn't allowing
@@ -1140,7 +1514,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 return {'upn': 'ANONYMOUS', 'session': generate_session_id()}
             return None
         user = json_decode(user_json)
-        user['ip_address'] = self.get_secure_cookie.get('gateone_user',None)['ip_address']
+        user['ip_address'] = self.request.remote_ip
         return user
 
     def write_binary(self, message):
@@ -1153,9 +1527,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         self.write_message(message, binary=True)
 
-    #this is a function which detect where user is login to application
     def check_origin(self, origin):
-        #this function is overwrite for tornado request header check. It won't be invoked by applicationwebsocket.
         """
         Checks if the given *origin* matches what's been set in Gate One's
         "origins" setting (usually in 10server.conf).  The *origin* will first
@@ -1170,23 +1542,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             If '*' is in the "origins" setting (anywhere) all origins will be
             allowed.
         """
-        #print 'origin',origin
         logging.debug("check_origin(%s)" % origin)
         self.checked_origin = True
         valid = False
         parsed_origin = urlparse(origin)
         self.origin = parsed_origin.netloc.lower()
-        #headers example
-        #headers [['origin', 'http://127.0.0.1:8000'], ['upgrade', 'websocket'], ['accept-language', 'en-US,en;q=0.5'],
-        #['accept-encoding', 'gzip, deflate'], ['sec-websocket-version', '13'], ['host', '127.0.0.1:8000'], 
-        #['accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'], 
-        #['user-agent', 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:53.0) Gecko/20100101 Firefox/53.0'], 
-        #['connection', 'keep-alive, Upgrade'], 
-        #['cookie', 'csrftoken=ftNMrWT1SkwlvHbw4oshOOMhfzepNYLI4OvnLVIUelAK131uYKozgLpYBplkJ1d3; djdt=hide; sessionid=k39xsq3l4oipty53em6bir9v37ihddqg; 
-        #gateone_user="eyJ1cG4iOiJqaW1teSIsInByb3RvY29sIjoiaHR0cCIsInNlc3Npb24iOiJOekl5T0RRMk56VmxNamMwTkRjME5tSXlOV0UzTjJVeE1HSmxZVE0zTlRGbU8iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1dHlqj:hwRz89CMcwxUh6NzB8kDFMB7lrA"'], ['sec-websocket-key', 'I94wIA9q/PbanMUZeL4kuA=='],
-        #['pragma', 'no-cache'], ['cache-control', 'no-cache'], ['sec-websocket-extensions', 'permessage-deflate']]
-        #host = self.request.headers.get("Host") original
-        host = self.get_request_headers.get('host',None)
+        host = self.request.headers.get("Host")
         if self.origin == host: # Reality check: Do we care?
             # If the origin matches the "Host" header it means that the user is
             # legitimately accessing Gate One directly.  We really only need to
@@ -1217,7 +1578,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             logging.error("Origin check failed for: %s" % origin)
         return valid
 
-    def open(self, message,**kwargs):
+    def open(self):
+        #print self.settings
         """
         Called when a new WebSocket is opened.  Will deny access to any
         origin that is not defined in `self.settings['origin']`.  Also sends
@@ -1242,114 +1604,32 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             `self.prefs` which includes *all* of Gate One's settings (including
             settings for other applications and scopes).
         """
-        #print 'websocket opened'
-        #super(ApplicationWebSocket,self).__init__(message)
-        #self.__init__(message,**kwargs)
-        #print self.actions
-        from applications.app_terminal import TerminalApplication
-        self.initialize(message=message,apps=[TerminalApplication],**kwargs)
+        print 'websocket opened'
         cls = ApplicationWebSocket
-        cls.instances.add(self)        
-        #print self.instances
-        self.request = message
-        #print 'websocket opened self.prefx',self.prefs
-        #if hasattr(self, 'set_nodelay'):
-            ## New feature of Tornado 3.1 that can reduce latency:
-            #self.set_nodelay(True)
-        client_address = message.http_session.get('gateone_user',None)['ip_address']
-        #print client_address
-        logging.debug("open() origin: %s" % client_address)
+        cls.instances.add(self)
+        if hasattr(self, 'set_nodelay'):
+            # New feature of Tornado 3.1 that can reduce latency:
+            self.set_nodelay(True)
+        client_address = self.request.remote_ip
+        logging.debug("open() origin: %s" % self.origin)
         self.origin_denied = False
         # client_id is unique to the browser/client whereas session_id is unique
         # to the user.  It isn't used much right now but it will be useful in
         # the future once more stuff is running over WebSockets.
-        self.client_id = message.http_session.get('session',None)
-        #print message.http_session.get('gateone_user',None)
+        self.client_id = generate_session_id()
         self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
-            protocol=message.http_session.get('gateone_user',None)['protocol'],
-            host=client_address,
-            port=self.settings['port'],#self.settings['port']
-            url_prefix=self.settings['url_prefix'])#self.settings['url_prefix']
-        user = message.http_session.get('gateone_user',None)
+            protocol=self.request.protocol,
+            host=self.request.host,
+            port=self.settings['port'],
+            url_prefix=self.settings['url_prefix'])
+        #print self.base_url
+        user = self.current_user
+        #print 'user',user
         # NOTE: self.current_user will call self.get_current_user() and set
         # self._current_user the first time it is used.
         policy = applicable_policies("gateone", user, self.prefs)
-        #print 'policy',policy
-        #policy example
-        """
-        {
-            "*": {
-                "gateone": {
-                    "uid": "1000", 
-                    "locale": "en_US", 
-                    "user_logs_max_age": "30d", 
-                    "pam_service": "login", 
-                    "syslog_facility": "daemon", 
-                    "js_init": "", 
-                    "cookie_secret": "iqy3so83+l8=m^p=-0t2po)(h#+r%gmqcfgz7kj7biux)+t#ow", 
-                    "enable_unix_socket": false, 
-                    "session_timeout": "5d", 
-                    "port": 8000, 
-                    "url_prefix": "/", 
-                    "user_dir": "/home/jimmy/Desktop/GateOne/users", 
-                    "unix_socket_mode": "0600", 
-                    "log_rotate_mode": "size", 
-                    "certificate": "/home/jimmy/Desktop/GateOne/ssl/certificate.pem", 
-                    "log_rotate_interval": 1, 
-                    "log_to_stderr": null, 
-                    "log_rotate_when": "midnight", 
-                    "gid": "1000", 
-                    "pid_file": "/home/jimmy/Desktop/GateOne/gateone.pid", 
-                    "pam_realm": "jimmy-VirtualBox", 
-                    "sso_service": "HTTP", 
-                    "https_redirect": false, 
-                    "auth": "none", 
-                    "api_keys": {
-                        "ZDRhMTA1ZjIwZDY2NDc3N2I4ZmZlNzQzM2ZiMTUxN2M4N": "YTA4ZWYzZjYzNWE5NDIyMmExMTZiZDE3MzdhNTk1NWY0M"
-                    }, 
-                    "disable_ssl": false, 
-                    "ca_certs": null, 
-                    "cache_dir": "/home/jimmy/Desktop/GateOne/cache", 
-                    "address": "", 
-                    "logging": "info", 
-                    "multiprocessing_workers": null, 
-                    "log_file_num_backups": 10, 
-                    "sso_keytab": null, 
-                    "origins": [
-                        "localhost:10443", 
-                        "127.0.0.1:10443", 
-                        "jimmy-VirtualBox:10443", 
-                        "127.0.1.1:10443"
-                    ], 
-                    "embedded": false, 
-                    "unix_socket_path": "/tmp/gateone.sock", 
-                    "ssl_auth": "none", 
-                    "log_file_max_size": 100000000, 
-                    "session_dir": "/home/jimmy/Desktop/GateOne/sessions", 
-                    "sso_realm": null, 
-                    "debug": false, 
-                    "api_timestamp_window": "30s", 
-                    "keyfile": "/home/jimmy/Desktop/GateOne/ssl/keyfile.pem", 
-                    "log_file_prefix": "/home/jimmy/Desktop/GateOne/logs/gateone.log"
-                }, 
-                "terminal": {
-                    "commands": {
-                        "SSH": {
-                            "command": "/bin/bash"
-                        }
-                    }, 
-                    "environment_vars": {
-                        "TERM": "xterm-256color"
-                    }, 
-                    "dtach": true, 
-                    "default_command": "SSH", 
-                    "syslog_session_logging": false, 
-                    "session_logging": true, 
-                    "enabled_filetypes": "all"
-                }
-            }
-        }
-        """
+        #print policy
+        #print self.prefs
         blacklisted = policy.get('blacklist', False)
         if blacklisted:
             auth_log.info(_(
@@ -1362,9 +1642,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.close() # Close the WebSocket
             return
         metadata = {'ip_address': client_address}
-        #print 'client_address',client_address
-        #bug for origin
-        self.origin = str(client_address + ':' + str(self.settings['port']))
+        #print 'self.origin',self.origin
         if user and 'upn' in user:
             # Update our loggers to include the user metadata
             metadata['upn'] = user['upn']
@@ -1399,9 +1677,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #       having to restart Gate One (just need to wait for users to
         #       eventually re-connect or reload the page).
         # NOTE: Why store prefs in the class itself?  No need for redundancy.
-        #print 'cls.prefs',cls.prefs
-        if not cls.prefs:
-            cls.prefs = get_settings(self.settings['settings_dir'])
         if 'cache_dir' not in cls.prefs['*']['gateone']:
             # Set the cache dir to a default if not set in the prefs
             cache_dir = self.settings['cache_dir']
@@ -1422,43 +1697,27 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'doT.js' # For simple HTML templates
         ]
         for js_file in additional_files:
-            path = os.path.join(getsettings('BASE_DIR'), 'static')
-            path = os.path.join(path, js_file)#get js path
-            #print 'self send js' ,path
-            #print 'opened send js'
+            path = resource_filename('gateone', '/static/%s' % js_file)
             self.send_js(path)
-        #print 'self.client_id',self.client_id
-        #fix bug SESSIONS key error
-        for app in self.apps:      
+        for app in self.apps:
             if hasattr(app, 'open'):
-                #client_id, host, remote_ip
-                #bug need to be fixed
-                app.open(self.client_id, self.origin, client_address) # Call applications' open() functions (if any)
-            #bug
-            if hasattr(app, 'authenticate'):
-                app.authenticate(message=message)            
+                app.open() # Call applications' open() functions (if any)
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
-        #def send_ping():
-            #try:
-                #self.ping(str(int(time.time() * 1000)).encode('utf-8'))
-            #except (WebSocketClosedError, AttributeError):
-                ## Connection closed
-                #self.pinger.stop()
-                #del self.pinger
-        #send_ping()
-        #interval = 5000 # milliseconds
-        #self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
-        #self.pinger.start()    
-        #bug
-        self.list_applications()
+        def send_ping():
+            try:
+                self.ping(str(int(time.time() * 1000)).encode('utf-8'))
+            except (WebSocketClosedError, AttributeError):
+                # Connection closed
+                self.pinger.stop()
+                del self.pinger
+        send_ping()
+        interval = 5000 # milliseconds
+        self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
+        self.pinger.start()
         self.trigger("go:open")
-        #print 'open self.actions',len(self.actions)
-        #fix a global bug
-        #action_list is a dict to keep sel.actions when websocket open
-        action_list.update(self.actions)
 
-    def on_message(self, message,**kwargs):
+    def on_message(self, message):
         """
         Called when we receive a message from the client.  Performs some basic
         validation of the message, decodes it (JSON), and finally calls an
@@ -1467,37 +1726,29 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         # This is super useful when debugging:
         #print 'on_message',repr(message)
-        #print 'on_message',message.content.get('text',None)
-        #print 'self.on_messages action_list',len(action_list)
-        #print 'self.on_messages initialize',len(self.actions)
         logging.debug("message: %s" % repr(message))
+        if self.origin_denied:
+            self.auth_log.error(_("Message rejected due to invalid origin."))
+            self.close() # Close the WebSocket
+        message_obj = None
         try:
-            message_obj = json_decode(message.content.get('text',None)) # JSON FTW!
+            message_obj = json_decode(message) # JSON FTW!
             if not isinstance(message_obj, dict):
                 self.write_message(_("'Error: Message bust be a JSON dict.'"))
                 return
         except ValueError: # We didn't get JSON
             self.write_message(_("'Error: We only accept JSON here.'"))
             return
-        self.actions.update(action_list)
+        #print 'on_message',message
         if message_obj:
             for key, value in message_obj.items():
                 if key in self.actions:
                     try:
                         if value is None:
-                            try:
-                                self.actions[key]()
-                            except Exception,e:
-                                import traceback
-                                print 'key exception',key
-                                print traceback.print_exc()
+                            self.actions[key]()
                         else:
-                            try:
-                                self.actions[key](value)
-                            except Exception,e:
-                                import traceback
-                                print 'key exception',key
-                                print traceback.print_exc()                            
+                            # Try, try again
+                            self.actions[key](value)
                     except (KeyError, TypeError, AttributeError) as e:
                         import traceback
                         for frame in traceback.extract_tb(sys.exc_info()[2]):
@@ -1505,7 +1756,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                         self.logger.error(
                            _("Error in WebSocket action, %s: %s (%s line %s)") %
                            (key, e, fname, lineno))
-                        if self.settings.get('logging',None) == 'debug':
+                        if self.settings['logging'] == 'debug':
                             traceback.print_exc(file=sys.stdout)
                 else:
                     self.logger.error(
@@ -1520,9 +1771,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         logging.debug("on_close()")
         ApplicationWebSocket.instances.discard(self)
-        self.current_user = self.request.http_session.get('gateone_user',None)
         user = self.current_user
-        client_address = self.request.http_session.get('gateone_user',None)['ip_address']
+        client_address = self.request.remote_ip
         if user and user['session'] in SESSIONS:
             if self.client_id in SESSIONS[user['session']]['client_ids']:
                 SESSIONS[user['session']]['client_ids'].remove(self.client_id)
@@ -1537,8 +1787,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 _("WebSocket closed (%s %s).") % (user['upn'], client_address))
         else:
             self.auth_log.info(_("WebSocket closed (unknown user)."))
-        #if self.pinger:
-            #self.pinger.stop()
+        if self.pinger:
+            self.pinger.stop()
         # Call applications' on_close() functions (if any)
         for app in self.apps:
             if hasattr(app, 'on_close'):
@@ -1579,8 +1829,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         message = {'go:pong': timestamp}
         self.write_message(json_encode(message))
-        
-    #@require(policies('gateone'))
+
+    @require(policies('gateone'))
     def log_message(self, log_obj):
         """
         Attached to the `go:log` WebSocket action; logs the given *log_obj* via
@@ -1602,7 +1852,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             The "critical" and "fatal" log levels both use the
             `logging.Logger.critical` method.
         """
-        self.current_user = self.request.http_session.get('gateone_user',None)
         if not self.current_user:
             return # Don't let unauthenticated users log messages.
             # NOTE:  We're not using the authenticated() check here so we don't
@@ -1680,7 +1929,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             embedding Gate One and wish to associate extra metadata with the
             user you may do so via the API authentication process.
         """
-        from applications.utils import create_signature
+        from .utils import create_signature
         reauth = {'go:reauthenticate': True}
         api_key = auth_obj.get('api_key', None)
         if not api_key:
@@ -1782,7 +2031,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             if key not in known_params:
                 user[key] = value
         # user dicts need a little extra attention for IPs...
-        user['ip_address'] = self.request.http_session.get('gateone_user',None)['ip_address']
+        user['ip_address'] = self.request.remote_ip
         # Force-set the current user:
         self._current_user = user
         # Make a directory to store this user's settings/files/logs/etc
@@ -1803,7 +2052,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 # Save it so we can keep track across multiple clients
                 f.write(session_info_json)
         return user
-    
+
     def authenticate(self, settings):
         """
         Authenticates the client by first trying to use the 'gateone_user'
@@ -1832,18 +2081,20 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
         Triggers the `go:authenticate` event.
         """
+        #print 'authenticate',settings
         cls = ApplicationWebSocket
         logging.debug("authenticate(): %s" % settings)
         # Make sure the client is authenticated if authentication is enabled
         reauth = {'go:reauthenticate': True}
-        self.current_user = self.request.http_session.get('gateone_user',None)
         user = self.current_user # Just a shortcut to keep lines short
+        #print 'authenticate user',user
         # Apply the container/prefix settings (if present)
         self.container = settings.get('container', self.container)
         self.prefix = settings.get('prefix', self.prefix)
         # Update self.base_url if a url was given
         url = settings.get('url', None)
         if url:
+            #print 'self.base_url',self.base_url
             orig_base_url = self.base_url
             parsed = urlparse(url)
             port = parsed.port
@@ -1860,7 +2111,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 self.logger.info(_(
                     "Proxy in use: Client URL differs from server."))
         auth_method = self.settings.get('auth', None)
-        #print 'authenticate auth_method',auth_method
+        #print 'auth_method',auth_method
         if auth_method and auth_method != 'api':
             # Regular, non-API authentication
             if settings['auth']:
@@ -1870,7 +2121,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     float(total_seconds(convert_to_timedelta(expiration)))
                     / float(86400))
                 try:
-                    #bug need to be fixed
                     auth_data = self.get_secure_cookie("gateone_user",
                         value=settings['auth'], max_age_days=expiration)
                 except TypeError:
@@ -1885,7 +2135,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     # Force-set the current user
                     self._current_user = json_decode(auth_data)
                     # Add/update the user's IP address
-                    self._current_user['ip_address'] = self.request.http_session.get('gateone_user',None)['ip_address']
+                    self._current_user['ip_address'] = self.request.remote_ip
                     user = self.current_user
             try:
                 if not user:
@@ -1919,7 +2169,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             # Double-check there isn't a user set in the cookie (i.e. we have
             # recently changed Gate One's settings).  If there is, force it
             # back to ANONYMOUS.
-            #print 'settings[auth]',settings['auth']
             if settings['auth']:
                 cookie_data = None
                 if isinstance(settings['auth'], basestring):
@@ -1930,9 +2179,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     expiration = (
                         float(total_seconds(convert_to_timedelta(expiration)))
                         / float(86400))
-                    #cookie_data {"upn": "ANONYMOUS", "session": "MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM"}    
-                    #{u'upn': u'jimmy', u'ip_address': u'127.0.0.1', u'session': u'NjhlOTY0YjUzZDdiNDVmYjlhZDllNGFiOWNkOTFlMjM0Y', u'protocol': u'http'}
-                    cookie_data = self.request.http_session.get('gateone_user',None)
+                    cookie_data = self.get_secure_cookie("gateone_user",
+                        value=settings['auth'], max_age_days=expiration)
+                    #print 'cookie_data',cookie_data
                     # NOTE: The above doesn't actually touch any cookies
                 else:
                     # Someone is attempting to perform API-based authentication
@@ -1950,9 +2199,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                         "to set '\"auth\": \"api\"' in the settings?")}
                     self.write_message(json_encode(message))
                     return
-                if cookie_data:                   
-                    user = cookie_data                 
-                #print 'cookie_data',cookie_data
+                if cookie_data:
+                    user = json_decode(cookie_data)
             if not user:
                 # Generate a new session/anon user
                 # Also store/update their session info in localStorage
@@ -1966,30 +2214,24 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 self.write_message(json_encode(session_message))
                 self._current_user['ip_address'] = self.request.remote_ip
                 self._current_user = user
-            #print 'user', user['upn']
-            #bug rewrite the authenticate method
-            if user['upn'] == 'ANONYMOUS':#if user['upn'] != 'ANONYMOUS':
+            if user['upn'] != 'ANONYMOUS':
                 # Gate One server's auth config probably changed
                 self.write_message(json_encode(reauth))
-                #print 'reauth',reauth
                 return
-        #print 'self.request', self.request.http_session.get('gateone_user',None)
-        if self.request.http_session.get('gateone_user',None) and 'session' in self.request.http_session.get('gateone_user',None):#if self.current_user and 'session' in self.current_user:
-            self.session = self.request.http_session.get('gateone_user',None)['session']
+        if self.current_user and 'session' in self.current_user:
+            self.session = self.current_user['session']
         else:
             self.auth_log.error(_("Authentication failed for unknown user"))
             message = {'go:notice': _('AUTHENTICATION ERROR: User unknown')}
             self.write_message(json_encode(message))
             self.write_message(json_encode(reauth))
-            print 'reauth',reauth
             return
         # Locations are used to differentiate between different tabs/windows
         self.location = settings.get('location', 'default')
         # Update our loggers to include the user metadata
-        #print 'self.get_secure_cookie[gateone_user]',self.get_secure_cookie['gateone_user']['ip_address']
         metadata = {
             'upn': user['upn'],
-            'ip_address': self.request.http_session.get('gateone_user',None)['ip_address'],
+            'ip_address': self.request.remote_ip,
             'location': self.location
         }
         self.logger = go_logger(None, **metadata)
@@ -1999,26 +2241,21 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.client_log = go_logger('gateone.client', **metadata)
         # NOTE: NOT using self.auth_log() here on purpose (this log message
         # should stay consistent for easier auditing):
-        #print 'self.request', self.get_secure_cookie['gateone_user']['ip_address']
         log_msg = _(
             u"User {upn} authenticated successfully via origin {origin} "
             u"(location {location}).").format(
                 upn=user['upn'],
-                origin=self.request.http_session.get('gateone_user',None)['ip_address'],#origin=self.origin
+                origin=self.origin,
                 location=self.location)
         auth_log.info(log_msg)
         # This check is to make sure there's no existing session so we don't
         # accidentally clobber it.
-        #print 'session', self.get_secure_cookie['session']
-        #print 'user',user
-        user = copy.deepcopy(user)
-        user.pop('protocol')
         if self.session not in SESSIONS:
             # Start a new session:
             SESSIONS[self.session] = {
-                'client_ids': [self.request.http_session.get('gateone_user',None)['session']],#'client_ids': [self.client_id]
+                'client_ids': [self.client_id],
                 'last_seen': 'connected',
-                'user': user,
+                'user': self.current_user,
                 'kill_session_callbacks': [
                     partial(self.send_message,
                         _("Please wait while the server is restarted..."))
@@ -2031,32 +2268,27 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             }
         else:
             SESSIONS[self.session]['last_seen'] = 'connected'
-            session_id = self.request.http_session.get('gateone_user',None)['session']
-            if session_id not in SESSIONS[self.session]['client_ids']:
-                SESSIONS[self.session]['client_ids'].append(self.request.http_session.get('gateone_user',None)['session'])#SESSIONS[self.session]['client_ids'].append(self.client_id)
+            SESSIONS[self.session]['client_ids'].append(self.client_id)
             if self.location not in SESSIONS[self.session]['locations']:
                 SESSIONS[self.session]['locations'][self.location] = {}
+        # A shortcut:
+        #print 'SESSIONS', SESSIONS
         """
-        SESSIONS {u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM':\
-        {'client_ids': [u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM', u'NjU2ODk3MWNiMjMzNGM2YmJkOTVmNmI1YmFiZjkyOTBjM'],\
-        'locations': {u'default': {}}, 'kill_session_callbacks': [<functools.partial object at 0x7f61843f0f70>],\
-        'user': <bound method ApplicationWebSocket.current_user of <applications.server.ApplicationWebSocket object at 0x7f61843fb790>>,\
+        SESSIONS {u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM':\
+        {'client_ids': ['M2E5YzQxOTY0NjkwNGRiNTlmN2M1MTg5OTRkYjQ2NzQ0M'], \
+        'locations': {u'default': {}}, 'kill_session_callbacks': [<functools.partial object at 0x7fa4b2529418>], \
+        'user': {u'upn': u'ANONYMOUS', u'session': u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM', 'ip_address': '127.0.0.1'}, \
         'timeout_callbacks': [], 'last_seen': 'connected'}}
-
         """
         self.locations = SESSIONS[self.session]['locations']
         # Call applications' authenticate() functions (if any)
-        #print 'server authenticate'
-        #print 'self.apps',self.apps
         for app in self.apps:
             # Set the current user for convenient access
-            #print 'self.apps',self.apps
             app.current_user = self.current_user
             if hasattr(app, 'authenticate'):
-                app.authenticate(message=self.request)
+                app.authenticate()
         # This is just so the client has a human-readable point of reference:
-        #print self.request.http_session['gateone_user']['upn']
-        message = {'go:set_username': self.request.http_session['gateone_user']['upn']}#{'go:set_username': self.current_user['upn']}
+        message = {'go:set_username': self.current_user['upn']}
         self.write_message(json_encode(message))
         self.trigger('go:authenticate')
         # Perform a license check
@@ -2213,8 +2445,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             cls.file_watcher = tornado.ioloop.PeriodicCallback(
                 cls.file_checker, interval, io_loop=io_loop)
             cls.file_watcher.start()
-        if self.settings['settings_dir'] not in cls.watched_files:
-            cls.watch_file(self.settings['settings_dir'], cls.load_prefs)
+        if options.settings_dir not in cls.watched_files:
+            cls.watch_file(options.settings_dir, cls.load_prefs)
 
     def list_applications(self):
         """
@@ -2229,27 +2461,24 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             be something like "SSH" or "nethack" which runs inside the parent
             application.
         """
-        policy = applicable_policies("gateone", self.request.http_session.get('gateone_user', None), self.prefs)
+        policy = applicable_policies("gateone", self.current_user, self.prefs)
         enabled_applications = policy.get('enabled_applications', [])
         enabled_applications = [a.lower() for a in enabled_applications]
         applications = []
         if not enabled_applications: # Load all apps
             for app in self.apps: # Use the app's name attribute
                 info_dict = app.info.copy() # Make a copy so we can change it
-                #print 'if info_dict',info_dict
                 applications.append(info_dict)
         else:
             for app in self.apps: # Use the app's name attribute
-                #print 'else info_dict',info_dict
                 info_dict = app.info.copy() # Make a copy so we can change it
                 if info_dict['name'].lower() in enabled_applications:
                     applications.append(info_dict)
         applications = sorted(applications, key=lambda k: k['name'])
         message = {'go:applications': applications}
-        #print 'list_applications message',message
         self.write_message(json_encode(message))
 
-    #@require(policies('gateone'))
+    @require(policies('gateone'))
     def set_location(self, location):
         """
         Attached to the `go:set_location` WebSocket action.  Sets
@@ -2269,8 +2498,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.locations[location] = {}
         self.location = location
         self.trigger("go:set_location", location)
-    
-    #@require(authenticated(), policies('gateone'))
+
+    @require(authenticated(), policies('gateone'))
     def get_locations(self):
         """
         Attached to the `go:get_locations` WebSocket action.  Sends a message to
@@ -2299,8 +2528,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         message = {'go:locations': location_data}
         self.write_message(message)
         self.trigger("go:get_locations")
-    
-    #@require(policies('gateone'))
+
+    @require(policies('gateone'))
     def set_dimensions(self, dimensions):
         """
         Attached to the `go:set_dimensions` WebSocket action.  Sets
@@ -2342,24 +2571,17 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         shortened_path = short_hash(style_path)
         rendered_filename = 'rendered_%s_%s' % (shortened_path, int(mtime))
         rendered_path = os.path.join(cache_dir, rendered_filename)
-        #print 'style_path',style_path 
         if not os.path.exists(rendered_path) or force:
-            #t = Template('This is your <span>{{ message }}</span>.')
-            #c = Context({'message': 'Your message'})
-            #html = t.render(c)
-            with io.open(style_path, 'r') as f:
-                html = f.read()
-            #print 'style_path',style_path
-            #print 'kwargs', kwargs
-            #print 'rendered_path',rendered_path
-            template_strings = Template(html)
-            style_css = template_strings.render(context=Context(dict_=kwargs))
-            #print 'render the style_css'
-            #print 'style_css',smart_bytes(style_css)
+            style_css = self.render_string(
+                style_path,
+                **kwargs
+            )
             # NOTE: Tornado templates are always rendered as bytes.  That is why
             # we're using 'wb' below...
+            #print 'style_path', style_path
+            #print 'rendered_path',rendered_path
             with io.open(rendered_path, 'wb') as f:
-                f.write(smart_bytes(style_css))
+                f.write(style_css)
             # Remove older versions of the rendered template if present
             for fname in os.listdir(cache_dir):
                 if fname == rendered_filename:
@@ -2384,13 +2606,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             This will send the theme files for all applications and plugins that
             have a matching stylesheet in their 'templates' directory.
         """
-        #print 'get_theme opened'
-        #print settings
-        #settings example 
-        #{u'go_url': u'http://127.0.0.1:8000/', u'theme': u'black', u'container': u'gateone', u'prefix': u'go_default_'}
         self.logger.debug('get_theme(%s)' % settings)
         send_css = self.prefs['*']['gateone'].get('send_css', True)
-        #print 'send_css',send_css
         if not send_css:
             if not hasattr('logged_css_message', self):
                 self.logger.info(_(
@@ -2417,11 +2634,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         theme_mtimes = self.persist['theme_mtimes']
         cache_dir = self.settings['cache_dir']
         theme_file = "%s.css" % theme
-        theme_relpath = 'themes/%s' % theme_file
-        #theme_path = resource_filename('gateone', theme_relpath)
-        theme_path = os.path.join(getsettings('BASE_DIR'), 'static')
-        theme_path = os.path.join(theme_path,theme_relpath)
-        #print 'theme_path',theme_path
+        theme_relpath = '/templates/themes/%s' % theme_file
+        theme_path = resource_filename('gateone', theme_relpath)
         cached_theme_path = os.path.join(cache_dir, theme_file)
         filename_hash = hashlib.md5(theme_file.encode('utf-8')).hexdigest()[:10]
         theme_files = []
@@ -2434,68 +2648,53 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # Now enumerate all applications/plugins looking for their own
         # implementations of this theme (must have same name)...
         # Find plugin's theme-specific CSS files:
-        #print 'theme_relpath',theme_relpath
-        #theme_relpath themes/black.css
-        #Thi is still a bug, I'm not consider how to fix it.
-        static_dir = os.path.join(getsettings('BASE_DIR'), 'static')
-        #for ep in iter_entry_points(group='go_plugins'):
-            #try:
-                #exists = resource_exists(ep.module_name, theme_relpath)
-            #except ImportError: # Plugin has an issue or has been removed
-                #continue
-        theme_path = os.path.join(static_dir,theme_relpath)
-        if os.path.exists(theme_path) and os.path.isfile(theme_path):
-            exists = True
-        else:
-            exists = False
-        if exists:
-            #theme_path = resource_filename(ep.module_name, theme_relpath)
-            theme_files.append(theme_path)
-            mtime = os.stat(theme_path).st_mtime
-            if (theme_path not in theme_mtimes
-                or mtime != theme_mtimes[theme_path]):
-                theme_mtimes[theme_path] = mtime
-                modifications = True
+        for ep in iter_entry_points(group='go_plugins'):
+            try:
+                exists = resource_exists(ep.module_name, theme_relpath)
+            except ImportError: # Plugin has an issue or has been removed
+                continue
+            if exists:
+                theme_path = resource_filename(ep.module_name, theme_relpath)
+                theme_files.append(theme_path)
+                mtime = os.stat(theme_path).st_mtime
+                if (theme_path not in theme_mtimes
+                    or mtime != theme_mtimes[theme_path]):
+                    theme_mtimes[theme_path] = mtime
+                    modifications = True
         # Find application's theme-specific CSS files:
-        #bug need to be fixed in the future
-        #for ep in iter_entry_points(group='go_applications'):
-            ##try:
-                ##exists = resource_exists(ep.module_name, theme_relpath)
-            ##except ImportError: # Plugin has an issue or has been removed
-                ##continue
-            #theme_path = os.path.join(static_dir,theme_relpath)
-            #if os.path.exists(theme_path) and os.path.isfile(theme_path):
-                #exists = True
-            #else:
-                #exists = False            
-            #if exists:
-                ##theme_path = resource_filename(ep.module_name, theme_relpath)
-                ##go_applications theme_path /home/jimmy/Desktop/GateOne/gateone/applications/terminal/templates/themes/black.css
-                ##ep.module_name gateone.applications.terminal
-                ##theme_relpath /templates/themes/black.css                
-                #theme_files.append(theme_path)
-                #mtime = os.stat(theme_path).st_mtime
-                #if (theme_path not in theme_mtimes
-                    #or mtime != theme_mtimes[theme_path]):
-                    #theme_mtimes[theme_path] = mtime
-                    #modifications = True
-            ## Find application plugin's theme-specific CSS files
-            #entry_point = 'go_%s_plugins' % ep.name
-            #for plugin_ep in iter_entry_points(group=entry_point):
-                #try:
-                    #exists = resource_exists(
-                        #plugin_ep.module_name, theme_relpath)
-                #except ImportError: # Plugin has an issue or has been removed
-                    #continue
-                #if exists:
-                    #theme_path = resource_filename(
-                        #plugin_ep.module_name, theme_relpath)
-                    #theme_files.append(theme_path)
-                    #mtime = os.stat(theme_path).st_mtime
-                    #if (theme_path not in theme_mtimes
-                        #or mtime != theme_mtimes[theme_path]):
-                        #theme_mtimes[theme_path] = mtime
-                        #modifications = True
+        for ep in iter_entry_points(group='go_applications'):
+            try:
+                exists = resource_exists(ep.module_name, theme_relpath)
+            except ImportError: # Plugin has an issue or has been removed
+                continue
+            if exists:
+                theme_path = resource_filename(ep.module_name, theme_relpath)
+                #print 'go_applications theme_path',theme_path
+                #print 'ep.module_name',ep.module_name
+                #print 'theme_relpath',theme_relpath
+                theme_files.append(theme_path)
+                mtime = os.stat(theme_path).st_mtime
+                if (theme_path not in theme_mtimes
+                    or mtime != theme_mtimes[theme_path]):
+                    theme_mtimes[theme_path] = mtime
+                    modifications = True
+            # Find application plugin's theme-specific CSS files
+            entry_point = 'go_%s_plugins' % ep.name
+            for plugin_ep in iter_entry_points(group=entry_point):
+                try:
+                    exists = resource_exists(
+                        plugin_ep.module_name, theme_relpath)
+                except ImportError: # Plugin has an issue or has been removed
+                    continue
+                if exists:
+                    theme_path = resource_filename(
+                        plugin_ep.module_name, theme_relpath)
+                    theme_files.append(theme_path)
+                    mtime = os.stat(theme_path).st_mtime
+                    if (theme_path not in theme_mtimes
+                        or mtime != theme_mtimes[theme_path]):
+                        theme_mtimes[theme_path] = mtime
+                        modifications = True
         # Grab the modification times for each theme file
         if modifications or not os.path.exists(cached_theme_path):
             logging.debug(_(
@@ -2503,10 +2702,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 "Theme will be recreated."))
             # Combine the theme files into one
             rendered_theme_files = []
-            #template_loaders = tornado.web.RequestHandler._template_loaders
+            template_loaders = tornado.web.RequestHandler._template_loaders
             # This wierd little bit empties Tornado's template cache:
-            #for web_template_path in template_loaders:
-                #template_loaders[web_template_path].reset()
+            for web_template_path in template_loaders:
+                template_loaders[web_template_path].reset()
             for template_file in theme_files:
                 rendered_path = self.render_style(
                     template_file, **template_args)
@@ -2553,173 +2752,17 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         filenames = message['filenames']
         kind = message['kind']
         expired = []
-        #print 'cache_cleanup self.file_cache',self.file_cache
-        """
-        {
-            'b58e0e7f1a': {
-              'kind': 'css',
-              'filename_hash': 'b58e0e7f1a',
-              'filename': u'black.css',
-              'mtime': 1496989873.711529,
-              'path': u'/home/jimmy/Desktop/django-gateone/cache/black.css',
-              'element_id': 'theme'
-            },
-            '9e11a98811': {
-              'kind': 'js',
-              'media': 'screen',
-              'filename_hash': '9e11a98811',
-              'filename': 'doT.js',
-              'mtime': 1493711594.012282,
-              'path': '/home/jimmy/Desktop/django-gateone/static/doT.js',
-              'element_id': None,
-              'requires': None
-            },
-            'e79230eaab': {
-              'kind': 'js',
-              'media': 'screen',
-              'filename_hash': 'e79230eaab',
-              'filename': 'gateone_misc.js',
-              'mtime': 1493711594.016282,
-              'path': '/home/jimmy/Desktop/django-gateone/static/gateone_misc.js',
-              'element_id': None,
-              'requires': None
-            },
-            '24318f1dac': {
-              'kind': 'css',
-              'media': u'print',
-              'filename_hash': '24318f1dac',
-              'filename': u'printing.css',
-              'mtime': 1496989873.111529,
-              'path': '/home/jimmy/Desktop/django-gateone/cache/rendered_f267d17b51_1493711593',
-              'element_id': u'terminal_print_css',
-              'requires': None
-            },
-            '1b658ea216': {
-              'kind': 'js',
-              'media': 'screen',
-              'filename_hash': '1b658ea216',
-              'filename': u'terminal_input.js',
-              'mtime': 1493711593.904282,
-              'path': u'/home/jimmy/Desktop/django-gateone/static/terminal/terminal_input.js',
-              'element_id': None,
-              'requires': [
-                u'terminal.js'
-              ]
-            },
-            '585acf9cfe': {
-              'kind': 'js',
-              'media': 'screen',
-              'filename_hash': '585acf9cfe',
-              'filename': 'gateone_input.js',
-              'mtime': 1493711594.016282,
-              'path': '/home/jimmy/Desktop/django-gateone/static/gateone_input.js',
-              'element_id': None,
-              'requires': None
-            },
-            'd1617aeb92': {
-              'kind': 'css',
-              'media': 'screen',
-              'filename': u'gnome-terminal.css',
-              'mtime': 1496989875.711529,
-              'path': '/home/jimmy/Desktop/django-gateone/cache/rendered_fe8a356b27_1493711593',
-              'element_id': u'text_colors',
-              'requires': None
-            },
-            '018c078385': {
-              'kind': 'js',
-              'media': 'screen',
-              'filename_hash': '018c078385',
-              'filename': 'gateone_visual_extra.js',
-              'mtime': 1493711594.016282,
-              'path': '/home/jimmy/Desktop/django-gateone/static/gateone_visual_extra.js',
-              'element_id': None,
-              'requires': None
-            },
-            'b820c989d2': {
-              'kind': 'js',
-              'media': 'screen',
-              'filename_hash': 'b820c989d2',
-              'filename': u'terminal.js',
-              'mtime': 1496974887.729488,
-              'path': u'/home/jimmy/Desktop/django-gateone/static/terminal/terminal.js',
-              'element_id': None,
-              'requires': [
-                u'terminal.css'
-              ]
-            },
-            '8b7ab92018': {
-              'kind': 'css',
-              'media': 'screen',
-              'filename_hash': '8b7ab92018',
-              'filename': u'256_colors.css',
-              'mtime': 1496989873.107529,
-              'path': u'/home/jimmy/Desktop/django-gateone/cache/256_colors.css',
-              'element_id': None,
-              'requires': None
-            },
-            '12a50d7561': {
-              'kind': 'css',
-              'media': 'screen',
-              'filename': u'terminal.css',
-              'mtime': 1496989873.099529,
-              'path': '/home/jimmy/Desktop/django-gateone/cache/rendered_1892166322_1493711593',
-              'element_id': u'terminal.css',
-              'requires': None
-            },
-            'b2dd27ee3c': {
-              'kind': 'js',
-              'media': 'screen',
-              'filename_hash': 'b2dd27ee3c',
-              'filename': 'gateone_utils_extra.js',
-              'mtime': 1493711594.016282,
-              'path': '/home/jimmy/Desktop/django-gateone/static/gateone_utils_extra.js',
-              'element_id': None,
-              'requires': None
-            }
-          }
-        """
-        #print 'cache_cleanup message',message
-        """
-        {
-            u'kind': u'css',
-            u'filenames': [
-              u'8b7ab92018',
-              u'b58e0e7f1a',
-              u'14339c5c8d',
-              u'dddabab940',
-              u'277545e5c0',
-              u'd1617aeb92',
-              u'24318f1dac',
-              u'5b9854c837',
-              u'12a50d7561',
-              u'9dc1025da5'
-            ]
-          }
-        """
-        #print 'self.file_cache',self.file_cache
         for filename_hash in filenames:
             if filename_hash not in self.file_cache:
                 expired.append(filename_hash)
         if not expired:
             logging.debug(_(
                 "No expired %s files at client %s" %
-                (kind, self.request.http_session.get('gateone_user',None)['ip_address'])))
+                (kind, self.request.remote_ip)))
             return
         logging.debug(_(
             "Requesting deletion of expired files at client %s: %s" % (
-            self.request.http_session.get('gateone_user',None)['ip_address'], filenames)))
-        if 'b58e0e7f1a' in expired:
-            b58e0e7f1a = 'black.css'
-            expired.remove('b58e0e7f1a')
-        if 'dddabab940' in expired:
-            dddabab940 = 'default.css'
-            expired.remove('dddabab940')
-        if '277545e5c0' in expired:
-            t277545e5c0 = 'font.css'
-            expired.remove('277545e5c0')
-        if len(expired) == 0:
-            return
-        print 'expired',expired
+            self.request.remote_ip, filenames)))
         message = {'go:cache_expired': message}
         self.write_message(message)
         # Also clean up stale files in the cache while we're at it
@@ -2763,7 +2806,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         If the `cssmin` module is installed CSS files will be minified before
         being sent to the client.
         """
-        #print 'files_or_hash',files_or_hash
         self.sync_log.debug(
             "file_request(%s, use_client_cache=%s)" % (
                 files_or_hash, use_client_cache))
@@ -2794,7 +2836,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         url_prefix = self.settings['url_prefix']
         self.sync_log.info(_("Sending: {0}").format(filename))
         cache_dir = self.settings['cache_dir']
-        #print 'file_request path',path
         def send_file(result):
             """
             Adds our minified data to the out_dict and sends it to the
@@ -2802,8 +2843,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             """
             out_dict['data'] = result
             if kind == 'js':
-                #bug
-                #print 'path send_file',path
                 source_url = None
                 if 'gateone/applications/' in path:
                     application = path.split('applications/')[1].split('/')[0]
@@ -2839,12 +2878,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 message = {'go:cache_file': out_dict}
             try:
                 self.write_message(message)
-            except (AttributeError):
+            except (WebSocketClosedError, AttributeError):
                 pass # WebSocket closed before we got a chance to send this
         logging.debug("file_request() for: %s" % filename)
-        result = get_or_cache(cache_dir, path, minify=False)
-        #print 'result',result
-        send_file(result)        
         if self.settings['debug']:
             result = get_or_cache(cache_dir, path, minify=False)
             send_file(result)
@@ -2865,7 +2901,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
         .. note:: This kind of file sending *always* uses the client-side cache.
         """
-        #print 'self.send_file function called'
+        #print 'send_file function called'
         if not os.path.exists(filepath):
             self.sync_log.error(_("File does not exist: {0}").format(filepath))
             return
@@ -2928,8 +2964,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         if kind == 'js' and not force:
             send_js = self.prefs['*']['gateone'].get('send_js', True)
-            #print 'send_js',send_js
-            #print 'self.prefs',self.prefs
             if not send_js:
                 if not hasattr('logged_js_message', self):
                     self.logger.info(_(
@@ -3002,10 +3036,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             path = paths_or_fileobj.name
             if not filename:
                 filename = os.path.split(paths_or_fileobj.name)[1]
-        #print 'paths_or_fileobj',paths_or_fileobj
-        #remove annonying log info
-        #self.sync_log.info(
-            #"Sync check: {filename}".format(filename=filename))
+        self.sync_log.info(
+            "Sync check: {filename}".format(filename=filename))
         # NOTE: The .split('.') above is so the hash we generate is always the
         # same.  The tail end of the filename will have its modification date.
         # Cache the metadata for sync
@@ -3039,7 +3071,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'element_id': element_id,
             'media': media # NOTE: Ignored if JS
         }]}
-        #print 'out_dict',out_dict
         if use_client_cache:
             message = {'go:file_sync': out_dict}
             self.write_message(message)
@@ -3060,7 +3091,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.send_js_or_css(path, 'css', **kwargs)
 
     def wrap_and_send_js(self, js_path, exports={}, **kwargs):
-        #bug 
         """
         Wraps the JavaScript code at *js_path* in a (JavaScript) sandbox which
         exports whatever global variables are provided via *exports* then
@@ -3120,7 +3150,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         if os.path.exists(rendered_path):
             self.send_js(rendered_path, filename=filename, force=True, **kwargs)
             return
-        #bug need to fix
         script['source'] = resource_string('gateone', 'templates/libwrapper.js')
         rendered = self.render_string(
             libwrapper,
@@ -3188,34 +3217,19 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.send_css(rendered_path,
                 element_id=element_id, media=media, filename=filename)
             return
-        #bug need to fix
-        #template_loaders = tornado.web.RequestHandler._template_loaders
+        template_loaders = tornado.web.RequestHandler._template_loaders
         # This wierd little bit empties Tornado's template cache:
-        #for web_template_path in template_loaders:
-            #template_loaders[web_template_path].reset()
-        #print 'css_path',css_path
-        #print 'self.container',self.container
-        #print 'self.prefix',self.prefix
-        #print '''self.settings['url_prefix']''',self.settings['url_prefix']
-        #print 'kwargs', kwargs
-        """
-        css_path /home/jimmy/Desktop/django-gateone/static/templates/terminal.css
-        self.container 
-        self.prefix 
-        self.settings['url_prefix'] /
-        kwargs {}
-        """
-        with io.open(css_path, 'r') as f:
-            css_content = f.read()
-        css_strings = Template(css_content)
-        rendered = css_strings.render(context=Context(dict_=kwargs))
-        #print 'render the style_css'
-        #print 'style_css',smart_bytes(style_css)
-        # NOTE: Tornado templates are always rendered as bytes.  That is why
-        # we're using 'wb' below...
-        #print 'rendered_path',rendered_path
+        for web_template_path in template_loaders:
+            template_loaders[web_template_path].reset()
+        rendered = self.render_string(
+            css_path,
+            container=self.container,
+            prefix=self.prefix,
+            url_prefix=self.settings['url_prefix'],
+            **kwargs
+        )
         with io.open(rendered_path, 'wb') as f:
-            f.write(smart_bytes(rendered))
+            f.write(rendered)
         self.send_css(rendered_path,
             element_id=element_id, media=media, filename=filename)
         # Remove older versions of the rendered template if present
@@ -3228,7 +3242,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 os.remove(os.path.join(cache_dir, fname))
         return rendered_path
 
-    def send_plugin_static_files(self, entry_point, requires=None, message=None):
+    def send_plugin_static_files(self, entry_point, requires=None):
         """
         Sends all plugin .js and .css files to the client that exist inside the
         /static/ directory for given *entry_point*.  The policies that apply to
@@ -3266,18 +3280,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 if ep.module_name.startswith('gateone.applications'):
                     application = ep.module_name.split('.')[2]
                     break
-        if message:
-            user = message.http_session.get('gateone_user',None)
-            user = copy.deepcopy(user)
-        else:
-            user = self.request.http_session.get('gateone_user',None)
-            user = copy.deepcopy(user)
-        user.pop('protocol')
-        #print 'user',user
-        #self.current_user {u'upn': u'ANONYMOUS', u'session': u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM', 'ip_address': '127.0.0.1'}        
-        policy = applicable_policies(application, user, self.prefs)#policy = applicable_policies(application, self.current_user, self.prefs)
-        #print 'policy', policy
-        #print 'self.prefs', self.prefs
+        #print 'self.current_user', self.current_user
+        policy = applicable_policies(application, self.current_user, self.prefs)
         globally_enabled_plugins = policy.get('enabled_plugins', [])
         # This controls the client-side plugins that will be sent
         allowed_client_side_plugins = policy.get('user_plugins', [])
@@ -3290,7 +3294,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             allowed_client_side_plugins = globally_enabled_plugins
         # Get the list of plugins
         plugins = entry_point_files(entry_point, allowed_client_side_plugins)
-        #plugins {'py': {}, 'css': {}, 'js': {}}        
         if send_js:
             for plugin, asset_list in plugins['js'].items():
                 for asset in asset_list:
@@ -3308,7 +3311,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         Returns a JSON-encoded object containing the installed themes and text
         color schemes.
         """
-        themes = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static/themes'))
+        themes = resource_listdir('gateone', '/templates/themes')
         # Just in case other junk wound up in that directory:
         themes = [a for a in themes if a.endswith('.css')]
         themes = [a.replace('.css', '') for a in themes] # Just need the names
@@ -3369,20 +3372,21 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             Translation files must be the result of a
             ``pojson /path/to/translation.po`` conversion.
         """
-        from applications.locale import supported_locales
-        #if not locales:
-            #locales = self.user_locales
+        from gateone.core.locale import supported_locales
+        if not locales:
+            locales = self.user_locales
         if not locales: # Use the server's locale
             locales = [self.prefs['*']['gateone'].get('locale')]
         logging.debug("send_js_translation() locales: %s" % locales)
         for locale in locales:
             locale = locale.replace('-', '_') # Example: Converts en-US to en_US
-            #return if locale is en_us
+            #print 'locale',locale
+            #print 'path',path
             if locale.lower().startswith('en'):
                 return # Gate One strings are English by default
-            #bug need to be fix
             if not path:
                 path = '/i18n/{locale}/LC_MESSAGES/gateone_js.json'
+                #print 'path',path
             if locale not in supported_locales: # Try next-closest match
                 first_part = locale.split('_')[0] # Try the first bit
                 for l in supported_locales:
@@ -3407,7 +3411,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 #       programmatic use.  For example, when a user shares a terminal and it
 #       would be appropriate to notify certain users that the terminal is now
 #       available for them to connect.
-    #@require(authenticated(), policies('gateone'))
+    @require(authenticated(), policies('gateone'))
     def send_user_message(self, settings):
         """
         Sends the given *settings['message']* to the given *settings['upn']*.
@@ -3446,9 +3450,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
         if *upn* is 'AUTHENTICATED' all users will get the message.
         """
-        #print 'send_message session',session
-        #print 'send_message',message
         message_dict = {'go:user_message': message}
+        print 'message_dict',message_dict
         if upn:
             ApplicationWebSocket._deliver(message_dict, upn=upn)
         elif session:
@@ -3456,8 +3459,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         else: # Just send to the currently-connected client
             self.write_message(message_dict)
         self.trigger('go:send_message', message, upn, session)
-    
-    #@require(authenticated(), policies('gateone'))
+
+    @require(authenticated(), policies('gateone'))
     def broadcast(self, message):
         """
         Attached to the `go:broadcast` WebSocket action; sends the given
@@ -3469,12 +3472,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             GateOne.ws.send(JSON.stringify({"go:broadcast": "This is a test"}));
         """
         self.msg_log.info("Broadcast: %s" % message)
-        from applications.utils import strip_xss # Prevent XSS attacks
+        from .utils import strip_xss # Prevent XSS attacks
         message, bad_tags = strip_xss(message, replacement="entities")
         self.send_message(message, upn="AUTHENTICATED")
         self.trigger('go:broadcast', message)
-    
-    #@require(authenticated(), policies('gateone'))
+
+    @require(authenticated(), policies('gateone'))
     def list_server_users(self):
         """
         Returns a list of users currently connected to the Gate One server to
@@ -3494,14 +3497,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 ]
             }
         """
-        #list all online user bug
         users = ApplicationWebSocket._list_connected_users()
-        #print 'users',users
         logging.debug('list_server_users(): %s' % repr(users))
         # Remove things that users should not see such as their session ID
         filtered_users = []
-        policy = applicable_policies('gateone', self.request.http_session.get('gateone_user',None), self.prefs)
-        #print 'policy'
+        policy = applicable_policies('gateone', self.current_user, self.prefs)
         allowed_fields = policy.get('user_list_fields', False)
         # If not set, just strip the session ID
         if not allowed_fields:
@@ -3528,11 +3528,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         Alternatively a *session* ID may be specified instead of a *upn*.  This
         is useful when more than one user shares a UPN (i.e. ANONYMOUS).
         """
+        #print 'deliver message',message
         logging.debug("_deliver(%s, upn=%s, session=%s)" %
             (message, upn, session))
         for instance in cls.instances:
             try: # Only send to users that have authenticated
-                user = instance.request.http_session.get('gateone_user',None)
+                user = instance.current_user
             except (WebSocketClosedError, AttributeError):
                 continue
             if session and user and user.get('session', None) == session:
@@ -3552,7 +3553,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         out = []
         for instance in cls.instances:
             try: # We only care about authenticated users
-                out.append(cls.request.http_session.get('gateone_user',None))
+                out.append(instance.current_user)
             except AttributeError:
                 continue
         return tuple(out)
@@ -3571,8 +3572,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             del data['license_format']   # Ditto
         message = {'go:license_info': licenses}
         self.write_message(message)
-    
-    #@require(authenticated(), policies('gateone'))
+
+    @require(authenticated(), policies('gateone'))
     def debug(self):
         """
         Imports Python's Garbage Collection module (gc) and displays various
@@ -3588,7 +3589,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # the log messages show up even if I don't have logging set to debug.
         # Since this debugging function is only ever called manually there's no
         # need to use debug() logging.
-        self.current_user = self.request.http_session.get('gateone_user',None)
         metadata = {
             'upn': self.current_user['upn'],
             'ip_address': self.request.remote_ip,
@@ -3635,193 +3635,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                     #break
         except ImportError:
             pass # Oh well
-        
-    def connection_groups(self, **kwargs):
-        """
-        Called to return the list of groups to automatically add/remove
-        this connection to/from.
-        """
-        return ["test"]
 
-    #@channel_session
-    def connect(self, message, **kwargs):
-        #if "headers" in message:
-            #print message['headers']
-        #else:
-            #print 'no header'
-        #from applications.app_terminal import TerminalApplication
-        #instance = TerminalApplication(self)  
-        #instance.initialize(message=message)
-        #print 'connect'
-        #print 'connect self.actions', len(self.actions)
-        #print message.content
-        #self.__init__(message,**kwargs)
-        header = dict()
-        headers = message.get('headers',None)
-        if headers:
-            for data in headers:
-                key , value = data
-                header[key] = value
-        self.get_request_headers = header
-        self.request = message
-        self.get_secure_cookie = message.http_session
-        #logout will cause a bug
-        client_address = message.http_session.get('gateone_user',None)['ip_address']
-        if not isinstance(self.current_user,dict):
-            self.current_user(message)
-        self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
-            protocol=message.http_session.get('gateone_user',None)['protocol'],
-            host=client_address,
-            port=getsettings('port',8000),#self.settings['port']
-            url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']
-        #self.base_url https://127.0.0.1:10443/                
-        #print 'connected'
-        #self.request(message=message)
-        #print 'connect prefx',self.prefs
-        #print message.http_session.items()
-        #authenticate user
-        
-        #print message
-        #print message.content
-        #status,result = self.cookieconvert(message)
-        #print signing.loads(result.get(' gateone_user',None)[1:-1])
-        ##print signing.loads()
-        #if status:
-            #pass
-            #print result
-            #print result.get('sessionid',None)
-            #from django.contrib.sessions.models import Session
-            #print Session.objects.filter(session_key=result.get('sessionid',None))[0].get_decoded().get('gateone_user',None)  
-            #print result.get('gateone_user',None)
-            #print signing.dumps(Session.objects.filter(session_key=result.get('sessionid',None))[0].get_decoded().get('gateone_user',None))
-            #print signing.loads()
-            #print "eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"
-        #print 'open prefx',self.prefs
-        #super(ApplicationWebSocket,self).__init__(message,**kwargs)
-        #instance = TerminalApplication(self)
-        #self.apps.append(instance) 
-        #instance.initialize(message=message)
-        #self.list_applications()  
-        #self.request = message
-        return self.open(message,**kwargs)
-    
-    #@channel_session
-    def receive(self, message, **kwargs):
-        #print 'receive message',message.content.get('text',None),kwargs
-        #print 'receive message content text',message.content.get('text',None)
-        #self.apps.append(instance) 
-        #self.list_applications()
-        self.request = message
-        return self.on_message(message,**kwargs)
-
-    def disconnect(self, message, **kwargs):
-        print 'disconnect websocket',message
-        print 'disconnect websocket',message.content
-        self.close()
-        #return self.on_close()
-    
-    #def send(self, content, close=False):
-        #"""
-        #Encode the given content as JSON and send it to the client.
-        #"""
-        #super(JsonWebsocketConsumer, self).send(text=self.encode_json(content), close=close)    
-        
-    def write_message(self, message,binary=False):
-        #print 'write_message',message
-        #if "terminal:termupdate" in message:
-            #print "terminal:termupdate",message
-        #if "terminal:set_title" in message:
-            #print "terminal:set_title",message
-        if isinstance(message, dict):
-            message = json_encode(message)
-        return self.send(message)
-    
-    def current_user(self,message):
-        user = self.request.http_session.get('gateone_user',None)
-        if user:
-            user = copy.deepcopy(user)
-            user.pop('protocol')
-        else:
-            user = {u'upn': u'Anonymous', u'ip_address': self.settings['address'], u'session': generate_session_id(), u'protocol': u'http'}
-        return user
-    
-    #@channel_session
-    def raw_receive(self, message, **kwargs):
-        """
-        Called when a WebSocket frame is received. Decodes it and passes it
-        to receive().
-        """
-        #print 'raw message',message
-        #try:
-            #print 'raw message text',message.content.get('text',None)       
-        #except Exception:
-            #print 'raw message content',message.content
-            ##print dir(message)
-            ##print type(message.content)
-            ##print 'raw message text', None  
-        if 'text' in message:
-            self.receive(message, **kwargs)
-        else:
-            self.receive(bytes=message['bytes'], **kwargs)             
-
-    def cookieconvert(self):
-        headers = self.get_request_headers
-        #default I choose trust client cookies, this is a bug. Afterward i would fix it.
-        #data example
-        #(True, {'csrftoken': 'HoGOLeWKmgMvz27aXXvssqzuU8qPX57xFT8C7slyfoSSsLgMMaalkfwyksAJe7qa', \
-        #' sessionid': 'uo53r2dgfyhj9af8abrebgr8dc046o1s', \
-        #' gateone_user': '"eyJ1cG4iOiJqaW1teSIsInNlc3Npb24iOiJaREkwTURaak1UTXlaakptTkRrMFpEazJOV1kyTVRrMVptTmpZV0V6WldZd00iLCJpcF9hZGRyZXNzIjoiMTI3LjAuMC4xIn0:1d8dG8:AV-P9r0_A28jp-ruHMtSpyArNwk"'})
-        #from django.contrib.sessions.models import Session
-        #print Session.objects.filter(session_key=self.request.session.session_key)[0].get_decoded().get('gateone_user', None)
-        #print self.request.session.session_key         
-        #print message.user
-        #print dir(message)
-        #print message.__dict__
-        #print message.channel_session.__dict__
-        #print type(message.content)        
-        try:
-            cookies = dict()
-            if headers:
-                headers = dict(headers)
-                cookie = headers.get('cookie',None)
-                if cookie:
-                    for i in cookie.rsplit(';'):
-                        i = iter(i.rsplit('='))
-                        cookies.update(dict(izip(i, i)))
-        except Exception,e:
-            return False,None
-        return True,cookies
-    
-    def raw_connect(self, message, **kwargs):
-        """
-        Called when a WebSocket connection is opened. Base level so you don't
-        need to call super() all the time.
-        """
-        #print 'raw connect',message.content
-        #print 'raw connect' 
-        #print 'message.channel',message.channel
-        #print 'message.reply_channel',message.reply_channel
-        for group in self.connection_groups(**kwargs):
-            Group(group, channel_layer=message.channel_layer).add(message.reply_channel)
-        self.connect(message, **kwargs)    
-    
-    #def request(self):
-        #return self.request()
-    
-    @property
-    def settings(self):
-        from applications.configuration import define_options
-        settings = define_options()
-        return settings
-    
-    def get_secure_cookie(self):
-        return self.get_secure_cookie()
-
-    def get_request_headers(self):
-        return self.get_request_headers()
-    
-        
-        
 class ErrorHandler(tornado.web.RequestHandler):
     """
     Generates an error response with status_code for all requests.
@@ -4189,26 +4003,635 @@ def validate_licenses(licenses):
         global __license_info__
         __license_info__ = new_licenses
 
-global CPU_ASYNC
-global IO_ASYNC
-IO_ASYNC = ThreadedRunner()
-cores = define_options()['multiprocessing_workers']
-try:
-    cores = int(cores)
-except TypeError:
-    cores = None
-if cores == 0:
-    logging.warning(_(
-        "Multiprocessing is disabled.  Performance will be sub-optimal."
-    ))
-    CPU_ASYNC = IO_ASYNC # Use threading instead
-else:
+def main(installed=True):
+    global _
+    global PLUGINS
+    global APPLICATIONS
+    cli_commands = {'gateone': {}} # CLI commands provided by plugins/apps
+    define_options(installed=installed, cli_commands=cli_commands)
+    # Before we do anything else we need the get the settings_dir argument (if
+    # given) so we can make sure we're handling things accordingly.
+    #print 'cli_commands',cli_commands
+    settings_dir = options.settings_dir # Set the default
+    for arg in sys.argv:
+        if arg.startswith('--settings_dir'):
+            settings_dir = arg.split('=', 1)[1].strip('"').strip("'")
+    if not os.path.isdir(settings_dir) and '--help' not in sys.argv:
+        # Try to create it
+        try:
+            mkdir_p(settings_dir)
+        except:
+            print(_(
+               "Could not find/create settings directory at %s" % settings_dir))
+            sys.exit(1)
     try:
-        CPU_ASYNC = MultiprocessRunner(max_workers=cores)
-        CPU_ASYNC.call(noop, memoize=False) # Perform a realistic test
-    except NotImplementedError:
-        # System doesn't support multiprocessing (for whatever reason).
+        all_settings = get_settings(settings_dir)
+    except SettingsError as e:
+        # The error will be logged to stdout inside all_settings
+        sys.exit(2)
+    enabled_plugins = []
+    enabled_applications = []
+    cli_commands['gateone']['broadcast'] = {
+        'function': broadcast_message,
+        'description': _("Broadcast messages to users connected to Gate One.")
+    }
+    cli_commands['gateone']['install_license'] = {
+        'function': install_license,
+        'description': _("Install a commercial license for Gate One.")
+    }
+    cli_commands['gateone']['validate_authobj'] = {
+        'function': validate_authobj,
+        'description': _(
+            "Test API authentication by validating a JSON auth object.")
+    }
+    go_settings = {}
+    log_fail_msg = _(
+        "You probably want to provide a different destination via "
+        "--log_file_prefix=/path/to/gateone.log")
+    if 'gateone' in all_settings['*']:
+        # The check above will fail in first-run situations
+        enabled_plugins = all_settings['*']['gateone'].get(
+            'enabled_plugins', [])
+        enabled_plugins = [a.lower() for a in enabled_plugins]
+        enabled_applications = all_settings['*']['gateone'].get(
+            'enabled_applications', [])
+        enabled_applications = [a.lower() for a in enabled_applications]
+        go_settings = all_settings['*']['gateone']
+        if 'log_file_prefix' in go_settings:
+            if 'log_file_prefix' not in ' '.join(sys.argv):
+                log_path = go_settings['log_file_prefix']
+                if bytes == str: # Python 2
+                    log_path = log_path.encode('UTF-8') # Make it str
+                options.log_file_prefix = log_path
+                log_dir = os.path.dirname(go_settings['log_file_prefix'])
+                try:
+                    mkdir_p(log_dir)
+                except:
+                    print(_("Could not create log directory: %s" % log_dir))
+                    print(log_fail_msg)
+                    sys.exit(1)
+    elif 'log_file_prefix' not in ' '.join(sys.argv):
+        log_dir = os.path.dirname(options.log_file_prefix) # Try the default
+        try:
+            mkdir_p(log_dir)
+        except:
+            print(_("Could not create log directory: %s" % log_dir))
+            print(log_fail_msg)
+            sys.exit(1)
+    PLUGINS = entry_point_files('go_plugins', enabled_plugins)
+    for plugin, module in PLUGINS['py'].items():
+        try:
+            PLUGIN_HOOKS.update({module.__name__: module.hooks})
+            if hasattr(module, 'commands'):
+                cli_commands.update({'gateone': module.commands})
+        except AttributeError:
+            pass # No hooks--probably just a supporting .py file.
+    # NOTE: entry_point_files() imports all the .py files in applications.  This
+    # means that applications can place calls to tornado.options.define()
+    # anywhere in their .py files and they should automatically be usable by the
+    # user at this point in the startup process.
+    #print 'cli_commands',cli_commands
+    app_modules = entry_point_files(
+        'go_applications', enabled_applications)['py']
+    # Check if the user is running a command as opposed to passing arguments
+    # so we can set the log_file_prefix to something innocuous so as to prevent
+    # IOError exceptions from Tornado's parse_command_line() below...
+    if [a for a in sys.argv[1:] if not a.startswith('-')]:
+        options.log_file_prefix = None
+    # Make sure
+    # Having parse_command_line() after loading applications in case an
+    # application has additional calls to define().
+    try:
+        commands = tornado.options.parse_command_line()
+    except IOError:
+        print(_("Could not write to the log: %s") % options.log_file_prefix)
+        print(log_fail_msg)
+        sys.exit(2)
+    # NOTE: Here's how settings/command line args works:
+    #       * The 'options' object gets set from the arguments on the command
+    #         line (parse_command_line() above).
+    #       * 'go_settings' gets set from the stuff in the 'settings_dir'
+    #       * Once both are parsed (on their own) we overwrite 'go_settings'
+    #         with what was given on the command line.
+    #       * Once 'go_settings' has been adjusted we overwrite 'options' with
+    #         any settings that directly correlate with command line options.
+    #         This ensures that the 'options' object (which controls Tornado'
+    #         settings) gets the stuff from 'settings_dir' if not provided on
+    #         the command line.
+    # TODO: Add a way for applications/plugins to add to this list:
+    non_options = [
+        # These are things that don't really belong in settings
+        'new_api_key', 'help', 'kill', 'config', 'combine_js', 'combine_css',
+        'combine_css_container'
+    ]
+    # Figure out which options are being overridden on the command line
+    apply_cli_overrides(go_settings)
+    arguments = []
+    for arg in list(sys.argv)[1:]:
+        if not arg.startswith('-'):
+            break
+        else:
+            arguments.append(arg.lstrip('-').split('=', 1)[0])
+    licenses = all_settings.get('*', {}).get('licenses', {})
+    if licenses:
+        validate_licenses(licenses)
+    # TODO: Get this outputting installed plugins and versions as well
+    if options.version:
+        print("\x1b[1mGate One:\x1b[0m")
+        print("\tVersion: %s (%s)" % (__version__, __commit__))
+        print("\x1b[1mInstalled Applications:\x1b[0m")
+        for name, app in app_modules.items():
+            if hasattr(app, 'apps'):
+                for _app in app.apps:
+                    if hasattr(_app, 'info'):
+                        name = _app.info.get('name', None)
+                        ver = _app.info.get('version', 'Unknown')
+                        if hasattr(ver, '__call__'):
+                            # It's a function; grab its output (cool feature)
+                            ver = ver()
+                        if name:
+                            print("\t%s Version: %s" % (name, ver))
+        sys.exit(0)
+    # Turn any API keys provided on the command line into a dict
+    api_keys = {}
+    if 'api_keys' in arguments:
+        if options.api_keys:
+            for pair in options.api_keys.split(','):
+                api_key, secret = pair.split(':')
+                if bytes == str:
+                    api_key = api_key.decode('UTF-8')
+                    secret = secret.decode('UTF-8')
+                api_keys.update({api_key: secret})
+        go_settings['api_keys'] = api_keys
+    # Setting the log level using go_settings requires an additional step:
+    if options.logging.upper() != 'NONE':
+        logging.getLogger().setLevel(getattr(logging, options.logging.upper()))
+    else:
+        logging.disable(logging.CRITICAL)
+    logger = go_logger(None)
+    APPLICATIONS = [] # Replace it with a list of actual class instances
+    web_handlers = []
+    # Convert the old server.conf to the new settings file format and save it
+    # as a number of distinct .conf files to keep things better organized.
+    # NOTE: This logic will go away some day as it only applies when moving from
+    #       Gate One 1.1 (or older) to newer versions.
+    if os.path.exists(options.config):
+        from .configuration import convert_old_server_conf
+        convert_old_server_conf()
+    if 'gateone' not in all_settings['*']:
+        # User has yet to create a 10server.conf (or equivalent)
+        all_settings['*']['gateone'] = {} # Will be filled out below
+    # If you want any missing config file entries re-generated just delete the
+    # cookie_secret line...
+    if 'cookie_secret' not in go_settings or not go_settings['cookie_secret']:
+        # Generate a default 10server.conf with a random cookie secret
+        # NOTE: This will also generate a new 10server.conf if it is missing.
+        from .configuration import generate_server_conf
+        generate_server_conf(installed=installed)
+        # Make sure these values get updated
+        all_settings = get_settings(options.settings_dir)
+        go_settings = all_settings['*']['gateone']
+    for name, module in app_modules.items():
+        try:
+            if hasattr(module, 'apps'):
+                APPLICATIONS.extend(module.apps)
+            if hasattr(module, 'init'):
+                module.init(all_settings)
+            if hasattr(module, 'web_handlers'):
+                web_handlers.extend(module.web_handlers)
+            if hasattr(module, 'commands'):
+                cli_commands.update({module.__name__: module.commands})
+        except AttributeError:
+            # No apps--probably just a supporting .py file.
+            # Uncomment if you can't figure out why your app isn't loading:
+            #print("Error initializing module: %s" % module)
+            #import traceback
+            #traceback.print_exc(file=sys.stdout)
+            pass
+    if options.help:
+        from .configuration import print_help
+        print_help(cli_commands)
+        sys.exit(2)
+    if commands: # Optional CLI functionality provided by plugins/applications
+        from .configuration import parse_commands
+        parsed_commands = parse_commands(commands)
+        flattened_commands = {}
+        for mod, cmds in cli_commands.items():
+            for name, command_dict in cmds.items():
+                flattened_commands.update({name: command_dict['function']})
+        for command, args in list(parsed_commands.items()):
+            if command not in flattened_commands:
+                logger.warning(_("Unknown CLI command: '%s'") % (command))
+            else:
+                flattened_commands[command](commands[1:])
+        sys.exit(0)
+    if __license__ == "AGPLv3":
+        agplv3_url = 'http://www.gnu.org/licenses/agpl-3.0.html'
+        logging.info("Gate One License: {0} ({1})".format(
+            __license__, agplv3_url))
+    else:
+        logging.info(
+            "Gate One License: {license} (Max Users: {users}, "
+            "Version: {version})".format(
+                license=__license_info__['license'],
+                users=__license_info__['users'],
+                version=__license_info__['license']))
+    logging.info(_("Imported applications: {0}".format(
+        ', '.join([a.info['name'] for a in APPLICATIONS]))))
+    # Change the uid/gid strings into integers
+    try:
+        uid = int(go_settings['uid'])
+    except ValueError:
+        import pwd
+        # Assume it's a username and grab its uid
+        try:
+            uid = pwd.getpwnam(go_settings['uid']).pw_uid
+        except KeyError:
+            logger.error(_("The configured 'uid' ({0}) does not exist.").format(
+                go_settings['uid']))
+            sys.exit(1)
+    try:
+        gid = int(go_settings['gid'])
+    except ValueError:
+        import grp
+        # Assume it's a group name and grab its gid
+        try:
+            gid = grp.getgrnam(go_settings['gid']).gr_gid
+        except KeyError:
+            logger.error(_("The configured 'gid' ({0}) does not exist.").format(
+                go_settings['gid']))
+            sys.exit(1)
+    if uid == 0 and os.getuid() != 0:
+        # Running as non-root; set uid/gid to the current user
+        logging.info(_("Running as non-root; will not drop privileges."))
+        uid = os.getuid()
+        gid = os.getgid()
+    if not os.path.exists(go_settings['user_dir']): # Make our user_dir
+        try:
+            mkdir_p(go_settings['user_dir'])
+        except OSError:
+            import pwd
+            logging.error(_(
+                "Gate One could not create %s.  Please ensure that user,"
+                " %s has permission to create this directory or create it "
+                "yourself and make user, %s its owner."
+                % (go_settings['user_dir'],
+                repr(pwd.getpwuid(os.geteuid())[0]),
+                repr(pwd.getpwuid(os.geteuid())[0]))))
+            sys.exit(1)
+        # If we could create it we should be able to adjust its permissions:
+        os.chmod(go_settings['user_dir'], 0o770)
+    if not check_write_permissions(uid, go_settings['user_dir']):
+        # Try correcting this first
+        try:
+            recursive_chown(go_settings['user_dir'], uid, gid)
+        except (ChownError, OSError) as e:
+            logging.error(_(
+                "Failed to recursively change permissions of user_dir: %s, "
+                "uid: %s, gid: %s" % (go_settings['user_dir'], uid, gid)))
+            logging.error(e)
+            sys.exit(1)
+    if not os.path.exists(go_settings['session_dir']): # Make our session_dir
+        try:
+            mkdir_p(go_settings['session_dir'])
+        except OSError:
+            logging.error(_(
+                "Error: Gate One could not create %s.  Please ensure that user,"
+                " %s has permission to create this directory or create it "
+                "yourself and make user, %s its owner." % (
+                go_settings['session_dir'],
+                repr(pwd.getpwuid(os.geteuid())[0]),
+                repr(pwd.getpwuid(os.geteuid())[0]))))
+            sys.exit(1)
+        os.chmod(go_settings['session_dir'], 0o770)
+    if not check_write_permissions(uid, go_settings['session_dir']):
+        # Try correcting it
+        try:
+            recursive_chown(go_settings['session_dir'], uid, gid)
+        except (ChownError, OSError) as e:
+            logging.error("session_dir: %s, uid: %s, gid: %s" % (
+                go_settings['session_dir'], uid, gid))
+            logging.error(e)
+            sys.exit(1)
+    # Re-do the locale in case the user supplied something as --locale
+    server_locale = locale.get(go_settings['locale'])
+    _ = server_locale.translate # Also replaces our wrapper so no more .encode()
+    # Create the log dir if not already present (NOTE: Assumes we're root)
+    log_dir = os.path.dirname(go_settings['log_file_prefix'])
+    if options.logging.upper() != 'NONE':
+        if not os.path.exists(log_dir):
+            try:
+                mkdir_p(log_dir)
+            except OSError:
+                logging.error(_(
+                    "\x1b[1;31mERROR:\x1b[0m Could not create %s for "
+                    "log_file_prefix: %s"
+                    % (log_dir, go_settings['log_file_prefix']
+                )))
+                logging.error(_(
+                    "You probably want to change this option, run Gate "
+                    "One as root, or create that directory and give the proper "
+                    "user ownership of it."))
+                sys.exit(1)
+        if not check_write_permissions(uid, log_dir):
+            # Try to correct it
+            try:
+                recursive_chown(log_dir, uid, gid)
+            except (ChownError, OSError) as e:
+                logging.error(
+                    "log_dir: %s, uid: %s, gid: %s" % (log_dir, uid, gid))
+                logging.error(e)
+                sys.exit(1)
+        # Now fix the permissions on each log (no need to check)
+        for log_file in LOGS:
+            if not os.path.exists(log_file):
+                touch(log_file)
+            try:
+                recursive_chown(log_file, uid, gid)
+            except (ChownError, OSError) as e:
+                logging.error(
+                    "log_file: %s, uid: %s, gid: %s" % (log_dir,uid, gid))
+                logging.error(e)
+                sys.exit(1)
+    if options.new_api_key:
+        # Generate a new API key for an application to use and save it to
+        # settings/30api_keys.conf.
+        from .configuration import RUDict
+        api_key = generate_session_id()
+        # Generate a new secret
+        secret = generate_session_id()
+        api_keys_conf = os.path.join(options.settings_dir, '30api_keys.conf')
+        new_keys = {api_key: secret}
+        api_keys = RUDict({"*": {"gateone": {"api_keys": {}}}})
+        if os.path.exists(api_keys_conf):
+            api_keys = get_settings(api_keys_conf)
+        api_keys.update({"*": {"gateone": {"api_keys": new_keys}}})
+        with io.open(api_keys_conf, 'w', encoding='utf-8') as conf:
+            msg = _(
+                u"// This file contains the key and secret pairs used by Gate "
+                u"One's API authentication method.\n")
+            conf.write(msg)
+            conf.write(unicode(api_keys))
+        logging.info(_(u"A new API key has been generated: %s" % api_key))
+        logging.info(_(
+            u"This key can now be used to embed Gate One into other "
+            u"applications."))
+        sys.exit(0)
+    if options.combine_js:
+        from .configuration import combine_javascript
+        combine_javascript(options.combine_js, options.settings_dir)
+        sys.exit(0)
+    if options.combine_css:
+        from .configuration import combine_css
+        combine_css(
+            options.combine_css,
+            options.combine_css_container,
+            options.settings_dir)
+        sys.exit(0)
+    # Display the version in case someone sends in a log for for support
+    logging.info(_("Version: %s (%s)" % (__version__, __commit__)))
+    logging.info(_("Tornado version %s" % tornado_version))
+    # Set our global session timeout
+    global TIMEOUT
+    TIMEOUT = convert_to_timedelta(go_settings['session_timeout'])
+    # Fix the url_prefix if the user forgot the trailing slash
+    if not go_settings['url_prefix'].endswith('/'):
+        go_settings['url_prefix'] += '/'
+    # Convert the origins into a list if overridden via the command line
+    if 'origins' in arguments:
+        if ';' in options.origins:
+            origins = options.origins.lower().split(';')
+            real_origins = []
+            for origin in origins:
+                if '://' in origin:
+                    origin = origin.split('://')[1]
+                if origin not in real_origins:
+                    real_origins.append(origin)
+            go_settings['origins'] = real_origins
+    logging.info(_(
+        "Connections to this server will be allowed from the following"
+        " origins: '%s'") % " ".join(go_settings['origins']))
+    # Normalize certain settings
+    go_settings['api_timestamp_window'] = convert_to_timedelta(
+        go_settings['api_timestamp_window'])
+    go_settings['auth'] = none_fix(go_settings['auth'])
+    go_settings['settings_dir'] = settings_dir
+    # Check to make sure we have a certificate and keyfile and generate fresh
+    # ones if not.
+    if not go_settings['disable_ssl']:
+        if not os.path.exists(go_settings['keyfile']):
+            ssl_base = os.path.dirname(go_settings['keyfile'])
+            if not os.path.exists(ssl_base):
+                try:
+                    mkdir_p(ssl_base)
+                except OSError as e:
+                    logging.error(_(
+                        "Gate One could not create {ssl_base} ({e}). "
+                        "Are you using the correct --settings_dir?").format(
+                            ssl_base=ssl_base, e=e))
+                    sys.exit(1)
+            logging.info(_("No SSL private key found.  One will be generated."))
+            gen_self_signed_ssl(path=ssl_base)
+        if not os.path.exists(go_settings['certificate']):
+            ssl_base = os.path.dirname(go_settings['certificate'])
+            logging.info(_("No SSL certificate found.  One will be generated."))
+            gen_self_signed_ssl(path=ssl_base)
+    # When logging=="debug" it will display all user's keystrokes so make sure
+    # we warn about this.
+    if go_settings['logging'] == "debug":
         logging.warning(_(
-            "Multiprocessing is not functional on this system.  "
-            "Threading for all async calls."))
-        CPU_ASYNC = IO_ASYNC # Fall back to using threading
+            "Logging is set to DEBUG.  Be aware that this will record the "
+            "keystrokes of all users.  Don't be evil!"))
+    ssl_auth = go_settings.get('ssl_auth', 'none').lower()
+    if ssl_auth == 'required':
+        # Convert to an integer using the ssl module
+        cert_reqs = ssl.CERT_REQUIRED
+    elif ssl_auth == 'optional':
+        cert_reqs = ssl.CERT_OPTIONAL
+    else:
+        cert_reqs = ssl.CERT_NONE
+    # Instantiate our Tornado web server
+    ssl_options = {
+        "certfile": go_settings['certificate'],
+        "keyfile": go_settings['keyfile'],
+        "cert_reqs": cert_reqs
+    }
+    ca_certs = go_settings.get('ca_certs', None)
+    if ca_certs:
+        ssl_options['ca_certs'] = ca_certs
+    disable_ssl = go_settings.get('disable_ssl', False)
+    if disable_ssl:
+        proto = "http://"
+        ssl_options = None
+    else:
+        proto = "https://"
+    # Fill out our settings with command line args if any are missing
+    for option in list(options):
+        if option in non_options:
+            continue # These don't belong
+        #print 'options',option        
+        if option not in go_settings:
+            go_settings[option] = options[option]
+    #print 'go_settings',go_settings
+    #print web_handlers
+    https_server = tornado.httpserver.HTTPServer(
+        GateOneApp(settings=go_settings, web_handlers=web_handlers),
+        ssl_options=ssl_options)
+    #print go_settings['port']
+    https_redirect = tornado.web.Application(
+        [(r".*", HTTPSRedirectHandler),],
+        port=go_settings['port'],
+        url_prefix=go_settings['url_prefix']
+    )
+    tornado.web.ErrorHandler = ErrorHandler
+    if go_settings['auth'] == 'pam':
+        if uid != 0 or os.getuid() != 0:
+            logger.warning(_(
+                "PAM authentication is configured but you are not running Gate"
+                " One as root.  If the pam_service you've selected (%s) is "
+                "configured to use pam_unix.so for 'auth' (i.e. authenticating "
+                "against /etc/passwd and /etc/shadow) Gate One will not be able"
+                " to authenticate all users.  It will only be able to "
+                "authenticate the user that owns the gateone.py process." %
+                go_settings['pam_service']))
+    if options.configure:
+        logger.info(_("Gate One has been configured."))
+        sys.exit(0)
+    try: # Start your engines!
+        if go_settings.get('enable_unix_socket', False):
+            https_server.add_socket(
+                tornado.netutil.bind_unix_socket(
+                    go_settings['unix_socket_path'],
+                    # Tornado uses octal encoding
+                    int(go_settings['unix_socket_mode'], 8)
+                )
+            )
+            logger.info(_(
+                "Listening on Unix socket '{socketpath}' ({socketmode})"
+                .format(
+                  socketpath=go_settings['unix_socket_path'],
+                  socketmode=go_settings['unix_socket_mode']
+                )
+            ))
+        address = none_fix(go_settings['address'])
+        if address:
+            for addr in address.split(';'):
+                if addr: # Listen on all given addresses
+                    if go_settings['https_redirect']:
+                        if go_settings['disable_ssl']:
+                            logger.error(_(
+                            "You have https_redirect *and* disable_ssl enabled."
+                            "  Please pick one or the other."))
+                            sys.exit(1)
+                        logger.info(_(
+                            "http://{addr}:80/ will be redirected to...".format(
+                                addr=addr)
+                        ))
+                        https_redirect.listen(port=80, address=addr)
+                    logger.info(_(
+                        "Listening on {proto}{address}:{port}/".format(
+                            proto=proto, address=addr, port=go_settings['port'])
+                    ))
+                    https_server.listen(port=go_settings['port'], address=addr)
+        elif address == '':
+            # Listen on all addresses (including IPv6)
+            if go_settings['https_redirect']:
+                if go_settings['disable_ssl']:
+                    logger.error(_(
+                        "You have https_redirect *and* disable_ssl enabled."
+                        "  Please pick one or the other."))
+                    sys.exit(1)
+                logger.info(_("http://*:80/ will be redirected to..."))
+                https_redirect.listen(port=80, address="")
+            logger.info(_(
+                "Listening on {proto}*:{port}/".format(
+                    proto=proto, port=go_settings['port'])))
+            try: # Listen on all IPv4 and IPv6 addresses
+                https_server.listen(port=go_settings['port'], address="")
+            except socket.error: # Fall back to all IPv4 addresses
+                https_server.listen(port=go_settings['port'], address="0.0.0.0")
+        # NOTE:  To have Gate One *not* listen on a TCP/IP address you may set
+        #        address=None
+        # Check to see what group owns /dev/pts and use that for supl_groups
+        # First we have to make sure there's at least one pty present
+        tempfd1, tempfd2 = pty.openpty()
+        # Now check the owning group (doesn't matter which one so we use 0)
+        ptm = '/dev/ptm' if os.path.exists('/dev/ptm') else '/dev/ptmx'
+        tty_gid = os.stat(ptm).st_gid
+        # Close our temmporary pty/fds so we're not wasting them
+        os.close(tempfd1)
+        os.close(tempfd2)
+        if uid != os.getuid():
+            drop_privileges(uid, gid, [tty_gid])
+        global CPU_ASYNC
+        global IO_ASYNC
+        IO_ASYNC = ThreadedRunner()
+        cores = go_settings.get('multiprocessing_workers')
+        try:
+            cores = int(cores)
+        except TypeError:
+            cores = None
+        if cores == 0:
+            logging.warning(_(
+                "Multiprocessing is disabled.  Performance will be sub-optimal."
+            ))
+            CPU_ASYNC = IO_ASYNC # Use threading instead
+        else:
+            try:
+                CPU_ASYNC = MultiprocessRunner(max_workers=cores)
+                CPU_ASYNC.call(noop, memoize=False) # Perform a realistic test
+            except NotImplementedError:
+                # System doesn't support multiprocessing (for whatever reason).
+                logging.warning(_(
+                    "Multiprocessing is not functional on this system.  "
+                    "Threading for all async calls."))
+                CPU_ASYNC = IO_ASYNC # Fall back to using threading
+        @atexit.register
+        def shutdown_async():
+            """
+            Shuts down our asynchronous processes/threads.  Specifically, calls
+            ``CPU_ASYNC.shutdown()`` and ``IO_ASYNC.shutdown()``.
+            """
+            logging.debug(_("Shutting down asynchronous processes/threads..."))
+            if CPU_ASYNC != IO_ASYNC:
+                CPU_ASYNC.shutdown(wait=False)
+            IO_ASYNC.shutdown(wait=False)
+        write_pid(go_settings['pid_file'])
+        pid = read_pid(go_settings['pid_file'])
+        logger.info(_("Process running with pid " + pid))
+        tornado.ioloop.IOLoop.instance().start()
+    except socket.error as e:
+        import errno, pwd
+        if not address: address = "0.0.0.0"
+        if e.errno == errno.EADDRINUSE: # Address/port already in use
+            logging.error(_(
+                "Could not listen on {address}:{port} (address:port is already "
+                "in use by another application).").format(
+                    address=address, port=options.port))
+        elif e.errno == errno.EACCES:
+            logging.error(_(
+                "User '{user}' does not have permission to create a process "
+                "listening on {address}:{port}.  Typically only root can use "
+                "ports < 1024.").format(
+                    user=pwd.getpwuid(uid)[0],
+                    address=address,
+                    port=options.port))
+        else:
+            logging.error(_(
+                "An error was encountered trying to listen on "
+                "{address}:{port}...").format(
+                    address=address, port=options.port))
+        logging.error(_("Exception was: {0}").format(e.args))
+    except KeyboardInterrupt: # ctrl-c
+        logger.info(_("Caught KeyboardInterrupt.  Killing sessions..."))
+    finally:
+        tornado.ioloop.IOLoop.instance().stop()
+        import shutil
+        logger.info(_(
+            "Clearing cache_dir: {0}").format(go_settings['cache_dir']))
+        shutil.rmtree(go_settings['cache_dir'], ignore_errors=True)
+        remove_pid(go_settings['pid_file'])
+        logger.info(_("pid file removed."))
+
+if __name__ == "__main__":
+    main()
