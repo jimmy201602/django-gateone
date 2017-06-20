@@ -53,6 +53,8 @@ web_handlers = [] # Assigned in init()
 # Localization support
 _ = get_translation()
 
+from django.utils.encoding import smart_bytes
+
 # Terminal-specific command line options.  These become options you can pass to
 # gateone.py (e.g. --session_logging)
 #if not hasattr(options, 'session_logging'):
@@ -347,16 +349,19 @@ class TerminalApplication(GOApplication):
         Sends the client our standard CSS and JS.
         """
         # Render and send the client our terminal.css
-        terminal_css = resource_filename(
-            'gateone.applications.terminal', '/templates/terminal.css')
+        #terminal_css = resource_filename(
+            #'gateone.applications.terminal', '/templates/terminal.css')
+        terminal_css = os.path.join(getsettings('BASE_DIR'), 'static', 'templates', 'terminal.css')
         self.render_and_send_css(terminal_css, element_id="terminal.css")
         # Send the client our JavaScript files
-        js_files = resource_listdir('gateone.applications.terminal', '/static/')
+        #js_files = resource_listdir('gateone.applications.terminal', '/static/')
+        js_files = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static', 'terminal'))
         js_files.sort()
         for fname in js_files:
             if fname.endswith('.js'):
-                js_file_path = resource_filename(
-                    'gateone.applications.terminal', '/static/%s' % fname)
+                #js_file_path = resource_filename(
+                    #'gateone.applications.terminal', '/static/%s' % fname)
+                js_file_path = os.path.join(os.path.join(getsettings('BASE_DIR'), 'static', 'terminal'),fname)
                 if fname == 'terminal.js':
                     self.ws.send_js(js_file_path, requires=["terminal.css"])
                 elif fname == 'terminal_input.js':
@@ -382,7 +387,7 @@ class TerminalApplication(GOApplication):
         self.log_metadata = {
             'application': 'terminal',
             'upn': self.current_user['upn'],
-            'ip_address': self.ws.request.remote_ip,
+            'ip_address': self.ws.message.http_session.get('gateone_user',None)['ip_address'],#self.ws.request.remote_ip#self.ws.request.remote_ip,
             'location': self.ws.location
         }
         self.term_log = go_logger("gateone.terminal", **self.log_metadata)
@@ -406,7 +411,6 @@ class TerminalApplication(GOApplication):
                 return
         self.send_client_files()
         sess = SESSIONS[self.ws.session]
-        print sess
         # Create a place to store app-specific stuff related to this session
         # (but not necessarily this 'location')
         if "terminal" not in sess:
@@ -445,12 +449,15 @@ class TerminalApplication(GOApplication):
                 sub_app = {'name': command}
             if 'icon' not in sub_app:
                 # Use the generic one
-                icon_path = resource_filename(
-                    'gateone.applications.terminal',
-                    '/templates/command_icon.svg')
-                sub_app_icon = resource_string(
-                    'gateone.applications.terminal',
-                    '/templates/command_icon.svg').decode('utf-8')
+                #icon_path = resource_filename(
+                    #'gateone.applications.terminal',
+                    #'/templates/command_icon.svg')
+                icon_path = os.path.join(getsettings('BASE_DIR'), 'static/templates/command_icon.svg')
+                #sub_app_icon = resource_string(
+                    #'gateone.applications.terminal',
+                    #'/templates/command_icon.svg').decode('utf-8')
+                with io.open(icon_path, 'r') as f:
+                    sub_app_icon = smart_bytes(f.read()).decode('utf-8')                
                 #print 'sub_app_icon',sub_app_icon
                 sub_app['icon'] = sub_app_icon.format(cmd=sub_app['name'])
             sub_apps.append(sub_app)
@@ -519,15 +526,17 @@ class TerminalApplication(GOApplication):
         """
         Returns a JSON-encoded object containing the installed fonts.
         """
-        from .woff_info import woff_info
-        fonts = resource_listdir(
-            'gateone.applications.terminal', '/static/fonts')
+        from applications.woff_info import woff_info
+        #fonts = resource_listdir(
+            #'gateone.applications.terminal', '/static/fonts')
+        fonts = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static/terminal/fonts'))
         font_list = []
         for font in fonts:
             if not font.endswith('.woff'):
                 continue
-            font_path = resource_filename(
-                'gateone.applications.terminal', '/static/fonts/%s' % font)
+            #font_path = resource_filename(
+                #'gateone.applications.terminal', '/static/fonts/%s' % font)
+            font_path = os.path.join(os.path.join(getsettings('BASE_DIR'), 'static/terminal/fonts'), font)
             font_info = woff_info(font_path)
             if "Font Family" not in font_info:
                 self.ws.logger.error(_(
@@ -554,8 +563,9 @@ class TerminalApplication(GOApplication):
         font_family = settings['font_family']
         font_size = settings.get('font_size', '90%')
         filename = 'font.css'
-        font_css_path = resource_filename(
-            'gateone.applications.terminal', '/templates/%s' % filename)
+        #font_css_path = resource_filename(
+            #'gateone.applications.terminal', '/templates/%s' % filename)
+        font_css_path = os.path.join(getsettings('BASE_DIR'), 'static/templates', filename)
         if font_family == 'monospace':
             # User wants the browser to control the font; real simple:
             rendered_path = self.render_style(
@@ -566,15 +576,17 @@ class TerminalApplication(GOApplication):
             self.send_css(
                 rendered_path, element_id="terminal_font", filename=filename)
             return
-        from .woff_info import woff_info
-        fonts = resource_listdir(
-            'gateone.applications.terminal', '/static/fonts')
+        from applications.woff_info import woff_info
+        #fonts = resource_listdir(
+            #'gateone.applications.terminal', '/static/fonts')
+        fonts = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static/terminal/fonts'))
         woffs = {}
         for font in fonts:
             if not font.endswith('.woff'):
                 continue
-            font_path = resource_filename(
-                'gateone.applications.terminal', '/static/fonts/%s' % font)
+            #font_path = resource_filename(
+                #'gateone.applications.terminal', '/static/fonts/%s' % font)
+            font_path = os.path.join(os.path.join(getsettings('BASE_DIR'), 'static/terminal/fonts'), font)
             font_info = woff_info(font_path)
             if "Font Family" not in font_info:
                 self.ws.logger.error(_(
@@ -622,8 +634,9 @@ class TerminalApplication(GOApplication):
         Returns a JSON-encoded object containing the installed text color
         schemes.
         """
-        colors = resource_listdir(
-            'gateone.applications.terminal', '/templates/term_colors')
+        #colors = resource_listdir(
+            #'gateone.applications.terminal', '/templates/term_colors')
+        colors = os.listdir(os.path.join(getsettings('BASE_DIR'), 'static/templates/term_colors'))
         colors = [a for a in colors if a.endswith('.css')]
         colors = [a.replace('.css', '') for a in colors]
         message = {'terminal:colors_list': {'colors': colors}}
@@ -640,7 +653,7 @@ class TerminalApplication(GOApplication):
         .. note:: This method is primarily to aid dtach support.
         """
         self.term_log.debug("save_term_settings(%s, %s)" % (term, settings))
-        from .term_utils import save_term_settings as _save
+        from applications.term_utils import save_term_settings as _save
         term = str(term) # JSON wants strings as keys
         def saved(result): # NOTE: result will always be None
             """
@@ -675,16 +688,13 @@ class TerminalApplication(GOApplication):
         """
         term = str(term) # JSON wants strings as keys
         self.term_log.debug("restore_term_settings(%s)" % term)
-        from .term_utils import restore_term_settings as _restore
+        from applications.term_utils import restore_term_settings as _restore
         def restore(settings):
             """
             Saves the *settings* returned by :func:`restore_term_settings`
             in `self.loc_terms[term]` and triggers the
             `terminal:restore_term_settings` event.
-            """
-            #print 'settings',settings
-            #print 'self.ws.location',self.ws.location
-            #print 'self.loc_terms',self.loc_terms            
+            """         
             if self.ws.location in settings:
                 if term in settings[self.ws.location]:
                     termNum = int(term)
@@ -711,7 +721,8 @@ class TerminalApplication(GOApplication):
         self.term_log.debug("clear_term_settings(%s)" % term)
         term_settings = RUDict()
         term_settings[self.ws.location] = {term: {}}
-        session_dir = options.session_dir
+        #session_dir = options.session_dir
+        session_dir = self.settings['session_dir']
         session_dir = os.path.join(session_dir, self.ws.session)
         settings_path = os.path.join(session_dir, 'term_settings.json')
         if not os.path.exists(settings_path):
@@ -758,11 +769,13 @@ class TerminalApplication(GOApplication):
         if not self.ws.session:
             return # Just a broadcast terminal viewer
         # Check for any dtach'd terminals we might have missed
-        if options.dtach and which('dtach'):
-            from .term_utils import restore_term_settings
+        #if options.dtach and which('dtach'):
+        if self.ws.settings['dtach'] is True and which('dtach'):
+            from applications.term_utils import restore_term_settings
             term_settings = restore_term_settings(
                 self.ws.location, self.ws.session)
-            session_dir = options.session_dir
+            #session_dir = options.session_dir
+            session_dir = self.ws.settings['session_dir']
             session_dir = os.path.join(session_dir, self.ws.session)
             if not os.path.exists(session_dir):
                 mkdir_p(session_dir)
@@ -842,7 +855,8 @@ class TerminalApplication(GOApplication):
         Sets up all the callbacks associated with the given *term*, *multiplex*
         instance and *callback_id*.
         """
-        import terminal
+        #import terminal
+        from applications import terminal
         refresh = partial(self.refresh_screen, term)
         multiplex.add_callback(multiplex.CALLBACK_UPDATE, refresh, callback_id)
         ended = partial(self.term_ended, term)
@@ -879,7 +893,8 @@ class TerminalApplication(GOApplication):
         Removes all the Multiplex and terminal emulator callbacks attached to
         the given *multiplex* instance and *callback_id*.
         """
-        import terminal
+        #import terminal
+        from applications import terminal
         multiplex.remove_callback(multiplex.CALLBACK_UPDATE, callback_id)
         multiplex.remove_callback(multiplex.CALLBACK_EXIT, callback_id)
         term_emulator = multiplex.term
@@ -913,7 +928,8 @@ class TerminalApplication(GOApplication):
                 If ``True``, will enable debugging on the created Multiplex
                 instance.
         """
-        import termio
+        #import termio
+        from applications import termio
         cls = TerminalApplication
         policies = applicable_policies(
             'terminal', self.current_user, self.ws.prefs)
@@ -926,7 +942,8 @@ class TerminalApplication(GOApplication):
         except:
             # No auth, use ANONYMOUS (% is there to prevent conflicts)
             user = r'ANONYMOUS' # Don't get on this guy's bad side
-        session_dir = options.session_dir
+        #session_dir = options.session_dir
+        session_dir = self.settings['session_dir']
         session_dir = os.path.join(session_dir, self.ws.session)
         log_path = None
         syslog_logging = False
@@ -1034,7 +1051,8 @@ class TerminalApplication(GOApplication):
             encoding = default_encoding
         term_metadata = settings.get('metadata', {})
         settings_dir = self.settings['settings_dir']
-        user_session_dir = os.path.join(options.session_dir, self.ws.session)
+        #user_session_dir = os.path.join(options.session_dir, self.ws.session)
+        user_session_dir = os.path.join(self.settings['session_dir'], self.ws.session)
         # NOTE: 'command' here is actually just the short name of the command.
         #       ...which maps to what's configured the 'commands' part of your
         #       terminal settings.
@@ -1110,7 +1128,8 @@ class TerminalApplication(GOApplication):
             cmd = cmd_var_swap(full_command, # Swap out variables like %USER%
                 gateone_dir=GATEONE_DIR,
                 session=self.ws.session, # with their real-world values.
-                session_dir=options.session_dir,
+                #session_dir=options.session_dir,
+                session_dir=self.settings['session_dir'],
                 session_hash=short_hash(self.ws.session),
                 userdir=user_dir,
                 user=user,
@@ -1123,7 +1142,8 @@ class TerminalApplication(GOApplication):
             if not os.path.exists(user_session_dir):
                 mkdir_p(user_session_dir)
                 os.chmod(user_session_dir, 0o770)
-            if options.dtach and which('dtach') and cmd_dtach_enabled:
+            if self.settings['dtach'] is True and which('dtach') and cmd_dtach_enabled:
+            #if options.dtach and which('dtach') and cmd_dtach_enabled:
                 # Wrap in dtach (love this tool!)
                 dtach_path = "{session_dir}/dtach_{location}_{term}".format(
                     session_dir=user_session_dir,
@@ -1149,20 +1169,15 @@ class TerminalApplication(GOApplication):
                 'GO_TERM': str(term),
                 'GO_LOCATION': self.ws.location,
                 'GO_SESSION': self.ws.session,
-                'GO_SESSION_DIR': options.session_dir,
+                #'GO_SESSION_DIR': options.session_dir,
+                'GO_SESSION_DIR': self.settings['session_dir'],
                 'GO_USER_SESSION_DIR': user_session_dir,
             }
             env.update(os.environ) # Add the defaults for this system
             env.update(environment_vars) # Apply policy-based environment
             if self.plugin_env_hooks:
                 # This allows plugins to add/override environment variables
-                env.update(self.plugin_env_hooks)
-            #print 'cmd',cmd
-            #print 'cmd[0]',cmd[0]
-            #print 'rows',rows
-            #print 'cols',cols
-            #print 'env',env
-            #print 'em_dimensions',self.em_dimensions            
+                env.update(self.plugin_env_hooks)       
             m.spawn(rows, cols, env=env, em_dimensions=self.em_dimensions)
             # Give the terminal emulator a path to store temporary files
             m.term.temppath = os.path.join(user_session_dir, 'downloads')
@@ -1172,6 +1187,7 @@ class TerminalApplication(GOApplication):
             m.term.linkpath = "{server_url}downloads".format(
                 server_url=self.ws.base_url)
             # Make sure it can generate pretty icons for file downloads
+            #bug fixed
             m.term.icondir = resource_filename('gateone', '/static/icons')
             if resumed_dtach:
                 # Send an extra Ctrl-L to refresh the screen and fix the sizing

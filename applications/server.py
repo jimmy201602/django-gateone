@@ -3736,8 +3736,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             message = json_encode(message)
         return self.send(message)
     
-    def current_user(self,message):
-        user = self.request.http_session.get('gateone_user',None)
+    @property
+    def current_user(self):
+        user = self.message.http_session.get('gateone_user',None)
         if user:
             user = copy.deepcopy(user)
             user.pop('protocol')
@@ -3820,8 +3821,23 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def get_request_headers(self):
         return self.get_request_headers()
     
-        
-        
+    @property
+    def session(self):
+        return self.message.http_session.get('session',generate_session_id())
+    
+    @property
+    def client_id(self):
+        return self.message.http_session.get('session',generate_session_id())
+    
+    @property
+    def base_ur(self):
+        base_url = "{protocol}://{host}:{port}{url_prefix}".format(
+            protocol=self.message.http_session.get('gateone_user',None)['protocol'],
+            host=self.message.http_session.get('gateone_user',None)['ip_address'],
+            port=getsettings('port',8000),#self.settings['port']
+            url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']   
+        return base_url
+    
 class ErrorHandler(tornado.web.RequestHandler):
     """
     Generates an error response with status_code for all requests.
