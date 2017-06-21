@@ -14,8 +14,7 @@ __author__ = 'Dan McDougall <daniel.mcdougall@liftoffsoftware.com>'
 
 from functools import partial
 from applications.utils import getsettings
-#from gateone import SESSIONS
-SESSIONS = getsettings('SESSIONS', dict())
+from applications import SESSIONS
 from applications.locale import get_translation
 from applications.log import go_logger
 from applications.auth.authorization import applicable_policies

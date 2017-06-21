@@ -1248,7 +1248,6 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
         logging.debug("Disabling rate limiter")
         self.ratelimiter_engaged = False
         try:
-            print 'self io_loop add handler _reenable_output'
             self.io_loop.add_handler(
                 self.fd, self._ioloop_read_handler, self.io_loop.READ)
         except IOError:

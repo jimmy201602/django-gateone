@@ -105,20 +105,38 @@ class require(object):
                 condition.f_kwargs = kwargs
                 if not condition.check():
                     if hasattr(self, 'current_user') and self.current_user:
-                        self.current_user = self.ws.request.http_session.get('gateone_user',None)
                         if 'upn' in self.current_user:
+                            #auth_log.error(_(
+                                #'{"ip_address": "%s"} %s -> %s '
+                                #'failed requirement: %s' % (
+                                #self.request.remote_ip,
+                                #self.current_user['upn'],
+                                #f.__name__, str(condition))))
+                            if hasattr(self,'ws'):
+                                remote_ip = self.ws.message.http_session.get('gateone_user',None)['ip_address']
+                            else:
+                                remote_ip = self.message.http_session.get('gateone_user',None)['ip_address']
                             auth_log.error(_(
                                 '{"ip_address": "%s"} %s -> %s '
                                 'failed requirement: %s' % (
-                                self.request.remote_ip,
+                                remote_ip,
                                 self.current_user['upn'],
                                 f.__name__, str(condition))))
                     else:
+                        #auth_log.error(_(
+                            #'{"ip_address": "%s"} unknown user -> %s '
+                            #'failed requirement: %s' % (
+                            #self.request.remote_ip, f.__name__, str(condition))
+                        #))
+                        if hasattr(self,'ws'):
+                            remote_ip = self.ws.message.http_session.get('gateone_user',None)['ip_address']
+                        else:
+                            remote_ip = self.message.http_session.get('gateone_user',None)['ip_address']                        
                         auth_log.error(_(
                             '{"ip_address": "%s"} unknown user -> %s '
                             'failed requirement: %s' % (
-                            self.request.remote_ip, f.__name__, str(condition))
-                        ))
+                            remote_ip, f.__name__, str(condition))
+                        ))                    
                     # Try to notify the client of their failings
                     msg = _("ERROR: %s" % condition.error)
                     try:

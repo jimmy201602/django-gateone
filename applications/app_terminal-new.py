@@ -23,8 +23,8 @@ from pkg_resources import resource_filename, resource_listdir, resource_string
 from applications.utils import getsettings
 # Gate One imports
 #from gateone import GATEONE_DIR, SESSIONS#global variables
-GATEONE_DIR = getsettings('GATEONE_DIR', dict())
-from applications import SESSIONS, TERMINALIDS
+GATEONE_DIR = getsettings('BASE_DIR')
+from applications import SESSIONS
 from applications.server import StaticHandler, BaseHandler, GOApplication
 from applications.server import ApplicationWebSocket
 from applications.auth.authorization import require, authenticated
@@ -99,7 +99,7 @@ def kill_session(session, kill_dtach=False):
     term_log = go_logger("gateone.terminal")
     term_log.debug('kill_session(%s)' % session)
     if kill_dtach:
-        from gateone.core.utils import kill_dtached_proc
+        from applications.utils import kill_dtached_proc
     for location, apps in list(SESSIONS[session]['locations'].items()):
         loc = SESSIONS[session]['locations'][location]['terminal']
         terms = apps['terminal']
@@ -149,7 +149,7 @@ class TerminalApplication(GOApplication):
         super(TerminalApplication,self).__init__(ws)
         #print 'init terminal application'
 
-    def initialize(self,message=None):
+    def initialize(self):
         """
         Called when the WebSocket is instantiated, sets up our WebSocket
         actions, security policies, and attaches all of our plugin hooks/events.
@@ -157,7 +157,7 @@ class TerminalApplication(GOApplication):
         #print 'Initialize app_terminal'
         self.log_metadata = {
             'application': 'terminal',
-            'ip_address': message.http_session.get('gateone_user', None)['ip_address'],#self.ws.request.remote_ip
+            'ip_address': self.ws.message.http_session.get('gateone_user', None)['ip_address'],#self.ws.request.remote_ip
             'location': self.ws.location
         }
         #print self.log_metadata
@@ -297,15 +297,23 @@ class TerminalApplication(GOApplication):
                 for event, callback in hooks['Events'].items():
                     self.on(event, bind(callback, self))
 
-    def open(self, client_id, host, remote_ip):
+    def open(self):
         #print 'terminal opened'
         """
         This gets called at the end of :meth:`ApplicationWebSocket.open` when
         the WebSocket is opened.
         """
+        try:
+            if self.ws.message.content['server']:
+                host = ":".join([str(i) for i in self.ws.message.content['server']])
+            else:
+                host = '%s:%s' %(str(getsettings('address')),str(getsettings('port')))
+        except KeyError:
+            host = '%s:%s' %(str(getsettings('address')),str(getsettings('port')))
+        remote_ip = self.ws.message.http_session.get('gateone_user',None)['ip_address']        
         self.term_log.debug('TerminalApplication.open()')
         self.callback_id = "%s;%s;%s" % (
-            client_id, host, remote_ip)
+            self.ws.client_id, host, remote_ip)
         self.trigger("terminal:open")
 
     def send_client_files(self, message=None):
@@ -350,14 +358,14 @@ class TerminalApplication(GOApplication):
         #bug
         self.log_metadata = {
             'application': 'terminal',
-            'upn': message.http_session.get('gateone_user',None)['upn'],#self.current_user['upn']
-            'ip_address': message.http_session.get('gateone_user',None)['ip_address'],#self.ws.request.remote_ip
+            'upn': self.ws.message.http_session.get('gateone_user',None)['upn'],#self.current_user['upn']
+            'ip_address': self.ws.message.http_session.get('gateone_user',None)['ip_address'],#self.ws.request.remote_ip
             'location': self.ws.location#
         }
         self.term_log = go_logger("gateone.terminal", **self.log_metadata)
         # Get our user-specific settings/policies for quick reference
         #self.current_user {u'upn': u'ANONYMOUS', u'session': u'MjFiOGFkMGQwYzBiNDc1Yzg1NzA1YjU0ODBjNWE2YzliM', 'ip_address': '127.0.0.1'}
-        self.current_user = copy.deepcopy(message.http_session.get('gateone_user',None))
+        self.current_user = copy.deepcopy(self.ws.message.http_session.get('gateone_user',None))
         self.current_user.pop('protocol')
         self.policy = applicable_policies(
             'terminal', self.current_user, self.ws.prefs)
@@ -392,8 +400,8 @@ class TerminalApplication(GOApplication):
             #sess = SESSIONS[message.http_session.get('session',None)]
         #except KeyError:
             #return
-        sess = SESSIONS[message.http_session.get('session',None)]
-        print sess
+        sess = SESSIONS[self.ws.message.http_session.get('session',None)]
+        #print sess
         #{'client_ids': [u'NTRjZWJlMmE5MGNiNDQzYjhkZDU4OWNhNzBmMjEzODcyM'], 
         #'locations': {u'default': {}, u'terminal': {} }, 
         #'kill_session_callbacks': [<functools.partial object at 0x7f85fd74ce68>], 
@@ -1939,14 +1947,14 @@ class TerminalApplication(GOApplication):
         #print self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS
         #print 'self.loc_terms',self.loc_terms
         print 'SESSIONS',SESSIONS
-        print self.loc_terms
+        #print self.loc_terms
         if self.ws.request.http_session.get('gateone_user',None)['session'] in SESSIONS and term in self.loc_terms:
             multiplex = self.loc_terms[term]['multiplex']
             if multiplex.isalive():
                 #print 'alive'
                 print 'chars',chars
                 multiplex.write(chars)
-                print multiplex.dump()
+                #print multiplex.dump_html()
                 # Handle (gracefully) the situation where a capture is stopped
                 if '\x03' in chars:
                     if not multiplex.term.capture:
