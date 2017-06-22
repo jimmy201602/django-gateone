@@ -394,27 +394,31 @@ if MISSING_DEPS:
 tornado.log.enable_pretty_logging()
 
 # Our own modules
-from gateone import SESSIONS, PERSIST
-from gateone.auth.authentication import NullAuthHandler, KerberosAuthHandler
-from gateone.auth.authentication import GoogleAuthHandler, APIAuthHandler
-from gateone.auth.authentication import CASAuthHandler, PAMAuthHandler
-from gateone.auth.authentication import SSLAuthHandler
-from gateone.auth.authorization import require, authenticated, policies
-from gateone.auth.authorization import applicable_policies
-from gateone.async import MultiprocessRunner, ThreadedRunner
-from .utils import generate_session_id, mkdir_p, touch, noop
-from .utils import gen_self_signed_ssl, entry_point_files
-from .utils import merge_handlers, none_fix, convert_to_timedelta, short_hash
-from .utils import json_encode, recursive_chown, ChownError, get_or_cache
-from .utils import write_pid, read_pid, remove_pid, drop_privileges
-from .utils import check_write_permissions, valid_hostname
-from .utils import total_seconds, MEMO, bind
-from .configuration import apply_cli_overrides, define_options, SettingsError
-from .configuration import get_settings
-from onoff import OnOffMixin
+from applications import SESSIONS, PERSIST
+from applications.auth.authentication import NullAuthHandler, KerberosAuthHandler
+from applications.auth.authentication import GoogleAuthHandler, APIAuthHandler
+from applications.auth.authentication import CASAuthHandler, PAMAuthHandler
+from applications.auth.authentication import SSLAuthHandler
+from applications.auth.authorization import require, authenticated, policies
+from applications.auth.authorization import applicable_policies
+from applications.async import MultiprocessRunner, ThreadedRunner
+from applications.utils import generate_session_id, mkdir_p, touch, noop
+from applications.utils import gen_self_signed_ssl, entry_point_files
+from applications.utils import merge_handlers, none_fix, convert_to_timedelta, short_hash
+from applications.utils import json_encode, recursive_chown, ChownError, get_or_cache
+from applications.utils import write_pid, read_pid, remove_pid, drop_privileges
+from applications.utils import check_write_permissions, valid_hostname
+from applications.utils import total_seconds, MEMO, bind
+from applications.configuration import apply_cli_overrides, define_options, SettingsError
+from applications.configuration import get_settings
+from applications.onoff import OnOffMixin
+
+from applications.utils import getsettings
+from applications.configuration import define_options
+settings = define_options()
 
 # Setup our base loggers (these get overwritten in main())
-from gateone.core.log import go_logger, LOGS
+from applications.log import go_logger, LOGS
 logger = go_logger(None)
 auth_log = go_logger('gateone.auth')
 msg_log = go_logger('gateone.message')
@@ -447,7 +451,8 @@ PLUGINS = {}
 PLUGIN_HOOKS = {} # Gives plugins the ability to hook into various things.
 
 # Secondary locale setup
-locale_dir = resource_filename('gateone', '/i18n')
+#locale_dir = resource_filename('gateone', '/i18n')
+locale_dir = os.path.join(getsettings('BASE_DIR'), 'locale/i18n')
 locale.load_gettext_translations(locale_dir, 'gateone')
 # NOTE: The locale gets set in __main__
 
@@ -464,14 +469,15 @@ def cleanup_user_logs():
     """
     logging.debug("cleanup_user_logs()")
     disabled = timedelta(0) # If the user sets user_logs_max_age to "0"
-    settings = get_settings(options.settings_dir)
+    #settings = get_settings(options.settings_dir)
+    settings = get_settings(settings['settings_dir'])
     user_dir = settings['*']['gateone']['user_dir']
-    if 'user_dir' in options: # NOTE: options is global
-        user_dir = options.user_dir
+    #if 'user_dir' in options: # NOTE: options is global
+        #user_dir = options.user_dir
     default = "30d"
     max_age_str = settings['*']['gateone'].get('user_logs_max_age', default)
-    if 'user_logs_max_age' in list(options):
-        max_age_str = options.user_logs_max_age
+    #if 'user_logs_max_age' in list(options):
+        #max_age_str = options.user_logs_max_age
     max_age = convert_to_timedelta(max_age_str)
     def descend(path):
         """
@@ -509,11 +515,14 @@ def cleanup_old_sessions():
     """
     logging.debug("cleanup_old_sessions()")
     disabled = timedelta(0) # If the user sets auth_timeout to "0"
-    settings = get_settings(options.settings_dir)
+    session_dir = settings['session_dir']
+    #settings = get_settings(options.settings_dir)
+    settings = get_settings(settings['settings_dir'])
     expiration_str = settings['*']['gateone'].get('auth_timeout', "14d")
     expiration = convert_to_timedelta(expiration_str)
     if expiration != disabled:
-        for session in os.listdir(options.session_dir):
+        #for session in os.listdir(options.session_dir):
+        for session in os.listdir(session_dir):
             # If it's in the SESSIONS dict it's still valid for sure
             if session not in SESSIONS:
                 if len(session) != 45:
@@ -522,13 +531,14 @@ def cleanup_old_sessions():
                     # session_dir.  Why not just check for 'broacast'?  Just in
                     # case we put something else there in the future.
                     continue
-                session_path = os.path.join(options.session_dir, session)
+                #session_path = os.path.join(options.session_dir, session)
+                session_path = os.path.join(session_dir, session)
                 mtime = time.localtime(os.stat(session_path).st_mtime)
                 # Convert to a datetime object for easier comparison
                 mtime = datetime.fromtimestamp(time.mktime(mtime))
                 if datetime.now() - mtime > expiration:
                     import shutil
-                    from .utils import kill_session_processes
+                    from applications.utils import kill_session_processes
                     # The log is older than expiration, remove it and kill any
                     # processes that may be remaining.
                     kill_session_processes(session)
@@ -550,6 +560,7 @@ def clean_up():
     cleanup_user_logs()
     cleanup_old_sessions()
 
+#bug need to be fixed
 def policy_send_user_message(cls, policy):
     """
     Called by :func:`gateone_policies`, returns True if the user is
@@ -726,319 +737,315 @@ def broadcast_message(args=sys.argv, message=""):
                 b.write(message)
 
 # Classes
-class StaticHandler(tornado.web.StaticFileHandler):
-    """
-    An override of :class:`tornado.web.StaticFileHandler` to ensure that the
-    Access-Control-Allow-Origin header gets set correctly.  This is necessary in
-    order to support embedding Gate One into other web-based applications.
+#class StaticHandler(tornado.web.StaticFileHandler):
+    #"""
+    #An override of :class:`tornado.web.StaticFileHandler` to ensure that the
+    #Access-Control-Allow-Origin header gets set correctly.  This is necessary in
+    #order to support embedding Gate One into other web-based applications.
 
-    .. note::
+    #.. note::
 
-        Gate One performs its own origin checking so header-based access
-        controls at the client are unnecessary.
-    """
-    def initialize(self, path, default_filename=None, use_pkg=None):
-        """
-        Called automatically by the Tornado framework when the `StaticHandler`
-        class is instantiated; handles the usual arguments with the addition
-        of *use_pkg* which indicates that the static file should attempt to be
-        retrieved from that package via the `pkg_resources` module instead of
-        directly via the filesystem.
-        """
-        self.root = path
-        self.default_filename = default_filename
-        self.use_pkg = use_pkg
+        #Gate One performs its own origin checking so header-based access
+        #controls at the client are unnecessary.
+    #"""
+    #def initialize(self, path, default_filename=None, use_pkg=None):
+        #"""
+        #Called automatically by the Tornado framework when the `StaticHandler`
+        #class is instantiated; handles the usual arguments with the addition
+        #of *use_pkg* which indicates that the static file should attempt to be
+        #retrieved from that package via the `pkg_resources` module instead of
+        #directly via the filesystem.
+        #"""
+        #self.root = path
+        #self.default_filename = default_filename
+        #self.use_pkg = use_pkg
 
-    def set_extra_headers(self, path):
-        """
-        Adds the Access-Control-Allow-Origin header to allow cross-origin
-        access to static content for applications embedding Gate One.
-        Specifically, this is necessary in order to support loading fonts
-        from different origins.
+    #def set_extra_headers(self, path):
+        #"""
+        #Adds the Access-Control-Allow-Origin header to allow cross-origin
+        #access to static content for applications embedding Gate One.
+        #Specifically, this is necessary in order to support loading fonts
+        #from different origins.
 
-        Also sets the 'X-UA-Compatible' header to 'IE=edge' to enforce IE 10+
-        into standards mode when content is loaded from intranet sites.
-        """
-        self.set_header('X-UA-Compatible', 'IE=edge')
-        # Allow access to our static content from any page:
-        self.set_header('Access-Control-Allow-Origin', '*')
-        self.set_header('Server', 'GateOne')
-        self.set_header('License', __license__)
+        #Also sets the 'X-UA-Compatible' header to 'IE=edge' to enforce IE 10+
+        #into standards mode when content is loaded from intranet sites.
+        #"""
+        #self.set_header('X-UA-Compatible', 'IE=edge')
+        ## Allow access to our static content from any page:
+        #self.set_header('Access-Control-Allow-Origin', '*')
+        #self.set_header('Server', 'GateOne')
+        #self.set_header('License', __license__)
 
-    def options(self, path=None):
-        """
-        Replies to OPTIONS requests with the usual stuff (200 status, Allow
-        header, etc).  Since this is just the static file handler we don't
-        include any extra information.
-        """
-        self.set_status(200)
-        self.set_header('Access-Control-Allow-Origin', '*')
-        self.set_header('Allow', 'HEAD,GET,POST,OPTIONS')
-        self.set_header('Server', 'GateOne')
-        self.set_header('License', __license__)
+    #def options(self, path=None):
+        #"""
+        #Replies to OPTIONS requests with the usual stuff (200 status, Allow
+        #header, etc).  Since this is just the static file handler we don't
+        #include any extra information.
+        #"""
+        #self.set_status(200)
+        #self.set_header('Access-Control-Allow-Origin', '*')
+        #self.set_header('Allow', 'HEAD,GET,POST,OPTIONS')
+        #self.set_header('Server', 'GateOne')
+        #self.set_header('License', __license__)
 
-    def validate_absolute_path(self, root, absolute_path):
-        """
-        An override of
-        :meth:`tornado.web.StaticFileHandler.validate_absolute_path`;
+    #def validate_absolute_path(self, root, absolute_path):
+        #"""
+        #An override of
+        #:meth:`tornado.web.StaticFileHandler.validate_absolute_path`;
 
-        Validate and returns the given *absolute_path* using `pkg_resources`
-        if ``self.use_pkg`` is set otherwise performs a normal filesystem
-        validation.
-        """
-        # We have to generate the real absolute path in this method since the
-        # Tornado devs--for whatever reason--decided that get_absolute_path()
-        # must be a classmethod (we need access to self.use_pkg).
-        if self.use_pkg:
-            if not resource_exists(self.use_pkg, absolute_path):
-                raise HTTPError(404)
-            return resource_filename(self.use_pkg, absolute_path)
-        return super(
-            StaticHandler, self).validate_absolute_path(root, absolute_path)
+        #Validate and returns the given *absolute_path* using `pkg_resources`
+        #if ``self.use_pkg`` is set otherwise performs a normal filesystem
+        #validation.
+        #"""
+        ## We have to generate the real absolute path in this method since the
+        ## Tornado devs--for whatever reason--decided that get_absolute_path()
+        ## must be a classmethod (we need access to self.use_pkg).
+        #if self.use_pkg:
+            #if not resource_exists(self.use_pkg, absolute_path):
+                #raise HTTPError(404)
+            #return resource_filename(self.use_pkg, absolute_path)
+        #return super(
+            #StaticHandler, self).validate_absolute_path(root, absolute_path)
 
-class BaseHandler(tornado.web.RequestHandler):
-    """
-    A base handler that all Gate One RequestHandlers will inherit methods from.
+#class BaseHandler(tornado.web.RequestHandler):
+    #"""
+    #A base handler that all Gate One RequestHandlers will inherit methods from.
 
-    Provides the :meth:`get_current_user` method, sets default headers, and
-    provides a default :meth:`options` method that can be used for monitoring
-    purposes and also for enumerating useful information about this Gate One
-    server (see below for more info).
-    """
-    def set_default_headers(self):
-        """
-        An override of :meth:`tornado.web.RequestHandler.set_default_headers`
-        (which is how Tornado wants you to set default headers) that
-        adds/overrides the following headers:
+    #Provides the :meth:`get_current_user` method, sets default headers, and
+    #provides a default :meth:`options` method that can be used for monitoring
+    #purposes and also for enumerating useful information about this Gate One
+    #server (see below for more info).
+    #"""
+    #def set_default_headers(self):
+        #"""
+        #An override of :meth:`tornado.web.RequestHandler.set_default_headers`
+        #(which is how Tornado wants you to set default headers) that
+        #adds/overrides the following headers:
 
-            :Server: 'GateOne'
-            :X-UA-Compatible: 'IE=edge' (forces IE 10+ into Standards mode)
-        """
-        # Force IE 10 into Standards Mode:
-        self.set_header('X-UA-Compatible', 'IE=edge')
-        self.set_header('Server', 'GateOne')
-        self.set_header('License', __license__)
+            #:Server: 'GateOne'
+            #:X-UA-Compatible: 'IE=edge' (forces IE 10+ into Standards mode)
+        #"""
+        ## Force IE 10 into Standards Mode:
+        #self.set_header('X-UA-Compatible', 'IE=edge')
+        #self.set_header('Server', 'GateOne')
+        #self.set_header('License', __license__)
 
-    def get_current_user(self):
-        """Tornado standard method--implemented our way."""
-        # NOTE: self.current_user is actually an @property that calls
-        #       self.get_current_user() and caches the result.
-        expiration = self.settings.get('auth_timeout', "14d")
-        # Need the expiration in days (which is a bit silly but whatever):
-        expiration = (
-            float(total_seconds(convert_to_timedelta(expiration)))
-            / float(86400))
-        user_json = self.get_secure_cookie(
-            "gateone_user", max_age_days=expiration)
-        if user_json:
-            user = json_decode(user_json)
-            user['ip_address'] = self.request.remote_ip
-            if user and 'upn' not in user:
-                return None
-            return user
+    #def get_current_user(self):
+        #"""Tornado standard method--implemented our way."""
+        ## NOTE: self.current_user is actually an @property that calls
+        ##       self.get_current_user() and caches the result.
+        #expiration = self.settings.get('auth_timeout', "14d")
+        ## Need the expiration in days (which is a bit silly but whatever):
+        #expiration = (
+            #float(total_seconds(convert_to_timedelta(expiration)))
+            #/ float(86400))
+        #user_json = self.get_secure_cookie(
+            #"gateone_user", max_age_days=expiration)
+        #if user_json:
+            #user = json_decode(user_json)
+            #user['ip_address'] = self.request.remote_ip
+            #if user and 'upn' not in user:
+                #return None
+            #return user
 
-    def options(self, path=None):
-        """
-        Replies to OPTIONS requests with the usual stuff (200 status, Allow
-        header, etc) but also includes some useful information in the response
-        body that lists which authentication API features we support in
-        addition to which applications are installed.  The response body is
-        conveniently JSON-encoded:
+    #def options(self, path=None):
+        #"""
+        #Replies to OPTIONS requests with the usual stuff (200 status, Allow
+        #header, etc) but also includes some useful information in the response
+        #body that lists which authentication API features we support in
+        #addition to which applications are installed.  The response body is
+        #conveniently JSON-encoded:
 
-        .. ansi-block::
+        #.. ansi-block::
 
-            \x1b[1;34muser\x1b[0m@modern-host\x1b[1;34m:~ $\x1b[0m curl -k \
-            -X OPTIONS https://gateone.company.com/ | python -mjson.tool
-              % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                             Dload  Upload   Total   Spent    Left  Speed
-            100   158  100   158    0     0   6793      0 --:--:-- --:--:-- --:--:--  7181
-            {
-                "applications": [
-                    "File Transfer",
-                    "Terminal",
-                    "X11"
-                ],
-                "auth_api": {
-                    "hmacs": [
-                        "HMAC-SHA1",
-                        "HMAC-SHA256",
-                        "HMAC-SHA384",
-                        "HMAC-SHA512"
-                    ],
-                    "versions": [
-                        "1.0"
-                    ]
-                }
-            }
+            #\x1b[1;34muser\x1b[0m@modern-host\x1b[1;34m:~ $\x1b[0m curl -k \
+            #-X OPTIONS https://gateone.company.com/ | python -mjson.tool
+            #  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+            #                                 Dload  Upload   Total   Spent    Left  Speed
+            #100   158  100   158    0     0   6793      0 --:--:-- --:--:-- --:--:--  7181
+            #{
+            #    "applications": [
+            #        "File Transfer",
+            #        "Terminal",
+            #        "X11"
+            #    ],
+            #    "auth_api": {
+            #        "hmacs": [
+            #            "HMAC-SHA1",
+            #            "HMAC-SHA256",
+            #            "HMAC-SHA384",
+            #            "HMAC-SHA512"
+            #        ],
+            #        "versions": [
+            #            "1.0"
+            #        ]
+            #    }
+            #}
 
-        .. note::
+        #.. note::
 
-            The 'Server' header does not supply the version information.  This
-            is intentional as it amounts to an unnecessary information
-            disclosure.  We don't need to make an attacker's job any easier.
-        """
-        settings = get_settings(options.settings_dir)
-        enabled_applications = settings['*']['gateone'].get(
-            'enabled_applications', [])
-        if not enabled_applications:
-            # List all installed apps
-            for app in APPLICATIONS:
-                enabled_applications.append(app.name.lower())
-        self.set_status(200)
-        self.set_header('Access-Control-Allow-Origin', '*')
-        self.set_header('Allow', 'HEAD,GET,POST,OPTIONS')
-        self.set_header('License', __license__)
-        features_dict = {
-            "auth_api": {
-                'versions': ['1.0'],
-                'hmacs': [
-                    'HMAC-SHA1', 'HMAC-SHA256', 'HMAC-SHA384', 'HMAC-SHA512']
-            },
-            "applications": enabled_applications
-        }
-        self.write(features_dict)
+            #The 'Server' header does not supply the version information.  This
+            #is intentional as it amounts to an unnecessary information
+            #disclosure.  We don't need to make an attacker's job any easier.
+        #"""
+        #settings = get_settings(options.settings_dir)
+        #enabled_applications = settings['*']['gateone'].get(
+            #'enabled_applications', [])
+        #if not enabled_applications:
+            ## List all installed apps
+            #for app in APPLICATIONS:
+                #enabled_applications.append(app.name.lower())
+        #self.set_status(200)
+        #self.set_header('Access-Control-Allow-Origin', '*')
+        #self.set_header('Allow', 'HEAD,GET,POST,OPTIONS')
+        #self.set_header('License', __license__)
+        #features_dict = {
+            #"auth_api": {
+                #'versions': ['1.0'],
+                #'hmacs': [
+                    #'HMAC-SHA1', 'HMAC-SHA256', 'HMAC-SHA384', 'HMAC-SHA512']
+            #},
+            #"applications": enabled_applications
+        #}
+        #self.write(features_dict)
 
-class HTTPSRedirectHandler(BaseHandler):
-    """
-    A handler to redirect clients from HTTP to HTTPS.  Only used if
-    `https_redirect` is True in Gate One's settings.
-    """
-    def get(self):
-        """Just redirects the client from HTTP to HTTPS"""
-        port = self.settings['port']
-        url_prefix = self.settings['url_prefix']
-        host = self.request.headers.get('Host', 'localhost')
-        self.redirect(
-            'https://%s:%s%s' % (host, port, url_prefix))
+#class HTTPSRedirectHandler(BaseHandler):
+    #"""
+    #A handler to redirect clients from HTTP to HTTPS.  Only used if
+    #`https_redirect` is True in Gate One's settings.
+    #"""
+    #def get(self):
+        #"""Just redirects the client from HTTP to HTTPS"""
+        #port = self.settings['port']
+        #url_prefix = self.settings['url_prefix']
+        #host = self.request.headers.get('Host', 'localhost')
+        #self.redirect(
+            #'https://%s:%s%s' % (host, port, url_prefix))
 
-class DownloadHandler(BaseHandler):
-    """
-    A :class:`tornado.web.RequestHandler` to serve up files that wind up in a
-    given user's `session_dir` in the 'downloads' directory.  Generally speaking
-    these files are generated by the terminal emulator (e.g. cat somefile.pdf)
-    but it can be used by applications and plugins as a way to serve up
-    all sorts of (temporary/transient) files to users.
-    """
-    # NOTE:  This is a modified version of torando.web.StaticFileHandler
-    @tornado.web.authenticated
-    def get(self, path, include_body=True):
-        session_dir = self.settings['session_dir']
-        user = self.current_user
-        print 'path',path
-        #print user#{u'upn': u'ANONYMOUS', u'session': u'NDg1YTg2MDY1MzRiNDQ1NmJkYmZjYmZkMDc0NzYwZjFmN', 'ip_address': '127.0.0.1'}
-        if user and 'session' in user:
-            session = user['session']
-        else:
-            logger.error(_("DownloadHandler: Could not determine use session"))
-            return # Something is wrong
-        filepath = os.path.join(session_dir, session, 'downloads', path)
-        abspath = os.path.abspath(filepath)
-        if not os.path.exists(abspath):
-            self.set_status(404)
-            self.write(self.get_error_html(404))
-            return
-        if not os.path.isfile(abspath):
-            raise tornado.web.HTTPError(403, "%s is not a file", path)
-        import stat, mimetypes
-        stat_result = os.stat(abspath)
-        modified = datetime.fromtimestamp(stat_result[stat.ST_MTIME])
-        self.set_header("Last-Modified", modified)
-        mime_type, encoding = mimetypes.guess_type(abspath)
-        if mime_type:
-            self.set_header("Content-Type", mime_type)
-        # Set the Cache-Control header to private since this file is not meant
-        # to be public.
-        self.set_header("Cache-Control", "private")
-        # Add some additional headers
-        self.set_header('Access-Control-Allow-Origin', '*')
-        # Check the If-Modified-Since, and don't send the result if the
-        # content has not been modified
-        ims_value = self.request.headers.get("If-Modified-Since")
-        if ims_value is not None:
-            import email.utils
-            date_tuple = email.utils.parsedate(ims_value)
-            if_since = datetime.fromtimestamp(time.mktime(date_tuple))
-            if if_since >= modified:
-                self.set_status(304)
-                return
-        # Finally, deliver the file
-        with io.open(abspath, "rb") as file:
-            data = file.read()
-            hasher = hashlib.sha1()
-            hasher.update(data)
-            self.set_header("Etag", '"%s"' % hasher.hexdigest())
-            if include_body:
-                self.write(data)
-            else:
-                assert self.request.method == "HEAD"
-                self.set_header("Content-Length", len(data))
+#class DownloadHandler(BaseHandler):
+    #"""
+    #A :class:`tornado.web.RequestHandler` to serve up files that wind up in a
+    #given user's `session_dir` in the 'downloads' directory.  Generally speaking
+    #these files are generated by the terminal emulator (e.g. cat somefile.pdf)
+    #but it can be used by applications and plugins as a way to serve up
+    #all sorts of (temporary/transient) files to users.
+    #"""
+    ## NOTE:  This is a modified version of torando.web.StaticFileHandler
+    #@tornado.web.authenticated
+    #def get(self, path, include_body=True):
+        #session_dir = self.settings['session_dir']
+        #user = self.current_user
+        #print 'path',path
+        ##print user#{u'upn': u'ANONYMOUS', u'session': u'NDg1YTg2MDY1MzRiNDQ1NmJkYmZjYmZkMDc0NzYwZjFmN', 'ip_address': '127.0.0.1'}
+        #if user and 'session' in user:
+            #session = user['session']
+        #else:
+            #logger.error(_("DownloadHandler: Could not determine use session"))
+            #return # Something is wrong
+        #filepath = os.path.join(session_dir, session, 'downloads', path)
+        #abspath = os.path.abspath(filepath)
+        #if not os.path.exists(abspath):
+            #self.set_status(404)
+            #self.write(self.get_error_html(404))
+            #return
+        #if not os.path.isfile(abspath):
+            #raise tornado.web.HTTPError(403, "%s is not a file", path)
+        #import stat, mimetypes
+        #stat_result = os.stat(abspath)
+        #modified = datetime.fromtimestamp(stat_result[stat.ST_MTIME])
+        #self.set_header("Last-Modified", modified)
+        #mime_type, encoding = mimetypes.guess_type(abspath)
+        #if mime_type:
+            #self.set_header("Content-Type", mime_type)
+        ## Set the Cache-Control header to private since this file is not meant
+        ## to be public.
+        #self.set_header("Cache-Control", "private")
+        ## Add some additional headers
+        #self.set_header('Access-Control-Allow-Origin', '*')
+        ## Check the If-Modified-Since, and don't send the result if the
+        ## content has not been modified
+        #ims_value = self.request.headers.get("If-Modified-Since")
+        #if ims_value is not None:
+            #import email.utils
+            #date_tuple = email.utils.parsedate(ims_value)
+            #if_since = datetime.fromtimestamp(time.mktime(date_tuple))
+            #if if_since >= modified:
+                #self.set_status(304)
+                #return
+        ## Finally, deliver the file
+        #with io.open(abspath, "rb") as file:
+            #data = file.read()
+            #hasher = hashlib.sha1()
+            #hasher.update(data)
+            #self.set_header("Etag", '"%s"' % hasher.hexdigest())
+            #if include_body:
+                #self.write(data)
+            #else:
+                #assert self.request.method == "HEAD"
+                #self.set_header("Content-Length", len(data))
 
-    def get_error_html(self, status_code, **kwargs):
-        self.require_setting("static_url")
-        if status_code in [404, 500, 503, 403]:
-            filename = os.path.join(self.settings['static_url'], '%d.html' % status_code)
-            if os.path.exists(filename):
-                with io.open(filename, 'r') as f:
-                    data = f.read()
-                return data
-        import httplib
-        return "<html><title>%(code)d: %(message)s</title>" \
-                "<body class='bodyErrorPage'>%(code)d: %(message)s</body></html>" % {
-            "code": status_code,
-            "message": httplib.responses[status_code],
-        }
+    #def get_error_html(self, status_code, **kwargs):
+        #self.require_setting("static_url")
+        #if status_code in [404, 500, 503, 403]:
+            #filename = os.path.join(self.settings['static_url'], '%d.html' % status_code)
+            #if os.path.exists(filename):
+                #with io.open(filename, 'r') as f:
+                    #data = f.read()
+                #return data
+        #import httplib
+        #return "<html><title>%(code)d: %(message)s</title>" \
+                #"<body class='bodyErrorPage'>%(code)d: %(message)s</body></html>" % {
+            #"code": status_code,
+            #"message": httplib.responses[status_code],
+        #}
 
-class MainHandler(BaseHandler):
-    """
-    Renders index.html which loads Gate One.
+#class MainHandler(BaseHandler):
+    #"""
+    #Renders index.html which loads Gate One.
 
-    Will include the minified version of gateone.js if available as
-    gateone.min.js.
-    """
-    @tornado.web.authenticated
-    @tornado.web.addslash
-    def get(self):
-        # Set our server header so it doesn't say TornadoServer/<version>
-        hostname = os.uname()[1]
-        location = self.get_argument("location", "default")
-        prefs = self.get_argument("prefs", None)
-        gateone_js = "%sstatic/gateone.js" % self.settings['url_prefix']
-        minified_js_abspath = resource_filename(
-            'gateone', '/static/gateone.min.js')
-        js_init = self.settings['js_init']
-        # Use the minified version if it exists and we're not debugging
-        if options.logging.lower() != 'debug':
-            if os.path.exists(minified_js_abspath):
-                gateone_js = (
-                    "%sstatic/gateone.min.js" % self.settings['url_prefix'])
-        index_path = resource_filename('gateone', 'templates/index.html')
-        head_html = ""
-        body_html = ""
-        for plugin, hooks in PLUGIN_HOOKS.items():
-            if 'HTML' in hooks:
-                if 'head' in hooks['HTML']:
-                    if hooks['HTML']['head']:
-                        for item in hooks['HTML']['head']:
-                            head_html += "%s\n" % item
-                if 'body' in hooks['HTML']:
-                    if hooks['HTML']['body']:
-                        for item in hooks['HTML']['body']:
-                            body_html += "%s\n" % item   
-        #print gateone_js
-        #print js_init
-        #print head_html
-        #print body_html
-        self.render(
-            index_path,
-            hostname=hostname,
-            gateone_js=gateone_js,
-            location=location,
-            js_init=js_init,
-            url_prefix=self.settings['url_prefix'],
-            head=head_html,
-            body=body_html,
-            prefs=prefs
-        )
+    #Will include the minified version of gateone.js if available as
+    #gateone.min.js.
+    #"""
+    #@tornado.web.authenticated
+    #@tornado.web.addslash
+    #def get(self):
+        ## Set our server header so it doesn't say TornadoServer/<version>
+        #hostname = os.uname()[1]
+        #location = self.get_argument("location", "default")
+        #prefs = self.get_argument("prefs", None)
+        #gateone_js = "%sstatic/gateone.js" % self.settings['url_prefix']
+        #minified_js_abspath = resource_filename(
+            #'gateone', '/static/gateone.min.js')
+        #js_init = self.settings['js_init']
+        ## Use the minified version if it exists and we're not debugging
+        #if options.logging.lower() != 'debug':
+            #if os.path.exists(minified_js_abspath):
+                #gateone_js = (
+                    #"%sstatic/gateone.min.js" % self.settings['url_prefix'])
+        #index_path = resource_filename('gateone', 'templates/index.html')
+        #head_html = ""
+        #body_html = ""
+        #for plugin, hooks in PLUGIN_HOOKS.items():
+            #if 'HTML' in hooks:
+                #if 'head' in hooks['HTML']:
+                    #if hooks['HTML']['head']:
+                        #for item in hooks['HTML']['head']:
+                            #head_html += "%s\n" % item
+                #if 'body' in hooks['HTML']:
+                    #if hooks['HTML']['body']:
+                        #for item in hooks['HTML']['body']:
+                            #body_html += "%s\n" % item   
+        #self.render(
+            #index_path,
+            #hostname=hostname,
+            #gateone_js=gateone_js,
+            #location=location,
+            #js_init=js_init,
+            #url_prefix=self.settings['url_prefix'],
+            #head=head_html,
+            #body=body_html,
+            #prefs=prefs
+        #)
 
 class GOApplication(OnOffMixin):
     """
@@ -1196,9 +1203,6 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
     file_watcher = None    # Will be replaced with a PeriodicCallback
     prefs = {} # Gets updated with every call to initialize()
     def __init__(self, application, request, **kwargs):
-        #print 'application',application.__class__
-        #print 'request',request
-        #print 'kwargs',kwargs
         self.actions = {
             'go:ping': self.pong,
             'go:log': self.log_message,
