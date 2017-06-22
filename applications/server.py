@@ -2438,13 +2438,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print 'theme_relpath',theme_relpath
         #theme_relpath themes/black.css
         #Thi is still a bug, I'm not consider how to fix it.
-        static_dir = os.path.join(getsettings('BASE_DIR'), 'static')
+        #static_dir = os.path.join(getsettings('BASE_DIR'), 'static')
         #for ep in iter_entry_points(group='go_plugins'):
             #try:
                 #exists = resource_exists(ep.module_name, theme_relpath)
             #except ImportError: # Plugin has an issue or has been removed
                 #continue
-        theme_path = os.path.join(static_dir,theme_relpath)
+        #theme_path = os.path.join(static_dir,theme_relpath)
         if os.path.exists(theme_path) and os.path.isfile(theme_path):
             exists = True
         else:
@@ -3712,7 +3712,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     
     #@channel_session
     def receive(self, message, **kwargs):
-        #print 'receive message',message.content.get('text',None),kwargs
+        print 'receive message',message.content.get('text',None),kwargs
         #print 'receive message content text',message.content.get('text',None)
         #self.apps.append(instance) 
         #self.list_applications()

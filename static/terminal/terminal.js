@@ -989,9 +989,9 @@ go.Base.update(GateOne.Terminal, {
 
         .. note:: This function does *not* set the 'title' or 'X11Title' attributes of the `GateOne.Terminal.terminals[term]` object.  That is handled by :js:meth:`GateOne.Terminal.setTitleAction`.
         */
-        console.log('set title');
-        console.log(text);
-        console.log(term);
+        //console.log('set title');
+        //console.log(text);
+        //console.log(term);
         logDebug("GateOne.Terminal.setTitle(" + term + ", " + text + ")");
         var where;
         if (!go.Terminal.terminals[term]) {
