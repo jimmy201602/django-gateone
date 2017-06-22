@@ -842,7 +842,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.apps = [] # Gets filled up by self.initialize()
         # The security dict stores applications' various policy functions
         self.security = {}
-        self.container = ""
+        self.container = "gateone"
         self.prefix = ""
         self.latency_count = 12 # Starts at 12 so the first ping is logged
         self.pinger = None # Replaced with a PeriodicCallback inside open()
@@ -1435,8 +1435,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 #bug need to be fixed
                 app.open() # Call applications' open() functions (if any)
             #bug
-            if hasattr(app, 'authenticate'):
-                app.authenticate()            
+            #if hasattr(app, 'authenticate'):
+                #app.authenticate()            
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
         #def send_ping():
@@ -1451,7 +1451,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
         #self.pinger.start()    
         #bug
-        self.list_applications()
+        #self.list_applications()
         self.trigger("go:open")
         #print 'open self.actions',len(self.actions)
         #fix a global bug
@@ -3206,6 +3206,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.settings['url_prefix'] /
         kwargs {}
         """
+        if 'container' not in kwargs:
+            if self.container == '':
+                self.container = 'gateone'
+            kwargs['container'] = self.container
         with io.open(css_path, 'r') as f:
             css_content = f.read()
         css_strings = Template(css_content)

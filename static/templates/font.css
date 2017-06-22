@@ -10,7 +10,7 @@
   font-family: '{{  font_family }}';
   font-style: {{  woff.font_style }};
   font-weight: {{ woff.font_weight }};
-  src: {{  woff.locals }}, url('{{  woff.url }}') format('woff');
+  src: {{  woff.locals|safe }}, url('{{  woff.url }}') format('woff');
 }
 {% endfor %}
 .✈terminal_pre {

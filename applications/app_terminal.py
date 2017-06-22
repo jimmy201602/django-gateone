@@ -1717,8 +1717,8 @@ class TerminalApplication(GOApplication):
         #print 'term_obj',term_obj
         scrollback, screen = multiplex.dump_html(
             full=full, client_id=self.ws.client_id)
-        #print 'scrollback',scrollback
-        #print 'screen',screen
+        print 'scrollback',scrollback
+        print 'screen',screen
         if [a for a in screen if a]: # Checking for non-empty lines here
             output_dict = {
                 'terminal:termupdate': {
@@ -1970,6 +1970,8 @@ class TerminalApplication(GOApplication):
             #bell_data_uri = resource_string(
                 #'gateone.applications.terminal', '/static/fallback_bell.txt')
             bell_data_uri = os.path.join(getsettings('BASE_DIR'), 'static/terminal/fallback_bell.txt')
+            with io.open(bell_data_uri) as f:
+                bell_data_uri = f.read()
         mimetype = bell_data_uri.split(';')[0].split(':')[1]
         message = {
             'terminal:load_bell': {
