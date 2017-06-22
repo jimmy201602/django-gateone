@@ -849,7 +849,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.timestamps = [] # Tracks/averages client latency
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
-        current_term = None
+        #current_term = None
         #super(ApplicationWebSocket, self).__init__(message, **kwargs)
         #from applications.app_terminal import TerminalApplication
         #self.initialize(apps=[TerminalApplication],message=message)

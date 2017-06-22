@@ -1128,30 +1128,30 @@ class GOApplication(OnOffMixin):
     def __str__(self):
         return self.info['name']
 
-    def initialize(self):
-        """
-        Called by :meth:`ApplicationWebSocket.open` after __init__().
-        GOApplications can override this function to perform their own actions
-        when the Application is initialized (happens just before the WebSocket
-        is opened).
-        """
-        pass
+    #def initialize(self):
+        #"""
+        #Called by :meth:`ApplicationWebSocket.open` after __init__().
+        #GOApplications can override this function to perform their own actions
+        #when the Application is initialized (happens just before the WebSocket
+        #is opened).
+        #"""
+        #pass
 
-    def open(self):
-        """
-        Called by :meth:`ApplicationWebSocket.open` after the WebSocket is
-        opened.  GOApplications can override this function to perform their own
-        actions when the WebSocket is opened.
-        """
-        pass
+    #def open(self):
+        #"""
+        #Called by :meth:`ApplicationWebSocket.open` after the WebSocket is
+        #opened.  GOApplications can override this function to perform their own
+        #actions when the WebSocket is opened.
+        #"""
+        #pass
 
-    def on_close(self):
-        """
-        Called by :meth:`ApplicationWebSocket.on_close` after the WebSocket is
-        closed.  GOApplications can override this function to perform their own
-        actions when the WebSocket is closed.
-        """
-        pass
+    #def on_close(self):
+        #"""
+        #Called by :meth:`ApplicationWebSocket.on_close` after the WebSocket is
+        #closed.  GOApplications can override this function to perform their own
+        #actions when the WebSocket is closed.
+        #"""
+        #pass
 
     def add_handler(self, pattern, handler, **kwargs):
         """
