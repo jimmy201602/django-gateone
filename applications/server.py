@@ -741,178 +741,178 @@ def broadcast_message(args=sys.argv, message=""):
                 logging.info(_("Broadcasting %s to all users") % repr(message))
                 b.write(message)
 
-# Classes
-#class StaticHandler(tornado.web.StaticFileHandler):
-    #"""
-    #An override of :class:`tornado.web.StaticFileHandler` to ensure that the
-    #Access-Control-Allow-Origin header gets set correctly.  This is necessary in
-    #order to support embedding Gate One into other web-based applications.
+#Classes
+class StaticHandler(tornado.web.StaticFileHandler):
+    """
+    An override of :class:`tornado.web.StaticFileHandler` to ensure that the
+    Access-Control-Allow-Origin header gets set correctly.  This is necessary in
+    order to support embedding Gate One into other web-based applications.
 
-    #.. note::
+    .. note::
 
-        #Gate One performs its own origin checking so header-based access
-        #controls at the client are unnecessary.
-    #"""
-    #def initialize(self, path, default_filename=None, use_pkg=None):
-        #"""
-        #Called automatically by the Tornado framework when the `StaticHandler`
-        #class is instantiated; handles the usual arguments with the addition
-        #of *use_pkg* which indicates that the static file should attempt to be
-        #retrieved from that package via the `pkg_resources` module instead of
-        #directly via the filesystem.
-        #"""
-        #self.root = path
-        #self.default_filename = default_filename
-        #self.use_pkg = use_pkg
+        Gate One performs its own origin checking so header-based access
+        controls at the client are unnecessary.
+    """
+    def initialize(self, path, default_filename=None, use_pkg=None):
+        """
+        Called automatically by the Tornado framework when the `StaticHandler`
+        class is instantiated; handles the usual arguments with the addition
+        of *use_pkg* which indicates that the static file should attempt to be
+        retrieved from that package via the `pkg_resources` module instead of
+        directly via the filesystem.
+        """
+        self.root = path
+        self.default_filename = default_filename
+        self.use_pkg = use_pkg
 
-    #def set_extra_headers(self, path):
-        #"""
-        #Adds the Access-Control-Allow-Origin header to allow cross-origin
-        #access to static content for applications embedding Gate One.
-        #Specifically, this is necessary in order to support loading fonts
-        #from different origins.
+    def set_extra_headers(self, path):
+        """
+        Adds the Access-Control-Allow-Origin header to allow cross-origin
+        access to static content for applications embedding Gate One.
+        Specifically, this is necessary in order to support loading fonts
+        from different origins.
 
-        #Also sets the 'X-UA-Compatible' header to 'IE=edge' to enforce IE 10+
-        #into standards mode when content is loaded from intranet sites.
-        #"""
-        #self.set_header('X-UA-Compatible', 'IE=edge')
-        ## Allow access to our static content from any page:
-        #self.set_header('Access-Control-Allow-Origin', '*')
-        #self.set_header('Server', 'GateOne')
-        #self.set_header('License', __license__)
+        Also sets the 'X-UA-Compatible' header to 'IE=edge' to enforce IE 10+
+        into standards mode when content is loaded from intranet sites.
+        """
+        self.set_header('X-UA-Compatible', 'IE=edge')
+        # Allow access to our static content from any page:
+        self.set_header('Access-Control-Allow-Origin', '*')
+        self.set_header('Server', 'GateOne')
+        self.set_header('License', __license__)
 
-    #def options(self, path=None):
-        #"""
-        #Replies to OPTIONS requests with the usual stuff (200 status, Allow
-        #header, etc).  Since this is just the static file handler we don't
-        #include any extra information.
-        #"""
-        #self.set_status(200)
-        #self.set_header('Access-Control-Allow-Origin', '*')
-        #self.set_header('Allow', 'HEAD,GET,POST,OPTIONS')
-        #self.set_header('Server', 'GateOne')
-        #self.set_header('License', __license__)
+    def options(self, path=None):
+        """
+        Replies to OPTIONS requests with the usual stuff (200 status, Allow
+        header, etc).  Since this is just the static file handler we don't
+        include any extra information.
+        """
+        self.set_status(200)
+        self.set_header('Access-Control-Allow-Origin', '*')
+        self.set_header('Allow', 'HEAD,GET,POST,OPTIONS')
+        self.set_header('Server', 'GateOne')
+        self.set_header('License', __license__)
 
-    #def validate_absolute_path(self, root, absolute_path):
-        #"""
-        #An override of
-        #:meth:`tornado.web.StaticFileHandler.validate_absolute_path`;
+    def validate_absolute_path(self, root, absolute_path):
+        """
+        An override of
+        :meth:`tornado.web.StaticFileHandler.validate_absolute_path`;
 
-        #Validate and returns the given *absolute_path* using `pkg_resources`
-        #if ``self.use_pkg`` is set otherwise performs a normal filesystem
-        #validation.
-        #"""
-        ## We have to generate the real absolute path in this method since the
-        ## Tornado devs--for whatever reason--decided that get_absolute_path()
-        ## must be a classmethod (we need access to self.use_pkg).
-        #if self.use_pkg:
-            #if not resource_exists(self.use_pkg, absolute_path):
-                #raise HTTPError(404)
-            #return resource_filename(self.use_pkg, absolute_path)
-        #return super(
-            #StaticHandler, self).validate_absolute_path(root, absolute_path)
+        Validate and returns the given *absolute_path* using `pkg_resources`
+        if ``self.use_pkg`` is set otherwise performs a normal filesystem
+        validation.
+        """
+        # We have to generate the real absolute path in this method since the
+        # Tornado devs--for whatever reason--decided that get_absolute_path()
+        # must be a classmethod (we need access to self.use_pkg).
+        if self.use_pkg:
+            if not resource_exists(self.use_pkg, absolute_path):
+                raise HTTPError(404)
+            return resource_filename(self.use_pkg, absolute_path)
+        return super(
+            StaticHandler, self).validate_absolute_path(root, absolute_path)
 
-#class BaseHandler(tornado.web.RequestHandler):
-    #"""
-    #A base handler that all Gate One RequestHandlers will inherit methods from.
+class BaseHandler(tornado.web.RequestHandler):
+    """
+    A base handler that all Gate One RequestHandlers will inherit methods from.
 
-    #Provides the :meth:`get_current_user` method, sets default headers, and
-    #provides a default :meth:`options` method that can be used for monitoring
-    #purposes and also for enumerating useful information about this Gate One
-    #server (see below for more info).
-    #"""
-    #def set_default_headers(self):
-        #"""
-        #An override of :meth:`tornado.web.RequestHandler.set_default_headers`
-        #(which is how Tornado wants you to set default headers) that
-        #adds/overrides the following headers:
+    Provides the :meth:`get_current_user` method, sets default headers, and
+    provides a default :meth:`options` method that can be used for monitoring
+    purposes and also for enumerating useful information about this Gate One
+    server (see below for more info).
+    """
+    def set_default_headers(self):
+        """
+        An override of :meth:`tornado.web.RequestHandler.set_default_headers`
+        (which is how Tornado wants you to set default headers) that
+        adds/overrides the following headers:
 
-            #:Server: 'GateOne'
-            #:X-UA-Compatible: 'IE=edge' (forces IE 10+ into Standards mode)
-        #"""
-        ## Force IE 10 into Standards Mode:
-        #self.set_header('X-UA-Compatible', 'IE=edge')
-        #self.set_header('Server', 'GateOne')
-        #self.set_header('License', __license__)
+            :Server: 'GateOne'
+            :X-UA-Compatible: 'IE=edge' (forces IE 10+ into Standards mode)
+        """
+        # Force IE 10 into Standards Mode:
+        self.set_header('X-UA-Compatible', 'IE=edge')
+        self.set_header('Server', 'GateOne')
+        self.set_header('License', __license__)
 
-    #def get_current_user(self):
-        #"""Tornado standard method--implemented our way."""
-        ## NOTE: self.current_user is actually an @property that calls
-        ##       self.get_current_user() and caches the result.
-        #expiration = self.settings.get('auth_timeout', "14d")
-        ## Need the expiration in days (which is a bit silly but whatever):
-        #expiration = (
-            #float(total_seconds(convert_to_timedelta(expiration)))
-            #/ float(86400))
-        #user_json = self.get_secure_cookie(
-            #"gateone_user", max_age_days=expiration)
-        #if user_json:
-            #user = json_decode(user_json)
-            #user['ip_address'] = self.request.remote_ip
-            #if user and 'upn' not in user:
-                #return None
-            #return user
+    def get_current_user(self):
+        """Tornado standard method--implemented our way."""
+        # NOTE: self.current_user is actually an @property that calls
+        #       self.get_current_user() and caches the result.
+        expiration = self.settings.get('auth_timeout', "14d")
+        # Need the expiration in days (which is a bit silly but whatever):
+        expiration = (
+            float(total_seconds(convert_to_timedelta(expiration)))
+            / float(86400))
+        user_json = self.get_secure_cookie(
+            "gateone_user", max_age_days=expiration)
+        if user_json:
+            user = json_decode(user_json)
+            user['ip_address'] = self.request.remote_ip
+            if user and 'upn' not in user:
+                return None
+            return user
 
-    #def options(self, path=None):
-        #"""
-        #Replies to OPTIONS requests with the usual stuff (200 status, Allow
-        #header, etc) but also includes some useful information in the response
-        #body that lists which authentication API features we support in
-        #addition to which applications are installed.  The response body is
-        #conveniently JSON-encoded:
+    def options(self, path=None):
+        """
+        Replies to OPTIONS requests with the usual stuff (200 status, Allow
+        header, etc) but also includes some useful information in the response
+        body that lists which authentication API features we support in
+        addition to which applications are installed.  The response body is
+        conveniently JSON-encoded:
 
-        #.. ansi-block::
+        .. ansi-block::
 
-            #\x1b[1;34muser\x1b[0m@modern-host\x1b[1;34m:~ $\x1b[0m curl -k \
-            #-X OPTIONS https://gateone.company.com/ | python -mjson.tool
-            #  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-            #                                 Dload  Upload   Total   Spent    Left  Speed
-            #100   158  100   158    0     0   6793      0 --:--:-- --:--:-- --:--:--  7181
-            #{
-            #    "applications": [
-            #        "File Transfer",
-            #        "Terminal",
-            #        "X11"
-            #    ],
-            #    "auth_api": {
-            #        "hmacs": [
-            #            "HMAC-SHA1",
-            #            "HMAC-SHA256",
-            #            "HMAC-SHA384",
-            #            "HMAC-SHA512"
-            #        ],
-            #        "versions": [
-            #            "1.0"
-            #        ]
-            #    }
-            #}
+            \x1b[1;34muser\x1b[0m@modern-host\x1b[1;34m:~ $\x1b[0m curl -k \
+            -X OPTIONS https://gateone.company.com/ | python -mjson.tool
+              % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                             Dload  Upload   Total   Spent    Left  Speed
+            100   158  100   158    0     0   6793      0 --:--:-- --:--:-- --:--:--  7181
+            {
+                "applications": [
+                    "File Transfer",
+                    "Terminal",
+                    "X11"
+                ],
+                "auth_api": {
+                    "hmacs": [
+                        "HMAC-SHA1",
+                        "HMAC-SHA256",
+                        "HMAC-SHA384",
+                        "HMAC-SHA512"
+                    ],
+                    "versions": [
+                        "1.0"
+                    ]
+                }
+            }
 
-        #.. note::
+        .. note::
 
-            #The 'Server' header does not supply the version information.  This
-            #is intentional as it amounts to an unnecessary information
-            #disclosure.  We don't need to make an attacker's job any easier.
-        #"""
-        #settings = get_settings(options.settings_dir)
-        #enabled_applications = settings['*']['gateone'].get(
-            #'enabled_applications', [])
-        #if not enabled_applications:
-            ## List all installed apps
-            #for app in APPLICATIONS:
-                #enabled_applications.append(app.name.lower())
-        #self.set_status(200)
-        #self.set_header('Access-Control-Allow-Origin', '*')
-        #self.set_header('Allow', 'HEAD,GET,POST,OPTIONS')
-        #self.set_header('License', __license__)
-        #features_dict = {
-            #"auth_api": {
-                #'versions': ['1.0'],
-                #'hmacs': [
-                    #'HMAC-SHA1', 'HMAC-SHA256', 'HMAC-SHA384', 'HMAC-SHA512']
-            #},
-            #"applications": enabled_applications
-        #}
-        #self.write(features_dict)
+            The 'Server' header does not supply the version information.  This
+            is intentional as it amounts to an unnecessary information
+            disclosure.  We don't need to make an attacker's job any easier.
+        """
+        settings = get_settings(options.settings_dir)
+        enabled_applications = settings['*']['gateone'].get(
+            'enabled_applications', [])
+        if not enabled_applications:
+            # List all installed apps
+            for app in APPLICATIONS:
+                enabled_applications.append(app.name.lower())
+        self.set_status(200)
+        self.set_header('Access-Control-Allow-Origin', '*')
+        self.set_header('Allow', 'HEAD,GET,POST,OPTIONS')
+        self.set_header('License', __license__)
+        features_dict = {
+            "auth_api": {
+                'versions': ['1.0'],
+                'hmacs': [
+                    'HMAC-SHA1', 'HMAC-SHA256', 'HMAC-SHA384', 'HMAC-SHA512']
+            },
+            "applications": enabled_applications
+        }
+        self.write(features_dict)
 
 #class HTTPSRedirectHandler(BaseHandler):
     #"""
@@ -1206,11 +1206,13 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     watched_files = {}     # Format: {<file path>: <modification time>}
     file_update_funcs = {} # Format: {<file path>: <function called on update>}
     file_watcher = None    # Will be replaced with a PeriodicCallback
-    prefs = {} # Gets updated with every call to initialize()
+    #prefs = {} # Gets updated with every call to initialize()
+    prefs = get_settings(settings['settings_dir'])
     http_user = True
     http_user_and_session = True
     channel_session = True
-    channel_session_user = True       
+    channel_session_user = True   
+    request = None
     def __init__(self,  message, **kwargs):
         self.actions = {
             'go:ping': self.pong,
@@ -1575,6 +1577,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         #origin
         #https://127.0.0.1:10443
+        print 'check_origin called'
         origin = self.base_url
         logging.debug("check_origin(%s)" % origin)
         self.checked_origin = True
@@ -1613,8 +1616,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             logging.error("Origin check failed for: %s" % origin)
         return valid
 
-    def open(self):
-        #print self.settings
+    def open(self, message, **kwargs):
         """
         Called when a new WebSocket is opened.  Will deny access to any
         origin that is not defined in `self.settings['origin']`.  Also sends
@@ -1639,7 +1641,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             `self.prefs` which includes *all* of Gate One's settings (including
             settings for other applications and scopes).
         """
-        self.check_origin()
+        from applications.app_terminal import TerminalApplication
+        self.initialize(apps=[TerminalApplication],**kwargs)
         cls = ApplicationWebSocket
         cls.instances.add(self)
         #if hasattr(self, 'set_nodelay'):
@@ -1647,6 +1650,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #self.set_nodelay(True)
         #client_address = self.request.remote_ip
         client_address = self.message.http_session.get('gateone_user',None)['ip_address']
+        #logging.debug("open() origin: %s" % self.origin)
         logging.debug("open() origin: %s" % self.origin)
         self.origin_denied = False
         # client_id is unique to the browser/client whereas session_id is unique
@@ -1746,17 +1750,17 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 app.open() # Call applications' open() functions (if any)
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
-        def send_ping():
-            try:
-                self.ping(str(int(time.time() * 1000)).encode('utf-8'))
-            except (WebSocketClosedError, AttributeError):
-                # Connection closed
-                self.pinger.stop()
-                del self.pinger
-        send_ping()
-        interval = 5000 # milliseconds
-        self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
-        self.pinger.start()
+        #def send_ping():
+            #try:
+                #self.ping(str(int(time.time() * 1000)).encode('utf-8'))
+            #except (WebSocketClosedError, AttributeError):
+                ## Connection closed
+                #self.pinger.stop()
+                #del self.pinger
+        #send_ping()
+        #interval = 5000 # milliseconds
+        #self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
+        #self.pinger.start()
         self.trigger("go:open")
 
     def on_message(self, message):
@@ -1769,18 +1773,28 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # This is super useful when debugging:
         #print 'on_message',repr(message)
         logging.debug("message: %s" % repr(message))
-        if self.origin_denied:
-            self.auth_log.error(_("Message rejected due to invalid origin."))
-            self.close() # Close the WebSocket
+        #self.checked_origin check bug
+        
+        #if self.origin_denied:
+            #self.auth_log.error(_("Message rejected due to invalid origin."))
+            #self.close() # Close the WebSocket
         message_obj = None
+        #try:
+            #message_obj = json_decode(message) # JSON FTW!
+            #if not isinstance(message_obj, dict):
+                #self.write_message(_("'Error: Message bust be a JSON dict.'"))
+                #return
+        #except ValueError: # We didn't get JSON
+            #self.write_message(_("'Error: We only accept JSON here.'"))
+            #return
         try:
-            message_obj = json_decode(message) # JSON FTW!
+            message_obj = json_decode(message.content.get('text',None)) # JSON FTW!
             if not isinstance(message_obj, dict):
                 self.write_message(_("'Error: Message bust be a JSON dict.'"))
                 return
         except ValueError: # We didn't get JSON
             self.write_message(_("'Error: We only accept JSON here.'"))
-            return
+            return        
         #print 'on_message',message
         if message_obj:
             for key, value in message_obj.items():
@@ -1979,6 +1993,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.auth_log.error(_(
                 'API AUTH: Invalid API authentication object (missing api_key).'
             ))
+            print reauth
             self.write_message(json_encode(reauth))
             return False
         upn = str(auth_obj['upn'])
@@ -2149,11 +2164,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 port = 8000
                 if parsed.scheme == 'http':
                     port = 80
-            self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
-                protocol=parsed.scheme,
-                host=parsed.hostname,
-                port=port,
-                url_prefix=parsed.path)
+            #self.base_url = "{protocol}://{host}:{port}{url_prefix}".format(
+                #protocol=parsed.scheme,
+                #host=parsed.hostname,
+                #port=port,
+                #url_prefix=parsed.path)
             if orig_base_url != self.base_url:
                 self.logger.info(_(
                     "Proxy in use: Client URL differs from server."))
@@ -2260,12 +2275,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 #self.write_message(json_encode(session_message))
                 #self._current_user = user
                 user = self.current_user
-            if user['upn'] != 'ANONYMOUS':
+            #if user['upn'] != 'ANONYMOUS':bug
+            if user['upn'] == 'ANONYMOUS':
                 # Gate One server's auth config probably changed
                 self.write_message(json_encode(reauth))
                 return
         if self.current_user and 'session' in self.current_user:
-            self.session = self.current_user['session']
+            #self.session = self.current_user['session']
+            pass
         else:
             self.auth_log.error(_("Authentication failed for unknown user"))
             message = {'go:notice': _('AUTHENTICATION ERROR: User unknown')}
@@ -2626,7 +2643,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             # NOTE: Tornado templates are always rendered as bytes.  That is why
             # we're using 'wb' below...
             with io.open(rendered_path, 'wb') as f:
-                f.write(style_css)
+                f.write(smart_bytes(style_css))
             # Remove older versions of the rendered template if present
             for fname in os.listdir(cache_dir):
                 if fname == rendered_filename:
@@ -3737,7 +3754,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         return template_strings.render(context=Context(dict_=kwargs))   
     
     def connect(self, message, **kwargs):
-        return self.open()
+        return self.open(message, **kwargs)
     
     def receive(self, message, **kwargs):
         return self.on_message(message,**kwargs)
@@ -3818,6 +3835,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             url_prefix=getsettings('url_prefix','/'))#self.settings['url_prefix']   
         return base_url    
         
+    def origin(self):
+        return self.base_url
+    
 #class ErrorHandler(tornado.web.RequestHandler):
     #"""
     #Generates an error response with status_code for all requests.

@@ -1988,7 +1988,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             message = {'go:notice': _('AUTHENTICATION ERROR: User unknown')}
             self.write_message(json_encode(message))
             self.write_message(json_encode(reauth))
-            print 'reauth',reauth
             return
         # Locations are used to differentiate between different tabs/windows
         self.location = settings.get('location', 'default')
