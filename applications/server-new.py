@@ -1217,7 +1217,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             logging.error("Origin check failed for: %s" % origin)
         return valid
 
-    def open(self, message,**kwargs):
+    def open(self, message, **kwargs):
         """
         Called when a new WebSocket is opened.  Will deny access to any
         origin that is not defined in `self.settings['origin']`.  Also sends

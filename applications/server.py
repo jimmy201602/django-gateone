@@ -657,6 +657,13 @@ def kill_all_sessions(timeout=False):
                 if SESSIONS[session]["kill_session_callbacks"]:
                     for callback in SESSIONS[session]["kill_session_callbacks"]:
                         callback(session)
+@atexit.register
+def clean_cache():
+    cache_dir = settings['cache_dir']
+    logging.debug('clean cache dir')
+    for file in os.listdir(cache_dir):
+        file_name = os.path.join(cache_dir,file)
+        os.remove(file_name)
 
 def timeout_sessions():
     """
@@ -914,18 +921,18 @@ class BaseHandler(tornado.web.RequestHandler):
         }
         self.write(features_dict)
 
-#class HTTPSRedirectHandler(BaseHandler):
-    #"""
-    #A handler to redirect clients from HTTP to HTTPS.  Only used if
-    #`https_redirect` is True in Gate One's settings.
-    #"""
-    #def get(self):
-        #"""Just redirects the client from HTTP to HTTPS"""
-        #port = self.settings['port']
-        #url_prefix = self.settings['url_prefix']
-        #host = self.request.headers.get('Host', 'localhost')
-        #self.redirect(
-            #'https://%s:%s%s' % (host, port, url_prefix))
+class HTTPSRedirectHandler(BaseHandler):
+    """
+    A handler to redirect clients from HTTP to HTTPS.  Only used if
+    `https_redirect` is True in Gate One's settings.
+    """
+    def get(self):
+        """Just redirects the client from HTTP to HTTPS"""
+        port = self.settings['port']
+        url_prefix = self.settings['url_prefix']
+        host = self.request.headers.get('Host', 'localhost')
+        self.redirect(
+            'https://%s:%s%s' % (host, port, url_prefix))
 
 #class DownloadHandler(BaseHandler):
     #"""
@@ -1193,7 +1200,8 @@ class GOApplication(OnOffMixin):
         if isinstance(timeout, basestring):
             timeout = convert_to_timedelta(timeout)
         self.io_loop.add_timeout(timeout, func)
-
+global action_list
+action_list = dict()
 class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     """
     The main WebSocket interface for Gate One, this class is setup to call
@@ -1439,11 +1447,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         current instance of :class:`ApplicationWebSocket`.  Kind of like a
         dynamic mixin.
         """
+        cache_dir = self.settings['cache_dir']
+        if not os.path.exists(cache_dir):
+            mkdir_p(cache_dir)        
         logging.debug('ApplicationWebSocket.initialize(%s)' % apps)
         # Make sure we have all prefs ready for checking
-        cls = ApplicationWebSocket
+        #cls = ApplicationWebSocket
         #cls.prefs = get_settings(options.settings_dir)
-        cls.prefs = get_settings(self.settings['settings_dir'])
+        #cls.prefs = get_settings(self.settings['settings_dir'])
         if not os.path.exists(self.settings['cache_dir']):
             mkdir_p(self.settings['cache_dir'])
         for plugin_name, hooks in PLUGIN_HOOKS.items():
@@ -1577,7 +1588,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         """
         #origin
         #https://127.0.0.1:10443
-        print 'check_origin called'
+        #print 'check_origin called'
         origin = self.base_url
         logging.debug("check_origin(%s)" % origin)
         self.checked_origin = True
@@ -1762,7 +1773,9 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
         #self.pinger.start()
         self.trigger("go:open")
-
+        action_list.update(self.actions)
+        
+        
     def on_message(self, message):
         """
         Called when we receive a message from the client.  Performs some basic
@@ -1795,16 +1808,21 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         except ValueError: # We didn't get JSON
             self.write_message(_("'Error: We only accept JSON here.'"))
             return        
-        #print 'on_message',message
+        #print 'on_message',message_obj
+        #self.actions.update(action_list)
+        #print len(action_list)
         if message_obj:
             for key, value in message_obj.items():
-                if key in self.actions:
+                #if key in self.actions:
+                if key in action_list:
                     try:
                         if value is None:
-                            self.actions[key]()
+                            #self.actions[key]()
+                            action_list[key]()
                         else:
                             # Try, try again
-                            self.actions[key](value)
+                            #self.actions[key](value)
+                            action_list[key](value)
                     except (KeyError, TypeError, AttributeError) as e:
                         import traceback
                         for frame in traceback.extract_tb(sys.exc_info()[2]):
@@ -3313,7 +3331,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             **kwargs
         )
         with io.open(rendered_path, 'wb') as f:
-            f.write(rendered)
+            f.write(smart_bytes(rendered))
         self.send_css(rendered_path,
             element_id=element_id, media=media, filename=filename)
         # Remove older versions of the rendered template if present
