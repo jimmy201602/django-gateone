@@ -65,6 +65,8 @@ GateOne.Base.update(GateOne.Terminal.Input, {
 
         .. note: This function is normally called every time a key is pressed.
         */
+        //console.log(prefix);
+        //console.log(t.terminals);
         var term = localStorage[prefix+'selectedTerminal'],
             termPre = t.terminals[term]['node'];
         if (!t.doingUpdate) { // Only perform a character push if we're *positive* the last character POST has completed.

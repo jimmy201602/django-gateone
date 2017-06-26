@@ -255,7 +255,7 @@ def define_options():
     session_dir_default = os.path.join(settings_base, 'sessions')
     cache_dir_default = os.path.join(settings_base, 'cache')
     ssl_dir = os.path.join(settings_base, 'ssl')
-    debug = True
+    debug = False
     cookie_secret = getsettings('SECRET_KEY')
     address = "127.0.0.1"
     enable_unix_socket = False
@@ -306,7 +306,7 @@ def define_options():
     login_url ='/auth'
     static_url_prefix = '/static/'
     log_rotate_mode = 'size'
-    logging = 'debug'
+    logging = 'info'
     static_url = os.path.join(settings_base, 'static')
     session_logging = True
     log_file_num_backups = 10

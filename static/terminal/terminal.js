@@ -1402,6 +1402,7 @@ go.Base.update(GateOne.Terminal, {
 
             .. note:: The Web Worker is important because it allows offloading of CPU-intensive tasks like linkification and text transforms so they don't block screen updates
         */
+        console.log(termUpdateObj);
         var t = go.Terminal,
             term = termUpdateObj.term,
             ratelimiter = termUpdateObj['ratelimiter'],

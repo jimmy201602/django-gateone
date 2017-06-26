@@ -2687,6 +2687,7 @@ GateOne.Base.update(GateOne.Net, {
         Lastly, it fires the `go:connnection_established` event.
         */
         logDebug("onOpen()");
+        console.log("onOpen()");
         var u = go.Utils,
             v = go.Visual,
             prefix = go.prefs.prefix,
@@ -2774,6 +2775,7 @@ GateOne.Base.update(GateOne.Net, {
         This gets attached to :js:attr:`GateOne.ws.onmessage` inside of :js:func:`~GateOne.Net.connect`.  It takes care of decoding (`JSON <https://developer.mozilla.org/en/JSON>`_) messages sent from the server and calling any matching :js:attr:`~GateOne.Net.actions`.  If no matching action can be found inside ``event.data`` it will fall back to passing the message directly to :js:func:`GateOne.Visual.displayMessage`.
         */
         logDebug('message: ' + evt.data);
+        //console.log(evt);
         var prefix = GateOne.prefs.prefix,
             v = GateOne.Visual,
             n = GateOne.Net,

@@ -475,7 +475,7 @@ def cleanup_user_logs():
     logging.debug("cleanup_user_logs()")
     disabled = timedelta(0) # If the user sets user_logs_max_age to "0"
     #settings = get_settings(options.settings_dir)
-    settings = get_settings(settings['settings_dir'])
+    settings = get_settings(define_options()['settings_dir'])
     user_dir = settings['*']['gateone']['user_dir']
     #if 'user_dir' in options: # NOTE: options is global
         #user_dir = options.user_dir
@@ -520,9 +520,9 @@ def cleanup_old_sessions():
     """
     logging.debug("cleanup_old_sessions()")
     disabled = timedelta(0) # If the user sets auth_timeout to "0"
-    session_dir = settings['session_dir']
+    session_dir = define_options()['session_dir']
     #settings = get_settings(options.settings_dir)
-    settings = get_settings(settings['settings_dir'])
+    settings = get_settings(define_options()['settings_dir'])
     expiration_str = settings['*']['gateone'].get('auth_timeout', "14d")
     expiration = convert_to_timedelta(expiration_str)
     if expiration != disabled:
