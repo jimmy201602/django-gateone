@@ -1905,7 +1905,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         message = {'go:pong': timestamp}
         self.write_message(json_encode(message))
 
-    @require(policies('gateone'))
+    #@require(policies('gateone'))
     def log_message(self, log_obj):
         """
         Attached to the `go:log` WebSocket action; logs the given *log_obj* via
@@ -2560,7 +2560,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         message = {'go:applications': applications}
         self.write_message(json_encode(message))
 
-    @require(policies('gateone'))
+    #@require(policies('gateone'))
     def set_location(self, location):
         """
         Attached to the `go:set_location` WebSocket action.  Sets
@@ -2581,7 +2581,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.location = location
         self.trigger("go:set_location", location)
 
-    @require(authenticated(), policies('gateone'))
+    #@require(authenticated(), policies('gateone'))
     def get_locations(self):
         """
         Attached to the `go:get_locations` WebSocket action.  Sends a message to
@@ -2611,7 +2611,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.write_message(message)
         self.trigger("go:get_locations")
 
-    @require(policies('gateone'))
+    #@require(policies('gateone'))
     def set_dimensions(self, dimensions):
         """
         Attached to the `go:set_dimensions` WebSocket action.  Sets
@@ -3519,7 +3519,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 #       programmatic use.  For example, when a user shares a terminal and it
 #       would be appropriate to notify certain users that the terminal is now
 #       available for them to connect.
-    @require(authenticated(), policies('gateone'))
+    #@require(authenticated(), policies('gateone'))
     def send_user_message(self, settings):
         """
         Sends the given *settings['message']* to the given *settings['upn']*.
@@ -3567,7 +3567,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             self.write_message(message_dict)
         self.trigger('go:send_message', message, upn, session)
 
-    @require(authenticated(), policies('gateone'))
+    #@require(authenticated(), policies('gateone'))
     def broadcast(self, message):
         """
         Attached to the `go:broadcast` WebSocket action; sends the given
@@ -3584,7 +3584,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.send_message(message, upn="AUTHENTICATED")
         self.trigger('go:broadcast', message)
 
-    @require(authenticated(), policies('gateone'))
+    #@require(authenticated(), policies('gateone'))
     def list_server_users(self):
         """
         Returns a list of users currently connected to the Gate One server to
@@ -3680,7 +3680,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         message = {'go:license_info': licenses}
         self.write_message(message)
 
-    @require(authenticated(), policies('gateone'))
+    #@require(authenticated(), policies('gateone'))
     def debug(self):
         """
         Imports Python's Garbage Collection module (gc) and displays various

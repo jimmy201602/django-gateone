@@ -517,7 +517,7 @@ class TerminalApplication(GOApplication):
                             del term_obj[self.ws.client_id]
         self.trigger("terminal:on_close")
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def enumerate_commands(self):
         """
         Tell the client which 'commands' (from settings/policy) that are
@@ -747,7 +747,7 @@ class TerminalApplication(GOApplication):
             f.write(json_encode(term_settings))
         self.trigger("terminal:clear_term_settings", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def terminals(self, *args, **kwargs):
         """
         Sends a list of the current open terminals to the client using the
@@ -1039,7 +1039,7 @@ class TerminalApplication(GOApplication):
                     highest = term
         return highest
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def new_terminal(self, settings):
         """
         Starts up a new terminal associated with the user's session using
@@ -1269,7 +1269,7 @@ class TerminalApplication(GOApplication):
         if not m.io_loop._running:
             m.io_loop.start()        
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def set_term_encoding(self, settings):
         """
         Sets the encoding for the given *settings['term']* to
@@ -1300,7 +1300,7 @@ class TerminalApplication(GOApplication):
         message = {'terminal:encoding': {'term': term, 'encoding': encoding}}
         self.write_message(message)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def set_term_keyboard_mode(self, settings):
         """
         Sets the keyboard mode (e.g. 'sco') for the given *settings['term']* to
@@ -1327,7 +1327,7 @@ class TerminalApplication(GOApplication):
         message = {'terminal:keyboard_mode': {'term': term, 'mode': mode}}
         self.write_message(message)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def start_capture(self, term=None):
         """
         Starts capturing output for the terminal given via *term*.
@@ -1387,7 +1387,7 @@ class TerminalApplication(GOApplication):
         message = {'terminal:captured_data': capture_dict}
         self.write_message(message)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def swap_terminals(self, settings):
         """
         Swaps the numbers of *settings['term1']* and *settings['term2']*.
@@ -1417,7 +1417,7 @@ class TerminalApplication(GOApplication):
             term2, term1_dict['multiplex'], self.callback_id)
         self.trigger("terminal:swap_terminals", term1, term2)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def move_terminal(self, settings):
         """
         Attached to the `terminal:move_terminal` WebSocket action. Moves
@@ -1503,7 +1503,7 @@ class TerminalApplication(GOApplication):
         self.write_message(message)
         self.trigger("terminal:move_terminal", details)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def kill_terminal(self, term):
         """
         Kills *term* and any associated processes.
@@ -1555,7 +1555,7 @@ class TerminalApplication(GOApplication):
         self.write_message(json_encode(message))
         self.trigger("terminal:reset_client_terminal", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def reset_terminal(self, term):
         """
         Performs the equivalent of the 'reset' command which resets the terminal
@@ -1617,7 +1617,7 @@ class TerminalApplication(GOApplication):
                 self.save_term_settings(term, {'title': title})
         self.trigger("terminal:set_title", term, title)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def manual_title(self, settings):
         """
         Sets the title of *settings['term']* to *settings['title']*.  Differs
@@ -1805,7 +1805,7 @@ class TerminalApplication(GOApplication):
         self.refresh_screen(term, full=True)
         self.trigger("terminal:full_refresh", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def resize(self, resize_obj):
         """
         Resize the terminal window to the rows/columns specified in *resize_obj*
@@ -1859,7 +1859,7 @@ class TerminalApplication(GOApplication):
             {"terminal:resize": {"term": term, "rows": rows, "columns": cols}})
         self.trigger("terminal:resize", term)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def char_handler(self, chars, term=None):
         """
         Writes *chars* (string) to *term*.  If *term* is not provided the
@@ -1892,7 +1892,7 @@ class TerminalApplication(GOApplication):
                     multiplex.io_loop.add_timeout(
                         timedelta(milliseconds=1050), refresh)
 
-    @require(authenticated(), policies('terminal'))
+    #@require(authenticated(), policies('terminal'))
     def write_chars(self, message):
         """
         Writes *message['chars']* to *message['term']*.  If *message['term']*
@@ -2020,7 +2020,7 @@ class TerminalApplication(GOApplication):
         self.render_and_send_css(colors_path,
             element_id="text_colors", filename=filename)
 
-    @require(policies('terminal'))
+    #@require(policies('terminal'))
     def get_locations(self):
         """
         Attached to the `terminal:get_locations` WebSocket action.  Sends a

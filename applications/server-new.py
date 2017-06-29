@@ -3723,8 +3723,23 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     #def send(self, content, close=False):
         #"""
         #Encode the given content as JSON and send it to the client.
+        #"""  
+        #super(JsonWebsocketConsumer, self).send(text=self.encode_json(content), close=close)
+        
+    #def send(self, text=None, bytes=None, close=False):
         #"""
-        #super(JsonWebsocketConsumer, self).send(text=self.encode_json(content), close=close)    
+        #Sends a reply back down the WebSocket
+        #"""
+        #message = {}
+        #if close:
+            #message["close"] = close
+        #if text is not None:
+            #message["text"] = text
+        #elif bytes is not None:
+            #message["bytes"] = bytes
+        #else:
+            #raise ValueError("You must pass text or bytes")
+        #self.message.reply_channel.send(message)          
         
     def write_message(self, message,binary=False):
         #print 'write_message',message
