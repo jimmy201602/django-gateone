@@ -3776,6 +3776,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         return self.open(message, **kwargs)
     
     def receive(self, message, **kwargs):
+        #print message.content
         return self.on_message(message,**kwargs)
 
     def disconnect(self, message, **kwargs):
@@ -3784,7 +3785,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.close()
     
     def write_message(self, message,binary=False):
-        print self.message.reply_channel
         if isinstance(message, dict):
             message = json_encode(message)
         return self.send(message)
