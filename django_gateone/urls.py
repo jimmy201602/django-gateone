@@ -13,12 +13,11 @@ Including another URLconf
     1. Import the include() function: from django.conf.urls import url, include
     2. Add a URL to urlpatterns:  url(r'^blog/', include('blog.urls'))
 """
-from django.conf.urls import url
+from django.conf.urls import url,include
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
 from applications.views import index,auth,DownloadHandler,SharedTermHandler
 from django.contrib.auth.views import LoginView,LogoutView
-from django.conf import settings
 import os
 from django.views.static import serve
 from django.conf import settings
@@ -33,3 +32,8 @@ urlpatterns = [
     url(r'^terminal/static/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static/terminal/')}),
     url(r'^terminal/shared/$', login_required(SharedTermHandler.as_view())),
 ]
+if settings.DEBUG:
+    import debug_toolbar
+    urlpatterns = [
+        url(r'^__debug__/', include(debug_toolbar.urls)),
+    ] + urlpatterns
