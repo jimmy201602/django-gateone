@@ -3564,6 +3564,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         elif session:
             ApplicationWebSocket._deliver(message_dict, session=session)
         else: # Just send to the currently-connected client
+            print 'else message_dict',message_dict
             self.write_message(message_dict)
         self.trigger('go:send_message', message, upn, session)
 
@@ -3782,7 +3783,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def disconnect(self, message, **kwargs):
         print 'disconnect websocket',message
         print 'disconnect websocket',message.content
-        self.close()
+        #self.close()
     
     def write_message(self, message,binary=False):
         if isinstance(message, dict):
@@ -3804,10 +3805,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         Called when a WebSocket frame is received. Decodes it and passes it
         to receive().
         """
+        #print 'raw_receive',message.content
+        #print 'raw_receive kwargs',kwargs
         if 'text' in message:
             self.receive(message, **kwargs)
         else:
-            self.receive(bytes=message['bytes'], **kwargs)             
+            self.receive(bytes=message['bytes'], **kwargs)
     
     def raw_connect(self, message, **kwargs):
         """
@@ -3858,6 +3861,23 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def origin(self):
         return self.base_url
     
+    #def send(self, text=None, bytes=None, close=False):
+        #"""
+        #Sends a reply back down the WebSocket
+        #"""
+        ##print 'text',text
+        ##print 'bytes',bytes
+        ##print 'close',close
+        #message = {}
+        #if close:
+            #message["close"] = close
+        #if text is not None:
+            #message["text"] = text
+        #elif bytes is not None:
+            #message["bytes"] = bytes
+        #else:
+            #raise ValueError("You must pass text or bytes")
+        #self.message.reply_channel.send(message)    
 #class ErrorHandler(tornado.web.RequestHandler):
     #"""
     #Generates an error response with status_code for all requests.

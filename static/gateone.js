@@ -18,7 +18,8 @@ http://www.gosquared.com/liquidicity/archives/122
 // TODO: Make it so that variables like GateOne.Terminal.terminals use GateOne.prefs.prefix so you can have more than one instance of Gate One embedded on the same page without conflicts.
 // TODO: This is a big one:  Support multiple simultaneous Gate One server connections/instances.
 
-// Everything goes in GateOne
+// Everything goes in GateOne   
+    
 (function(window, undefined) {
 "use strict";
 

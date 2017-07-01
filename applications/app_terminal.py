@@ -1717,8 +1717,8 @@ class TerminalApplication(GOApplication):
         #print 'term_obj',term_obj
         scrollback, screen = multiplex.dump_html(
             full=full, client_id=self.ws.client_id)
-        print 'scrollback',scrollback
-        print 'screen',screen
+        #print 'scrollback',scrollback
+        #print 'screen',screen
         if [a for a in screen if a]: # Checking for non-empty lines here
             output_dict = {
                 'terminal:termupdate': {
