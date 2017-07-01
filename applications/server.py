@@ -421,6 +421,7 @@ from django.template import Context, Template
 from django.core import signing
 from django.utils.encoding import smart_bytes
 from channels.generic.websockets import WebsocketConsumer
+from channels import Group
 
 # Setup our base loggers (these get overwritten in main())
 from applications.log import go_logger, LOGS
@@ -3773,7 +3774,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         return template_strings.render(context=Context(dict_=kwargs))   
     
     def connect(self, message, **kwargs):
-        #self.message.reply_channel.send({"accept": True})
+        self.message.reply_channel.send({"accept": True})
         return self.open(message, **kwargs)
     
     def receive(self, message, **kwargs):
@@ -3878,6 +3879,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #else:
             #raise ValueError("You must pass text or bytes")
         #self.message.reply_channel.send(message)    
+    def connection_groups(self, **kwargs):
+        """
+        Called to return the list of groups to automatically add/remove
+        this connection to/from.
+        """
+        return ["test"]   
 #class ErrorHandler(tornado.web.RequestHandler):
     #"""
     #Generates an error response with status_code for all requests.
