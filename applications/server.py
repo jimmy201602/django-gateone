@@ -1222,7 +1222,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     channel_session = True
     channel_session_user = True   
     request = None
-    def __init__(self,  message, **kwargs):
+    def __init__(self, message, **kwargs):
         self.actions = {
             'go:ping': self.pong,
             'go:log': self.log_message,
@@ -3781,9 +3781,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print message.content
         return self.on_message(message,**kwargs)
 
-    def disconnect(self, message, **kwargs):
-        print 'disconnect websocket',message
-        print 'disconnect websocket',message.content
+    #def disconnect(self, message, **kwargs):
+        #print 'disconnect websocket',message
+        #print 'disconnect websocket',message.content
+        #Group('test').discard(message.reply_channel)
         #self.close()
     
     def write_message(self, message,binary=False):
