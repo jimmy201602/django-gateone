@@ -423,6 +423,8 @@ from django.utils.encoding import smart_bytes
 from channels.generic.websockets import WebsocketConsumer
 from channels import Group
 
+from django.utils import six
+
 # Setup our base loggers (these get overwritten in main())
 from applications.log import go_logger, LOGS
 logger = go_logger(None)
@@ -462,6 +464,7 @@ locale_dir = os.path.join(getsettings('BASE_DIR'), 'locale/i18n')
 locale.load_gettext_translations(locale_dir, 'gateone')
 # NOTE: The locale gets set in __main__
 
+    
 def cleanup_user_logs():
     """
     Cleans up all user logs (everything in the user's 'logs' directory and
@@ -1203,6 +1206,7 @@ class GOApplication(OnOffMixin):
         self.io_loop.add_timeout(timeout, func)
 global action_list
 action_list = dict()
+
 class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     """
     The main WebSocket interface for Gate One, this class is setup to call
@@ -1811,9 +1815,11 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             return        
         #print 'on_message',message_obj
         #self.actions.update(action_list)
-        #print len(action_list)
+        #print len(action_list)  
         if message_obj:
             for key, value in message_obj.items():
+                #print 'key',key
+                #print 'value',value is None
                 #if key in self.actions:
                 if key in action_list:
                     try:
@@ -1823,7 +1829,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                         else:
                             # Try, try again
                             #self.actions[key](value)
-                            action_list[key](value)
+                            if key == 'c':
+                                action_list[key](value)                             
+                            else:
+                                action_list[key](value)
                     except (KeyError, TypeError, AttributeError) as e:
                         import traceback
                         for frame in traceback.extract_tb(sys.exc_info()[2]):
@@ -3781,13 +3790,14 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #print message.content
         return self.on_message(message,**kwargs)
 
-    #def disconnect(self, message, **kwargs):
-        #print 'disconnect websocket',message
-        #print 'disconnect websocket',message.content
-        #Group('test').discard(message.reply_channel)
-        #self.close()
+    def disconnect(self, message, **kwargs):
+        print 'disconnect websocket',message
+        print 'disconnect websocket',message.content
+        Group('test').discard(message.reply_channel)
+        self.close()
     
     def write_message(self, message,binary=False):
+        #print 'self.kwargs',self.kwargs
         if isinstance(message, dict):
             message = json_encode(message)
         return self.send(message)

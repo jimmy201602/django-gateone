@@ -54,7 +54,7 @@ web_handlers = [] # Assigned in init()
 _ = get_translation()
 
 from django.utils.encoding import smart_bytes
-
+from channels.generic.websockets import WebsocketConsumer
 # Terminal-specific command line options.  These become options you can pass to
 # gateone.py (e.g. --session_logging)
 #if not hasattr(options, 'session_logging'):
