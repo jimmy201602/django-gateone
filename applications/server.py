@@ -1278,8 +1278,52 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         self.latency = 0 # Keeps a running average
         self.checked_origin = False
         #WebSocketHandler.__init__(self, application, request, **kwargs)
+        #self.cpu_async = CPU_ASYNC
+        #self.io_async = IO_ASYNC        
         super(WebsocketConsumer,self).__init__(message,**kwargs)
 
+    #def __repr__(self):
+        #return "GOApplication: %s" % self.__class__
+
+    #def __str__(self):
+        #return self.info['name']
+
+    #def add_timeout(self, timeout, func):
+        #"""
+        #A convenience function that calls the given *func* after *timeout* using
+        #``self.io_loop.add_timeout()`` (which uses
+        #:meth:`tornado.ioloop.IOLoop.add_timeout`).
+
+        #The given *timeout* may be a `datetime.timedelta` or a string compatible
+        #with `utils.convert_to_timedelta` such as, "5s" or "10m".
+        #"""
+        #if isinstance(timeout, basestring):
+            #timeout = convert_to_timedelta(timeout)
+        #self.io_loop.add_timeout(timeout, func)
+
+    #def add_handler(self, pattern, handler, **kwargs):
+        #"""
+        #Adds the given *handler* (`tornado.web.RequestHandler`) to the Tornado
+        #Application (`self.ws.application`) to handle URLs matching *pattern*.
+        #If given, *kwargs* will be added to the `tornado.web.URLSpec` when the
+        #complete handler is assembled.
+
+        #.. note::
+
+            #If the *pattern* does not start with the configured `url_prefix` it
+            #will be automatically prepended.
+        #"""
+        #logging.debug("Adding handler: (%s, %s)" % (pattern, handler))
+        #url_prefix = self.ws.settings['url_prefix']
+        #if not pattern.startswith(url_prefix):
+            #if pattern.startswith('/'):
+                ## Get rid of the / (it will be in the url_prefix)
+                #pattern = pattern.lstrip('/')
+        #spec = tornado.web.URLSpec(pattern, handler, kwargs)
+        ## Why the Tornado devs didn't give us a simple way to do this is beyond
+        ## me.
+        #self.application.handlers[0][1].append(spec)
+        
     @classmethod
     def file_checker(cls):
         """

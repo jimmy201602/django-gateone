@@ -186,7 +186,7 @@ class TerminalApplication(GOApplication):
         self.em_dimensions = None
         self.race_check = False
         self.log_metadata = {'application': 'terminal'}
-        GOApplication.__init__(self, ws)
+        #GOApplication.__init__(self, ws)
         super(TerminalApplication,self).__init__(ws)
 
     def initialize(self):
