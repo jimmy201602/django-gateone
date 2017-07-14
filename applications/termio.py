@@ -1411,7 +1411,7 @@ class MultiplexPOSIXIOLoop(BaseMultiplex):
                     **self.terminal_emulator_kwargs
                 )
             # Tell our IOLoop instance to start watching the child
-            print 'self io_loop add handler spawn'
+            #print 'self io_loop add handler spawn'
             self.io_loop.add_handler(
                 fd, self._ioloop_read_handler, self.io_loop.READ)
             self.prev_output = {}

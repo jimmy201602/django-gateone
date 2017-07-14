@@ -55,6 +55,7 @@ _ = get_translation()
 
 from django.utils.encoding import smart_bytes
 from channels.generic.websockets import WebsocketConsumer
+
 # Terminal-specific command line options.  These become options you can pass to
 # gateone.py (e.g. --session_logging)
 #if not hasattr(options, 'session_logging'):
@@ -1727,8 +1728,8 @@ class TerminalApplication(GOApplication):
                     'screen' : screen,
                     'ratelimiter': multiplex.ratelimiter_engaged
                 }
-            }
-            try:
+            }          
+            try:          
                 self.write_message(json_encode(output_dict))
             except IOError: # Socket was just closed, no biggie
                 self.term_log.info(

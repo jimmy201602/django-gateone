@@ -1124,7 +1124,7 @@ class GOApplication(OnOffMixin):
         self.ws = ws # WebSocket instance
         self.current_user = ws.current_user
         # Setup some shortcuts to make things more natural and convenient
-        self.write_message = ws.write_message
+        self.write_message = self.write_message
         self.write_binary = ws.write_binary
         self.render_and_send_css = ws.render_and_send_css
         self.render_style = ws.render_style
@@ -1168,7 +1168,13 @@ class GOApplication(OnOffMixin):
         #actions when the WebSocket is closed.
         #"""
         #pass
-
+    
+    def write_message(self, message,binary=False):
+        if isinstance(message, dict):
+            message = json_encode(message)
+        from django_gateone.asgi import channel_layer
+        channel_layer.send(self.ws.message.reply_channel.name, {'text':message })          
+        
     def add_handler(self, pattern, handler, **kwargs):
         """
         Adds the given *handler* (`tornado.web.RequestHandler`) to the Tornado
