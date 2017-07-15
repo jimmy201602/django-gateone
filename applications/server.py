@@ -3624,7 +3624,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         elif session:
             ApplicationWebSocket._deliver(message_dict, session=session)
         else: # Just send to the currently-connected client
-            print 'else message_dict',message_dict
+            #print 'else message_dict',message_dict
             self.write_message(message_dict)
         self.trigger('go:send_message', message, upn, session)
 
@@ -3843,8 +3843,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
     def disconnect(self, message, **kwargs):
         print 'disconnect websocket',message
         print 'disconnect websocket',message.content
-        Group('test').discard(message.reply_channel)
-        self.close()
+        #Group('test').discard(message.reply_channel)
+        #self.close()
     
     def write_message(self, message,binary=False):
         #print 'self.kwargs',self.kwargs
