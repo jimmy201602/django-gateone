@@ -43,7 +43,7 @@ from applications.utils import mkdir_p
 from tornado.options import options
 from tornado.log import LogFormatter
 import socket
-from applications.utils import getsettings,convert_to_timedelta,none_fix,locale
+from applications.utils import getsettings,convert_to_timedelta,none_fix,locale,gen_self_signed_ssl
 
 LOGS = set() # Holds a list of all our log paths so we can fix permissions
 # These should match what's in the syslog module (hopefully not platform-dependent)

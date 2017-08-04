@@ -31,7 +31,7 @@ __author__ = 'Dan McDougall <daniel.mcdougall@liftoffsoftware.com>'
 
 # Python stdlib
 import os
-from gateone.core.locale import get_translation
+from applications.locale import get_translation
 
 _ = get_translation()
 
