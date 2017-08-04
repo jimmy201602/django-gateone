@@ -487,9 +487,11 @@ def generate_server_conf(installed=True):
         u"Gate One settings are incomplete.  A new <settings_dir>/10server.conf"
         u" will be generated."))
     auth_settings = {} # Auth stuff goes in 20authentication.conf
-    all_setttings = options_to_settings(options) # NOTE: options is global
-    settings_path = options.settings_dir
+    options_config = define_options()
+    all_setttings = options_to_settings(options_config) # NOTE: options is global
+    settings_path = options_config['settings_dir']
     server_conf_path = os.path.join(settings_path, '10server.conf')
+    print server_conf_path
     if os.path.exists(server_conf_path):
         logger.error(_(
             "You have a 10server.conf but it is either invalid (syntax "
@@ -548,8 +550,7 @@ def generate_server_conf(installed=True):
             config_defaults['log_file_prefix'],
             mode='w', encoding='utf-8').write(u'')
     auth_conf_path = os.path.join(settings_path, '20authentication.conf')
-    template_path = resource_filename(
-        'gateone', '/templates/settings/generic.conf')
+    template_path = os.path.join(getsettings('BASE_DIR'),'templates/settings/generic.conf')
     new_settings = settings_template(
         template_path, settings=config_defaults)
     with io.open(server_conf_path, mode='w') as s:
