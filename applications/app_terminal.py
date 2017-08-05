@@ -2798,6 +2798,7 @@ def init(settings):
     terminal_options = ( # These are now terminal-app-specific setttings
         'command', 'dtach', 'session_logging', 'syslog_session_logging'
     )
+    #options.config /opt/gateone/server.conf
     if os.path.exists(options.config):
         # Get the old settings from the old config file and use them to generate
         # a new 50terminal.conf

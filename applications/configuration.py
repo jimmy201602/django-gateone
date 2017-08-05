@@ -320,7 +320,7 @@ def define_options():
         url_prefix += '/' 
     global TIMEOUT
     TIMEOUT = convert_to_timedelta(session_timeout)
-    api_timestamp_window = convert_to_timedelta(api_timestamp_window)
+    #api_timestamp_window = convert_to_timedelta(api_timestamp_window)
     auth = none_fix(auth)
     # Check to make sure we have a certificate and keyfile and generate fresh
     # ones if not.
@@ -417,7 +417,7 @@ def define_options():
             'static_url': static_url,
             u'ssl_auth': ssl_auth,
             u'log_file_max_size': log_file_max_size,
-            u'session_timeout': TIMEOUT,
+            u'session_timeout': '5d',#u'session_timeout': TIMEOUT,
             u'sso_realm': sso_realm,
             u'debug': debug,
             u'js_init': js_init,
@@ -491,12 +491,11 @@ def generate_server_conf(installed=True):
     all_setttings = options_to_settings(options_config) # NOTE: options is global
     settings_path = options_config['settings_dir']
     server_conf_path = os.path.join(settings_path, '10server.conf')
-    print server_conf_path
     if os.path.exists(server_conf_path):
         logger.error(_(
             "You have a 10server.conf but it is either invalid (syntax "
             "error) or missing essential settings."))
-        sys.exit(1)
+        #sys.exit(1)
     config_defaults = all_setttings['*']['gateone']
     # Don't need this in the actual settings file:
     del config_defaults['settings_dir']
@@ -556,6 +555,7 @@ def generate_server_conf(installed=True):
     with io.open(server_conf_path, mode='w') as s:
         s.write(u"// This is Gate One's main settings file.\n")
         s.write(new_settings)
+    #print auth_settings
     new_auth_settings = settings_template(
         template_path, settings=auth_settings)
     with io.open(auth_conf_path, mode='w') as s:

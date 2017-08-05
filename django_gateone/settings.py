@@ -157,3 +157,6 @@ CHANNEL_LAYERS = {
        },
 }
 settings_dir = os.path.join(BASE_DIR,'conf.d')
+
+from applications.configuration import generate_server_conf
+generate_server_conf(installed=False)
