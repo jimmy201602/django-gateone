@@ -2835,15 +2835,11 @@ def init(settings):
         settings_path = options.settings_dir
         terminal_conf_path = os.path.join(settings_path, '50terminal.conf')
         if not os.path.exists(terminal_conf_path):
-            from gateone.core.configuration import settings_template
-            template_path = resource_filename(
-                'gateone.applications.terminal',
-                '/templates/settings/50terminal.conf')
+            from applications.configuration import settings_template
+            template_path = os.path.join(getsettings('BASE_DIR'),'conf.d/50terminal.conf')
             settings['*']['terminal'] = {}
             # Update the settings with defaults
-            ssh_connect_path = resource_filename(
-                'gateone.applications.terminal',
-                '/plugins/ssh/scripts/ssh_connect.py')
+            ssh_connect_path = os.path.join(getsettings('BASE_DIR'),'applications/plugins/ssh/scripts/ssh_connect.py')
             default_command = (
               "{0} -S "
               r"'%SESSION_DIR%/%SESSION%/%SHORT_SOCKET%' --sshfp "
@@ -2874,7 +2870,7 @@ def init(settings):
                 s.write(new_term_settings)
     term_settings = settings['*']['terminal']
     if options.kill:
-        from gateone.core.utils import killall
+        from applications.utils import killall
         go_settings = settings['*']['gateone']
         # Kill all running dtach sessions (associated with Gate One anyway)
         killall(go_settings['session_dir'], go_settings['pid_file'])
