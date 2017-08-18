@@ -575,7 +575,7 @@ def go_logger(name, **kwargs):
         logger.addHandler(channel)
         #Following code is to redirect log to terminal
         console = logging.StreamHandler()
-        console.setLevel(logging.INFO)    
+        console.setLevel(getattr(logging, define_options()['logging'].upper()))    
         console.setFormatter(LogFormatter(color=True))        
         logging.getLogger(name).addHandler(console)        
     logger = JSONAdapter(logger, kwargs)
