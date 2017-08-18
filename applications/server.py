@@ -390,9 +390,6 @@ if MISSING_DEPS:
         ' '.join(MISSING_DEPS))
     sys.exit(1)
 
-# We want this turned on right away
-tornado.log.enable_pretty_logging()
-
 # Our own modules
 from applications import SESSIONS, PERSIST
 from applications.auth.authentication import NullAuthHandler, KerberosAuthHandler
