@@ -54,6 +54,28 @@ try:
 except ImportError:
     curses = None    
 
+try:
+    import colorama
+except ImportError:
+    colorama = None
+
+def _stderr_supports_color():
+    try:
+        if hasattr(sys.stderr, 'isatty') and sys.stderr.isatty():
+            if curses:
+                curses.setupterm()
+                if curses.tigetnum("colors") > 0:
+                    return True
+            elif colorama:
+                if sys.stderr is getattr(colorama.initialise, 'wrapped_stderr',
+                                         object()):
+                    return True
+    except Exception:
+        # Very broad exception handling because it's always better to
+        # fall back to non-colored logs than to break at startup.
+        pass
+    return False
+    
 PY3 = sys.version_info >= (3,)
 
 LOGS = set() # Holds a list of all our log paths so we can fix permissions
@@ -125,7 +147,7 @@ class LogFormatter(logging.Formatter):
     (unless ``--logging=none`` is used).
     """
     DEFAULT_FORMAT = '%(color)s[%(levelname)1.1s %(asctime)s %(module)s:%(lineno)d]%(end_color)s %(message)s'
-    DEFAULT_DATE_FORMAT = '%y%m%d %H:%M:%S'
+    DEFAULT_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
     DEFAULT_COLORS = {
         logging.DEBUG: 4,  # Blue
         logging.INFO: 2,  # Green
@@ -551,5 +573,10 @@ def go_logger(name, **kwargs):
         #log format bug
         channel.setFormatter(LogFormatter(color=False))
         logger.addHandler(channel)
+        #Following code is to redirect log to terminal
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)    
+        console.setFormatter(LogFormatter(color=True))        
+        logging.getLogger(name).addHandler(console)        
     logger = JSONAdapter(logger, kwargs)
     return logger
