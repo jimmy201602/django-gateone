@@ -425,7 +425,7 @@ def define_options():
             u'log_file_prefix': os.path.join(log_file_prefix,'django-gateone.log'),
             u'kill': False,#new variable
             u'use_client_cache': True
-})
+    })
     return settings
     
 def settings_template(path, **kwargs):
