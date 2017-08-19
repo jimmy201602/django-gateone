@@ -471,7 +471,7 @@ class TerminalApplication(GOApplication):
                 #sub_app_icon = resource_string(
                     #'gateone.applications.terminal',
                     #'/templates/command_icon.svg').decode('utf-8')
-                with io.open(icon_path, 'r') as f:
+                with io.open(icon_path, mode='r',encoding='UTF-8') as f:
                     sub_app_icon = smart_bytes(f.read()).decode('utf-8')                
                 #print 'sub_app_icon',sub_app_icon
                 sub_app['icon'] = sub_app_icon.format(cmd=sub_app['name'])
