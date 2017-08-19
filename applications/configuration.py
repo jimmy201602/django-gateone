@@ -496,6 +496,7 @@ def generate_server_conf(installed=True):
             "You have a 10server.conf but it is either invalid (syntax "
             "error) or missing essential settings."))
         #sys.exit(1)
+        return
     config_defaults = all_setttings['*']['gateone']
     # Don't need this in the actual settings file:
     del config_defaults['settings_dir']
@@ -562,120 +563,6 @@ def generate_server_conf(installed=True):
         s.write(u"// This is Gate One's authentication settings file.\n")
         s.write(new_auth_settings)
 
-# NOTE: After Gate One 1.2 is officially released this function will be removed:
-def convert_old_server_conf():
-    """
-    Converts old-style server.conf files to the new settings/10server.conf
-    format.
-    """
-    settings = RUDict()
-    auth_settings = RUDict()
-    terminal_settings = RUDict()
-    api_keys = RUDict({"*": {"gateone": {"api_keys": {}}}})
-    terminal_options = [ # These are now terminal-app-specific setttings
-        'command', 'dtach', 'session_logging', 'session_logs_max_age',
-        'syslog_session_logging'
-    ]
-    authentication_options = [
-        # These are here only for logical separation in the .conf files
-        'api_timestamp_window', 'auth', 'pam_realm', 'pam_service',
-        'sso_realm', 'sso_service', 'ssl_auth'
-    ]
-    with io.open(options.config) as f:
-        # Regular server-wide settings will go in 10server.conf by default.
-        # These settings can actually be spread out into any number of .conf
-        # files in the settings directory using whatever naming convention
-        # you want.
-        settings_path = options.settings_dir
-        server_conf_path = os.path.join(settings_path, '10server.conf')
-        # Using 20authentication.conf for authentication settings
-        auth_conf_path = os.path.join(
-            settings_path, '20authentication.conf')
-        terminal_conf_path = os.path.join(settings_path, '50terminal.conf')
-        api_keys_conf = os.path.join(settings_path, '30api_keys.conf')
-        # NOTE: Using a separate file for authentication stuff for no other
-        #       reason than it seems like a good idea.  Don't want one
-        #       gigantic config file for everything (by default, anyway).
-        logger.info(_(
-            "Old server.conf file found.  Converting to the new format as "
-            "%s, %s, and %s" % (
-                server_conf_path, auth_conf_path, terminal_conf_path)))
-        for line in f:
-            if line.startswith('#'):
-                continue
-            key = line.split('=', 1)[0].strip()
-            value = eval(line.split('=', 1)[1].strip())
-            if key in terminal_options:
-                if key == 'command':
-                    # Fix the path to ssh_connect.py if present
-                    if 'ssh_connect.py' in value:
-                        value = value.replace(
-                            '/plugins/', '/applications/terminal/plugins/')
-                if key == 'session_logs_max_age':
-                    # This is now user_logs_max_age.  Put it in 'gateone'
-                    settings.update({'user_logs_max_age': value})
-                terminal_settings.update({key: value})
-            elif key in authentication_options:
-                auth_settings.update({key: value})
-            elif key == 'origins':
-                # Convert to the new format (a list with no http://)
-                origins = value.split(';')
-                converted_origins = []
-                for origin in origins:
-                    # The new format doesn't bother with http:// or https://
-                    if origin == '*':
-                        converted_origins.append(origin)
-                        continue
-                    origin = origin.split('://')[1]
-                    if origin not in converted_origins:
-                        converted_origins.append(origin)
-                settings.update({key: converted_origins})
-            elif key == 'api_keys':
-                # Move these to the new location/format (30api_keys.conf)
-                for pair in value.split(','):
-                    api_key, secret = pair.split(':')
-                    if bytes == str:
-                        api_key = api_key.decode('UTF-8')
-                        secret = secret.decode('UTF-8')
-                    api_keys['*']['gateone']['api_keys'].update(
-                        {api_key: secret})
-                # API keys can be written right away
-                with io.open(api_keys_conf, 'w') as conf:
-                    msg = _(
-                        u"// This file contains the key and secret pairs "
-                        u"used by Gate One's API authentication method.\n")
-                    conf.write(msg)
-                    conf.write(unicode(api_keys))
-            else:
-                settings.update({key: value})
-        template_path = resource_filename(
-            'gateone', '/templates/settings/generic.conf')
-        new_settings = settings_template(template_path, settings=settings)
-        if not os.path.exists(server_conf_path):
-            with io.open(server_conf_path, 'w') as s:
-                s.write(_(u"// This is Gate One's main settings file.\n"))
-                s.write(new_settings)
-        new_auth_settings = settings_template(
-            template_path, settings=auth_settings)
-        if not os.path.exists(auth_conf_path):
-            with io.open(auth_conf_path, 'w') as s:
-                s.write(_(
-                    u"// This is Gate One's authentication settings file.\n"))
-                s.write(new_auth_settings)
-        # Terminal uses a slightly different template; it converts 'command'
-        # to the new 'commands' format.
-        template_path = resource_filename(
-            'gateone', '/templates/settings/50terminal.conf')
-        new_term_settings = settings_template(
-            template_path, settings=terminal_settings)
-        if not os.path.exists(terminal_conf_path):
-            with io.open(terminal_conf_path, 'w') as s:
-                s.write(_(
-                    u"// This is Gate One's Terminal application settings "
-                    u"file.\n"))
-                s.write(new_term_settings)
-    # Rename the old server.conf so this logic doesn't happen again
-    os.rename(options.config, "%s.old" % options.config)
 
 def apply_cli_overrides(go_settings):
     """
