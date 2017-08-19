@@ -3825,7 +3825,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #namespace.update(kwargs)
         #return t.generate(**namespace)
         with io.open(template_name, 'r') as f:
-            html = f.read()
+            html = smart_bytes(f.read())
         template_strings = Template(html)
         return template_strings.render(context=Context(dict_=kwargs))   
     
