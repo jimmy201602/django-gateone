@@ -416,7 +416,7 @@ settings = define_options()
 
 from django.template import Context, Template
 from django.core import signing
-from django.utils.encoding import smart_bytes,smart_unicode
+from django.utils.encoding import smart_bytes
 from channels.generic.websockets import WebsocketConsumer
 from channels import Group
 
@@ -3825,7 +3825,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #namespace.update(kwargs)
         #return t.generate(**namespace)
         with io.open(template_name, 'r') as f:
-            html = smart_unicode(f.read())
+            html = f.read()
         template_strings = Template(html)
         return template_strings.render(context=Context(dict_=kwargs))   
     
