@@ -42,7 +42,7 @@ import os.path, sys, logging
 from applications.utils import mkdir_p
 #from tornado.options import options
 #from tornado.log import LogFormatter
-import socket,logging
+import socket
 from applications.utils import getsettings,convert_to_timedelta,none_fix,locale,gen_self_signed_ssl
 try:
     import simplejson as json
@@ -577,6 +577,12 @@ def go_logger(name, **kwargs):
         console = logging.StreamHandler()
         console.setLevel(getattr(logging, define_options()['logging'].upper()))    
         console.setFormatter(LogFormatter(color=True))        
-        logging.getLogger(name).addHandler(console)        
+        logging.getLogger(name).addHandler(console)
+        logger.propagate = False
+        handlers = logging.getLogger().handlers
+        for handler in handlers:
+            if isinstance(handler, logging.StreamHandler):
+                handler_console = handler
+                break        
     logger = JSONAdapter(logger, kwargs)
     return logger
