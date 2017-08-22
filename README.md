@@ -5,6 +5,10 @@ Curently, this project has lots of bug need to be fixed. Due to the limites ener
 ![screenshots1](./screenshots/screenshots1.png  "screenshots1")
 ![screenshots2](./screenshots/screenshots2.gif  "screenshots2")
 # Docker Build
+```sh
 docker build --no-cache --squash -t django-gateone:latest .
+```
 # Docker Run
+```sh
 docker run -d -p 80:80 --name django-gateone django-gateone
+```
