@@ -1813,17 +1813,18 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 app.open() # Call applications' open() functions (if any)
         # Ping the client every 5 seconds so we can keep track of latency and
         # ensure firewalls don't close the connection.
-        #def send_ping():
-            #try:
-                #self.ping(str(int(time.time() * 1000)).encode('utf-8'))
-            #except (WebSocketClosedError, AttributeError):
-                ## Connection closed
-                #self.pinger.stop()
-                #del self.pinger
+        def send_ping():
+            try:
+                self.ping(str(int(time.time() * 1000)).encode('utf-8'))
+            except (WebSocketClosedError, AttributeError):
+                # Connection closed
+                self.pinger.stop()
+                del self.pinger
         #send_ping()
-        #interval = 5000 # milliseconds
-        #self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
-        #self.pinger.start()
+        interval = 5000 # milliseconds
+        self.pinger = tornado.ioloop.PeriodicCallback(send_ping, interval)
+        if not self.pinger.is_running():
+            self.pinger.start()
         self.trigger("go:open")
         action_list.update(self.actions)
         
