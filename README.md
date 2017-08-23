@@ -12,7 +12,7 @@ docker build --no-cache --squash -t django-gateone:latest .
 ```sh
 docker run -d -p 80:80 --name django-gateone django-gateone
 ```
-# Account Password
+# Login Account & Password
 ```sh
 User Account: admin
 Password: password!@#
