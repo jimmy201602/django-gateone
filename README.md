@@ -6,7 +6,7 @@ Curently, this project has lots of bug need to be fixed. Due to the limites ener
 ![screenshots2](./screenshots/screenshots2.gif  "screenshots2")
 # Docker Build
 ```sh
-docker build --no-cache --squash -t django-gateone:latest .
+docker build --no-cache -t django-gateone:latest .
 ```
 # Docker Run
 ```sh
