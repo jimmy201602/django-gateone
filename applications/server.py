@@ -358,7 +358,7 @@ from pkg_resources import resource_filename, resource_string, resource_exists
 from pkg_resources import resource_listdir, iter_entry_points
 # Tornado modules (yeah, we use all this stuff)
 try:
-    import tornado.httpserver
+    #import tornado.httpserver
     import tornado.ioloop
     import tornado.options
     import tornado.web

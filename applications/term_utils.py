@@ -24,7 +24,6 @@ from applications.utils import getsettings
 
 # 3rd party imports
 from tornado.escape import json_decode
-from tornado.options import options
 
 APPLICATION_PATH = os.path.split(__file__)[0] # Path to our application
 term_log = go_logger("gateone.terminal")
