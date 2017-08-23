@@ -1,0 +1,70 @@
+{% if font_family == 'monospace' %}
+.✈terminal_pre {
+    font-family: monospace !important;
+    font-size: {{  font_size }};
+}
+{% elif woffs %}
+{% for path, woff in woffs.items %}
+/* {{path}} */
+@font-face {
+  font-family: '{{  font_family }}';
+  font-style: {{  woff.font_style }};
+  font-weight: {{ woff.font_weight }};
+  src: {{  woff.locals }}, url('{{  woff.url }}') format('woff');
+}
+{% endfor %}
+.✈terminal_pre {
+    font-family: '{{  font_family }}' !important;
+    font-size: {{  font_size }};
+}
+{% else %}
+{% if font_size %}
+.✈terminal_pre {
+    font-family: monospace !important;
+    font-size: {{ font_size }};
+}
+{% else %}
+.✈terminal_pre {
+    font-family: monospace !important;
+    font-size: 0.9em;
+}
+{% endif%}
+{% endif %}
+
+/* ubuntumono-bold-italic.woff 
+@font-face {
+  font-family: 'Ubuntu Mono';
+  font-style: italic;
+  font-weight: bold;
+  src: local('Ubuntu Mono Bold Italic'), local('UbuntuMono-BoldItalic'), url('https://127.0.0.1:10443/terminal/static/fonts/ubuntumono-bold-italic.woff') format('woff');
+}
+*/
+/* ubuntumono-bold.woff 
+@font-face {
+  font-family: 'Ubuntu Mono';
+  font-style: normal;
+  font-weight: bold;
+  src: local('Ubuntu Mono Bold'), local('UbuntuMono-Bold'), url('https://127.0.0.1:10443/terminal/static/fonts/ubuntumono-bold.woff') format('woff');
+}
+*/
+/* ubuntumono-italic.woff 
+@font-face {
+  font-family: 'Ubuntu Mono';
+  font-style: italic;
+  font-weight: normal;
+  src: local('Ubuntu Mono Italic'), local('UbuntuMono-Italic'), url('https://127.0.0.1:10443/terminal/static/fonts/ubuntumono-italic.woff') format('woff');
+}
+*/
+/* ubuntumono-normal.woff 
+@font-face {
+  font-family: 'Ubuntu Mono';
+  font-style: normal;
+  font-weight: normal;
+  src: local('Ubuntu Mono'), local('UbuntuMono-Regular'), url('https://127.0.0.1:10443/terminal/static/fonts/ubuntumono-normal.woff') format('woff');
+}
+
+.✈terminal_pre {
+    font-family: 'Ubuntu Mono' !important;
+    font-size: 90%;
+}
+*/
