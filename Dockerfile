@@ -1,5 +1,5 @@
 #Django-gateone dockfile
-FROM ubuntu:latest
+FROM django-gateone:latest
 LABEL maintainer zhengge2012@gmail.com
 WORKDIR /opt
 RUN apt-get update
