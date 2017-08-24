@@ -3839,10 +3839,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         return self.on_message(message,**kwargs)
 
     def disconnect(self, message, **kwargs):
-        print 'disconnect websocket',message
-        print 'disconnect websocket',message.content
-        #Group('test').discard(message.reply_channel)
-        #self.close()
+        #print 'disconnect websocket',message
+        #print 'disconnect websocket',message.content
+        Group('test').discard(message.reply_channel)
+        message.reply_channel.send({"accept":False})
+        self.on_close()
+        self.close()
     
     def write_message(self, message,binary=False):
         #print 'self.kwargs',self.kwargs
