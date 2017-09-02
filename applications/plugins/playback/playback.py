@@ -33,6 +33,7 @@ __author__ = 'Dan McDougall <daniel.mcdougall@liftoffsoftware.com>'
 import os
 from applications.locale import get_translation
 from applications.utils import render_string
+import io
 _ = get_translation()
 
 # Globals
@@ -81,14 +82,18 @@ def save_recording(self, settings):
     templates_path = os.path.join(PLUGIN_PATH, "templates")
     recording_template_path = os.path.join(
         templates_path, "self_contained_recording.html")
-    with open(recording_template_path) as f:
-        recording_template_data = f.read()
+    #with open(recording_template_path) as f:
+        #recording_template_data = f.read()
+    extra_theme_path = os.path.join(templates_path,'themes/black.css')
+    with io.open(extra_theme_path, mode='r',encoding='UTF-8') as f:
+        extra_theme = f.read()    
     rendered_recording = render_string(recording_template_path,**dict(recording=recording,
                                                                       container=container,
                                                                       prefix=prefix,
                                                                       theme=theme_css,
                                                                       colors=colors_css,
-                                                                      colors_256=colors_256))
+                                                                      colors_256=colors_256,
+                                                                      extra_theme=extra_theme))#extra_theme to fix bug
     #recording_template = tornado.template.Template(recording_template_data)
     #rendered_recording = recording_template.generate(
         #recording=recording,
