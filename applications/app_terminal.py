@@ -292,8 +292,8 @@ class TerminalApplication(GOApplication):
         self.plugin_new_multiplex_hooks = []
         self.plugin_new_term_hooks = {}
         self.plugin_env_hooks = {}
-        #from applications.plugins.playback.playback import save_recording
-        #self.ws.actions.update({'terminal:playback_save_recording': bind(save_recording, self)})
+        from applications.plugins.playback.playback import save_recording
+        self.ws.actions.update({'terminal:playback_save_recording': bind(save_recording, self)})
         #save_recording(self,self.ws.prefs)
         for plugin_name, hooks in self.plugin_hooks.items():
             plugin_name = plugin_name.split('.')[-1]

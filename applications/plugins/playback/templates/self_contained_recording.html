@@ -387,7 +387,7 @@ window.onresize = function() {onResize()}
 window.addEventListener('keydown', onKeyDown, false);
 window.addEventListener(mousewheelevt, wheelFunc, true);
 window.onload = function() {
-    terminals[term]['playbackFrames'] = {% raw recording %};
+    terminals[term]['playbackFrames'] = {{ recording|safe }};
     var terminal = document.createElement("div"),
         sideinfo = document.createElement("div"),
         sidetitle = document.createElement("div"),

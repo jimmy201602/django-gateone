@@ -41,6 +41,8 @@ from tornado.escape import to_unicode
 from tornado.ioloop import IOLoop, PeriodicCallback
 
 from django.conf import settings
+import imp
+from django.template import Context, Template
 
 # Globals
 MACOS = os.uname()[0] == 'Darwin'
@@ -1684,3 +1686,18 @@ if MACOS or OPENBSD: # Apply BSD-specific stuff
 
 def getsettings(name,default=None):
     return getattr(settings, name, default)
+
+def load_function_from_path(module,path):
+    if os.path.exists(path):
+        try:
+            return imp.load_source(module,path)
+        except Exception:
+            raise ImportError
+    else:
+        raise ImportError
+
+def render_string(template_name, **kwargs):
+    with io.open(template_name, mode='r',encoding='UTF-8') as f:
+        html = f.read()
+    template_strings = Template(html)
+    return template_strings.render(context=Context(dict_=kwargs))   

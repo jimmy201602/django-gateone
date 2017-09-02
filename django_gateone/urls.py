@@ -32,6 +32,7 @@ urlpatterns = [
     url(r'^terminal/static/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static/terminal/')}),
     url(r'^static/(?P<path>.*)$', serve,{'document_root': os.path.join(settings.BASE_DIR,'static')}),
     url(r'^terminal/shared/', login_required(SharedTermHandler.as_view())),
+    url(r'^terminal/playback/static/(?P<path>.*)$',serve,{'document_root': os.path.join(settings.BASE_DIR,'applications/plugins/playback/static')}),
 ]
 if settings.DEBUG:
     import debug_toolbar

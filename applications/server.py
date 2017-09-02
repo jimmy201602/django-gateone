@@ -1808,6 +1808,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #path = resource_filename('gateone', '/static/%s' % js_file)
             path = os.path.join(getsettings('BASE_DIR'), 'static/%s' % js_file)
             self.send_js(path)
+        # A bug patch for playback temporarily
+        self.send_js(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/static/playback.js'))
+        self.send_css(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/templates/themes/black.css'))
+        
         for app in self.apps:
             if hasattr(app, 'open'):
                 app.open() # Call applications' open() functions (if any)
@@ -3002,9 +3006,12 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 source_url = None
                 #bug terminal extend function
                 if 'gateone/applications/' in path:
-                    application = path.split('applications/')[1].split('/')[0]
+                    #application = path.split('applications/')[1].split('/')[0]
+                    application = 'terminal'
+                    '/home/jimmy/Desktop/django-gateone/applications/plugins/playback/static/playback.js'
                     if 'plugins' in path:
-                        static_path = path.split("%s/plugins/" % application)[1]
+                        #static_path = path.split("%s/plugins/" % application)[1]
+                        static_path = path.split("/plugins/")[1]
                         # e.g. /terminal/ssh/static/
                         source_url = "%s%s/%s" % (
                             url_prefix, application, static_path)

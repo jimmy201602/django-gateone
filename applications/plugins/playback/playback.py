@@ -32,7 +32,7 @@ __author__ = 'Dan McDougall <daniel.mcdougall@liftoffsoftware.com>'
 # Python stdlib
 import os
 from applications.locale import get_translation
-
+from applications.utils import render_string
 _ = get_translation()
 
 # Globals
@@ -63,7 +63,7 @@ def save_recording(self, settings):
 
     ..note:: The real crux of the code that handles this is in the template.
     """
-    import tornado.template
+    #import tornado.template
     from datetime import datetime
     now = datetime.now().strftime('%Y%m%d%H%m%S') # e.g. '20120208200222'
     out_dict = {
@@ -83,15 +83,21 @@ def save_recording(self, settings):
         templates_path, "self_contained_recording.html")
     with open(recording_template_path) as f:
         recording_template_data = f.read()
-    recording_template = tornado.template.Template(recording_template_data)
-    rendered_recording = recording_template.generate(
-        recording=recording,
-        container=container,
-        prefix=prefix,
-        theme=theme_css,
-        colors=colors_css,
-        colors_256=colors_256
-    )
+    rendered_recording = render_string(recording_template_path,**dict(recording=recording,
+                                                                      container=container,
+                                                                      prefix=prefix,
+                                                                      theme=theme_css,
+                                                                      colors=colors_css,
+                                                                      colors_256=colors_256))
+    #recording_template = tornado.template.Template(recording_template_data)
+    #rendered_recording = recording_template.generate(
+        #recording=recording,
+        #container=container,
+        #prefix=prefix,
+        #theme=theme_css,
+        #colors=colors_css,
+        #colors_256=colors_256
+    #)
     out_dict['data'] = rendered_recording
     message = {'go:save_file': out_dict}
     self.write_message(message)
