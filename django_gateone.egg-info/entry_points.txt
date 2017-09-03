@@ -1,0 +1,21 @@
+[console_scripts]
+#gateone = applications.server:main
+
+[go_applications]
+#example = applications.example
+#terminal = applications.terminal
+
+[go_plugins]
+#editor = applications.plugins.editor
+#help = applications.plugins.help
+
+[go_terminal_plugins]
+#bookmarks = applications.plugins.bookmarks
+#convenience = applications.plugins.convenience
+#example = applications.plugins.example
+#html = applications.plugins.html
+#logging = applications.plugins.logging
+#notice = applications.plugins.notice
+playback = applications.plugins.playback
+#ssh = applications.plugins.ssh
+
