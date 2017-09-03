@@ -366,6 +366,7 @@ def define_options():
     syslog_session_logging = False
     sso_keytab = None
     configure = False
+    send_css = True
     settings.update({
             u'dtach': True,
             'version': None,
@@ -424,7 +425,8 @@ def define_options():
             u'unix_socket_path': unix_socket_path,
             u'log_file_prefix': os.path.join(log_file_prefix,'django-gateone.log'),
             u'kill': False,#new variable
-            u'use_client_cache': True
+            u'use_client_cache': True,
+            u'send_css': send_css,
     })
     return settings
     
