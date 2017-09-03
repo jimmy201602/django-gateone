@@ -43,7 +43,7 @@ from applications.utils import mkdir_p
 #from tornado.options import options
 #from tornado.log import LogFormatter
 import socket
-from applications.utils import getsettings,convert_to_timedelta,none_fix,locale,gen_self_signed_ssl
+from applications.utils import getsettings,convert_to_timedelta,none_fix,gen_self_signed_ssl
 try:
     import simplejson as json
 except ImportError:
@@ -58,6 +58,7 @@ try:
     import colorama
 except ImportError:
     colorama = None
+from tornado import locale
 
 def _stderr_supports_color():
     try:

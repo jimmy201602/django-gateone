@@ -3423,10 +3423,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             `"send_js": false` to gateone/settings/10server.conf
         """
         logging.debug('send_plugin_static_files(%s)' % entry_point)
-        # A bug patch for playback temporarily
-        logging.info('send playback css and js')        
-        self.send_js(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/static/playback.js'))
-        self.send_css(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/templates/themes/black.css'))
         
         #logging.info('send terminal css')
         #terminal_css = os.path.join(getsettings('BASE_DIR'), 'static', 'templates', 'terminal.css')

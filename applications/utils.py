@@ -34,16 +34,19 @@ try:
 except ImportError:
     import pickle # Python 3
 
+try:
+    import simplejson as json
+except ImportError:
+    import json
+    
 # Import 3rd party stuff
-from tornado import locale
-from tornado.escape import json_encode as _json_encode
-from tornado.escape import to_unicode
+from django.utils.encoding import smart_unicode as to_unicode
 from tornado.ioloop import IOLoop, PeriodicCallback
 
 from django.conf import settings
 import imp
 from django.template import Context, Template
-
+from applications.locale import get_translation
 # Globals
 MACOS = os.uname()[0] == 'Darwin'
 OPENBSD = os.uname()[0] == 'OpenBSD'
@@ -86,14 +89,27 @@ REPLACEMENT_DICT = {
     127: u'^?',
 }
 SEPARATOR = u"\U000f0f0f" # The character used to separate frames in the log
-# Default to using the environment's locale with en_US fallback
-temp_locale = locale.get(os.environ.get('LANG', 'en_US').split('.')[0])
-_ = temp_locale.translate
-del temp_locale
+## Default to using the environment's locale with en_US fallback
+#temp_locale = locale.get(os.environ.get('LANG', 'en_US').split('.')[0])
+#_ = temp_locale.translate
+#del temp_locale
+_ = get_translation()
 # The above is necessary because gateone.py won't have read in its settings
 # until after this file has loaded.  So get_settings() won't work properly
 # until later in the module loading process.  This lets us display translated
 # error messages in the event that Gate One never completed loading.
+
+def json_encode(value):
+    """JSON-encodes the given Python object."""
+    # JSON permits but does not require forward slashes to be escaped.
+    # This is useful when json data is emitted in a <script> tag
+    # in HTML, as it prevents </script> tags from prematurely terminating
+    # the javascript.  Some json libraries do this escaping by default,
+    # although python's standard library does not, so we do it here.
+    # http://stackoverflow.com/questions/1580647/json-why-are-forward-slashes-escaped
+    return json.dumps(value).replace("</", "<\\/")
+
+_json_encode = json_encode
 
 # Exceptions
 class MimeTypeFail(Exception):
@@ -600,7 +616,7 @@ def generate_session_id():
         >>>
     """
     import base64, uuid
-    from tornado.escape import utf8
+    from applications.configuration import utf8
     session_id = base64.b64encode(
         utf8(uuid.uuid4().hex + uuid.uuid4().hex))[:45]
     if bytes != str: # Python 3

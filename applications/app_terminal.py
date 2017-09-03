@@ -298,7 +298,11 @@ class TerminalApplication(GOApplication):
         self.plugin_env_hooks = {}
         from applications.plugins.playback.playback import save_recording
         self.ws.actions.update({'terminal:playback_save_recording': bind(save_recording, self)})
-        #save_recording(self,self.ws.prefs)
+        
+        # A bug patch for playback temporarily
+        logging.info('send playback css and js')        
+        self.send_js(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/static/playback.js'))
+        self.send_css(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/templates/themes/black.css'))        
         for plugin_name, hooks in self.plugin_hooks.items():
             plugin_name = plugin_name.split('.')[-1]
             if 'WebSocket' in hooks:

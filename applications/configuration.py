@@ -769,6 +769,7 @@ def options_to_settings(options):
                 settings['*']['gateone'].update({key: value})
     return settings
 
+#combine JavaScript function
 def combine_javascript(path, settings_dir=None):
     """
     Combines all application and plugin .js files into one big one; saved to the
@@ -777,11 +778,11 @@ def combine_javascript(path, settings_dir=None):
     enabled.
     """
     # A couple partials to save some space/typing
-    resource = lambda s: resource_string('gateone', s).decode('utf-8')
-    resource_fn = lambda s: resource_filename('gateone', s)
-    resource_dir = lambda s: resource_listdir('gateone', s)
+    resource = lambda s: resource_string('applications', s).decode('utf-8')
+    resource_fn = lambda s: resource_filename('applications', s)
+    resource_dir = lambda s: resource_listdir('applications', s)
     if not settings_dir:
-        settings_dir = resource_filename('gateone', '/settings')
+        settings_dir = resource_filename('applications', '/settings')
     all_settings = get_settings(settings_dir)
     enabled_plugins = []
     enabled_applications = []
