@@ -36,6 +36,32 @@ comments_re = re.compile(
 trailing_commas_re = re.compile(
     r'(,)\s*}(?=([^"\\]*(\\.|"([^"\\]*\\.)*[^"\\]*"))*[^"]*$)')
 
+
+PY3 = sys.version_info >= (3,)
+if PY3:
+    unicode_type = str
+    basestring_type = str
+else:
+    # The names unicode and basestring don't exist in py3 so silence flake8.
+    unicode_type = unicode  # noqa
+    basestring_type = basestring  # noqa
+_UTF8_TYPES = (bytes, type(None))
+
+def utf8(value):
+    # type: (typing.Union[bytes,unicode_type,None])->typing.Union[bytes,None]
+    """Converts a string argument to a byte string.
+
+    If the argument is already a byte string or None, it is returned unchanged.
+    Otherwise it must be a unicode string and is encoded as utf8.
+    """
+    if isinstance(value, _UTF8_TYPES):
+        return value
+    if not isinstance(value, unicode_type):
+        raise TypeError(
+            "Expected bytes, unicode, or None; got %r" % type(value)
+        )
+    return value.encode("utf-8")
+
 class SettingsError(Exception):
     """
     Raised when we encounter an error parsing .conf files in the settings dir.
@@ -105,7 +131,6 @@ def generate_session_id():
         >>>
     """
     import base64, uuid
-    from tornado.escape import utf8
     session_id = base64.b64encode(
         utf8(uuid.uuid4().hex + uuid.uuid4().hex))[:45]
     if bytes != str: # Python 3
@@ -130,79 +155,79 @@ def mkdir_p(path):
             pass
         else: raise
 
-# Settings and options-related functions
-# NOTE:  "options" refer to command line arguments (for the most part) while
-# "settings" refers to the .conf files.  "commands" are CLI commmands specified
-# via apps and plugins (for the most part).  e.g. termlog, install_license, etc
-def print_help(commands):
-    """
-    Tornado's options.print_help() function with a few minor changes:
+## Settings and options-related functions
+## NOTE:  "options" refer to command line arguments (for the most part) while
+## "settings" refers to the .conf files.  "commands" are CLI commmands specified
+## via apps and plugins (for the most part).  e.g. termlog, install_license, etc
+#def print_help(commands):
+    #"""
+    #Tornado's options.print_help() function with a few minor changes:
 
-        * Help text is not hard wrapped (why did the Tornado devs do that? Ugh).
-        * It includes information about Gate One 'commands'.
-        * It only prints to stdout.
-    """
-    import textwrap, fcntl, termios, struct
-    renditions = False
-    try:
-        import curses
-        if hasattr(sys.stderr, 'isatty') and sys.stderr.isatty():
-            try:
-                curses.setupterm()
-                if curses.tigetnum("colors") > 0:
-                    renditions = True
-            except Exception:
-                renditions = False
-    except ImportError:
-        pass
-    def bold(text):
-        if renditions:
-            return "\x1b[1m%s\x1b[0m" % text
-        return text
-    print("Usage: %s [OPTIONS]" % sys.argv[0])
-    print(bold("\nOptions:\n"))
-    rows, columns, hp, wp = struct.unpack('HHHH', fcntl.ioctl(
-        0, termios.TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0)))
-    by_group = {}
-    for option in options._options.values():
-        by_group.setdefault(option.group_name, []).append(option)
-    for filename, o in sorted(by_group.items()):
-        if filename:
-            print(bold("\n%s options:\n" % os.path.normpath(filename)))
-        o.sort(key=lambda option: option.name)
-        for option in o:
-            prefix = option.name
-            if option.metavar:
-                prefix += "=" + option.metavar
-            description = option.help or ""
-            if option.default is not None and option.default != '':
-                description += " (default %s)" % option.default
-            lines = textwrap.wrap(description, columns - 35)
-            if len(prefix) > 30 or len(lines) == 0:
-                lines.insert(0, '')
-            print("  --%-30s %s" % (prefix, lines[0]))
-            for line in lines[1:]:
-                print("%-34s %s" % (' ', line))
-    print(bold("\nCommands:\n"))
-    print("  Usage: %s <command> [OPTIONS]\n" % sys.argv[0])
-    commands_description = _(
-        "GateOne supports many different CLI 'commands' which can be used "
-        "to invoke special functionality provided by plugins and applications "
-        "(and application's plugins).  Each command can have it's own options "
-        "and most will have a --help function of their own.")
-    lines = textwrap.wrap(commands_description, columns)
-    for line in lines:
-        print("%s %s" % (' ', line))
-    print("")
-    for module, command_dict in commands.items():
-        print(bold("Commands provided by '%s':\n" % module))
-        for command, details in sorted(command_dict.items()):
-            print("  %-32s %s" % (command, details['description']))
-        print("")
-    print(bold("Example command usage:\n"))
-    print("  %s termlog --help" % sys.argv[0])
-    print("") # The oh-so-important whitespace before the prompt
-    sys.exit(1)
+        #* Help text is not hard wrapped (why did the Tornado devs do that? Ugh).
+        #* It includes information about Gate One 'commands'.
+        #* It only prints to stdout.
+    #"""
+    #import textwrap, fcntl, termios, struct
+    #renditions = False
+    #try:
+        #import curses
+        #if hasattr(sys.stderr, 'isatty') and sys.stderr.isatty():
+            #try:
+                #curses.setupterm()
+                #if curses.tigetnum("colors") > 0:
+                    #renditions = True
+            #except Exception:
+                #renditions = False
+    #except ImportError:
+        #pass
+    #def bold(text):
+        #if renditions:
+            #return "\x1b[1m%s\x1b[0m" % text
+        #return text
+    #print("Usage: %s [OPTIONS]" % sys.argv[0])
+    #print(bold("\nOptions:\n"))
+    #rows, columns, hp, wp = struct.unpack('HHHH', fcntl.ioctl(
+        #0, termios.TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0)))
+    #by_group = {}
+    #for option in options._options.values():
+        #by_group.setdefault(option.group_name, []).append(option)
+    #for filename, o in sorted(by_group.items()):
+        #if filename:
+            #print(bold("\n%s options:\n" % os.path.normpath(filename)))
+        #o.sort(key=lambda option: option.name)
+        #for option in o:
+            #prefix = option.name
+            #if option.metavar:
+                #prefix += "=" + option.metavar
+            #description = option.help or ""
+            #if option.default is not None and option.default != '':
+                #description += " (default %s)" % option.default
+            #lines = textwrap.wrap(description, columns - 35)
+            #if len(prefix) > 30 or len(lines) == 0:
+                #lines.insert(0, '')
+            #print("  --%-30s %s" % (prefix, lines[0]))
+            #for line in lines[1:]:
+                #print("%-34s %s" % (' ', line))
+    #print(bold("\nCommands:\n"))
+    #print("  Usage: %s <command> [OPTIONS]\n" % sys.argv[0])
+    #commands_description = _(
+        #"GateOne supports many different CLI 'commands' which can be used "
+        #"to invoke special functionality provided by plugins and applications "
+        #"(and application's plugins).  Each command can have it's own options "
+        #"and most will have a --help function of their own.")
+    #lines = textwrap.wrap(commands_description, columns)
+    #for line in lines:
+        #print("%s %s" % (' ', line))
+    #print("")
+    #for module, command_dict in commands.items():
+        #print(bold("Commands provided by '%s':\n" % module))
+        #for command, details in sorted(command_dict.items()):
+            #print("  %-32s %s" % (command, details['description']))
+        #print("")
+    #print(bold("Example command usage:\n"))
+    #print("  %s termlog --help" % sys.argv[0])
+    #print("") # The oh-so-important whitespace before the prompt
+    #sys.exit(1)
 
 def define_options():
     """
@@ -436,45 +461,45 @@ def settings_template(path, **kwargs):
 
     .. note:: Any blank lines in the rendered template will be removed.
     """
-    from tornado.template import Template
+    from django.template import Template,Context
     with io.open(path, mode='r', encoding='utf-8') as f:
         template_data = f.read()
     t = Template(template_data)
     # NOTE: Tornado returns templates as bytes, not unicode.  That's why we need
     # the decode() below...
-    rendered = t.generate(**kwargs).decode('utf-8')
+    rendered.render(context=Context(dict_=kwargs))   
     out = ""
     for line in rendered.splitlines():
         if line.strip():
             out += line + "\n"
     return out
 
-def parse_commands(commands):
-    """
-    Given a list of *commands* (which can include arguments) such as::
+#def parse_commands(commands):
+    #"""
+    #Given a list of *commands* (which can include arguments) such as::
 
-        ['ls', '--color="always"', '-lh', 'ps', '--context', '-ef']
+        #['ls', '--color="always"', '-lh', 'ps', '--context', '-ef']
 
-    Returns an `OrderedDict` like so::
+    #Returns an `OrderedDict` like so::
 
-        OrderedDict([
-            ('ls', ['--color="always"', '-ltrh']),
-            ('ps', ['--context', '-ef'])
-        ])
-    """
-    try:
-        from collections import OrderedDict
-    except ImportError: # Python <2.7 didn't have OrderedDict in collections
-        from ordereddict import OrderedDict
-    out = OrderedDict()
-    command = OrderedDict()
-    for item in commands:
-        if item.startswith('-') or ' ' in item:
-            out[command].append(item)
-        else:
-            command = item
-            out[command] = []
-    return out
+        #OrderedDict([
+            #('ls', ['--color="always"', '-ltrh']),
+            #('ps', ['--context', '-ef'])
+        #])
+    #"""
+    #try:
+        #from collections import OrderedDict
+    #except ImportError: # Python <2.7 didn't have OrderedDict in collections
+        #from ordereddict import OrderedDict
+    #out = OrderedDict()
+    #command = OrderedDict()
+    #for item in commands:
+        #if item.startswith('-') or ' ' in item:
+            #out[command].append(item)
+        #else:
+            #command = item
+            #out[command] = []
+    #return out
 
 def generate_server_conf(installed=True):
     """
