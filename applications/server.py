@@ -1808,9 +1808,6 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             #path = resource_filename('gateone', '/static/%s' % js_file)
             path = os.path.join(getsettings('BASE_DIR'), 'static/%s' % js_file)
             self.send_js(path)
-        # A bug patch for playback temporarily
-        self.send_js(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/static/playback.js'))
-        self.send_css(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/templates/themes/black.css'))
         
         for app in self.apps:
             if hasattr(app, 'open'):
@@ -3426,6 +3423,15 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             `"send_js": false` to gateone/settings/10server.conf
         """
         logging.debug('send_plugin_static_files(%s)' % entry_point)
+        # A bug patch for playback temporarily
+        logging.info('send playback css and js')        
+        self.send_js(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/static/playback.js'))
+        self.send_css(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/templates/themes/black.css'))
+        
+        #logging.info('send terminal css')
+        #terminal_css = os.path.join(getsettings('BASE_DIR'), 'static', 'templates', 'terminal.css')
+        #self.render_and_send_css(terminal_css, element_id="terminal.css")
+        
         send_js = self.prefs['*']['gateone'].get('send_js', True)
         if not send_js:
             if not hasattr('logged_js_message', self):

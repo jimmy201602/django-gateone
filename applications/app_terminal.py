@@ -263,6 +263,10 @@ class TerminalApplication(GOApplication):
         # Setup some events
         terminals_func = partial(self.terminals, self)
         self.ws.on("go:set_location", terminals_func)
+        
+        #temporary fix terminal bug theme bug
+        #self.ws.on('terminal:get_font', self.get_font)
+        
         # Attach plugin hooks
         self.plugin_hooks = {}
         # TODO: Keep track of plugins and hooks to determine when they've
