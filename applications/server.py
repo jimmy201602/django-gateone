@@ -3448,7 +3448,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             application = 'gateone'
         else: # Find the application that this belongs to
             for ep in iter_entry_points(group=entry_point):
-                print ep.module_name
+                #print ep.module_name
                 if ep.module_name.startswith('applications'):
                     application = ep.module_name.split('.')[2]
                     break
