@@ -3428,6 +3428,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #terminal_css = os.path.join(getsettings('BASE_DIR'), 'static', 'templates', 'terminal.css')
         #self.render_and_send_css(terminal_css, element_id="terminal.css")
         
+        logging.warning('send_plugin_static_files(%s)' % entry_point) 
         send_js = self.prefs['*']['gateone'].get('send_js', True)
         if not send_js:
             if not hasattr('logged_js_message', self):
@@ -3447,7 +3448,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             application = 'gateone'
         else: # Find the application that this belongs to
             for ep in iter_entry_points(group=entry_point):
-                if ep.module_name.startswith('gateone.applications'):
+                print ep.module_name
+                if ep.module_name.startswith('applications'):
                     application = ep.module_name.split('.')[2]
                     break
         #print 'self.current_user', self.current_user
