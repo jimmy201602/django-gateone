@@ -3465,6 +3465,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         elif globally_enabled_plugins and not allowed_client_side_plugins:
             allowed_client_side_plugins = globally_enabled_plugins
         # Get the list of plugins
+        #print 'allowed_client_side_plugins',allowed_client_side_plugins
         plugins = entry_point_files(entry_point, allowed_client_side_plugins)
         if send_js:
             for plugin, asset_list in plugins['js'].items():

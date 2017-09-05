@@ -247,7 +247,7 @@ class TerminalApplication(GOApplication):
         enabled_plugins = self.ws.prefs['*']['terminal'].get(
             'enabled_plugins', [])
         self.plugins = entry_point_files('go_terminal_plugins', enabled_plugins)
-        print 'enabled_plugins', enabled_plugins
+        #print 'enabled_plugins', enabled_plugins
         plugin_list = set()
         for plugin in list(
             self.plugins['py'].keys() +
@@ -364,7 +364,6 @@ class TerminalApplication(GOApplication):
         self.trigger("terminal:open")
         # A bug patch for playback temporarily
         logging.info('send playback css and js')        
-        self.send_js(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/static/playback.js'))
         self.send_css(os.path.join(getsettings('BASE_DIR'),'applications/plugins/playback/templates/themes/black.css'))             
 
     def send_client_files(self):
