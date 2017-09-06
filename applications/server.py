@@ -3425,10 +3425,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         logging.debug('send_plugin_static_files(%s)' % entry_point)
         
         #logging.info('send terminal css')
-        terminal_css = os.path.join(getsettings('BASE_DIR'), 'static', 'templates', 'terminal.css')
-        self.render_and_send_css(terminal_css, element_id="terminal.css")
+        #terminal_css = os.path.join(getsettings('BASE_DIR'), 'applications', 'templates', 'terminal.css')
+        #self.render_and_send_css(terminal_css, element_id="terminal.css")
+        #logging.warning('send_plugin_static_files(%s)' % entry_point) 
         
-        logging.warning('send_plugin_static_files(%s)' % entry_point) 
         send_js = self.prefs['*']['gateone'].get('send_js', True)
         if not send_js:
             if not hasattr('logged_js_message', self):

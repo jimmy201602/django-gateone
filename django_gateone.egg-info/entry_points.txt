@@ -3,7 +3,7 @@
 
 [go_applications]
 #example = applications.example
-#terminal = applications.terminal
+terminal = applications.terminal
 
 [go_plugins]
 #editor = applications.plugins.editor
