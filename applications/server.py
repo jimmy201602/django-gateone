@@ -1805,7 +1805,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             'doT.js' # For simple HTML templates
         ]
         for js_file in additional_files:
-            #path = resource_filename('gateone', '/static/%s' % js_file)
+            #path = resource_filename('applications', '/static/%s' % js_file)
             path = os.path.join(getsettings('BASE_DIR'), 'static/%s' % js_file)
             self.send_js(path)
         
@@ -2773,10 +2773,10 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         theme_mtimes = self.persist['theme_mtimes']
         cache_dir = self.settings['cache_dir']
         theme_file = "%s.css" % theme
-        #theme_relpath = '/templates/themes/%s' % theme_file
-        theme_relpath = 'themes/%s' % theme_file
-        #theme_path = resource_filename('gateone', theme_relpath)
-        theme_path = os.path.join(getsettings('BASE_DIR'), 'static/%s' % theme_relpath )
+        theme_relpath = '/templates/themes/%s' % theme_file
+        #theme_relpath = 'themes/%s' % theme_file
+        theme_path = resource_filename('applications', theme_relpath)
+        #theme_path = os.path.join(getsettings('BASE_DIR'), 'static/%s' % theme_relpath )
         cached_theme_path = os.path.join(cache_dir, theme_file)
         filename_hash = hashlib.md5(theme_file.encode('utf-8')).hexdigest()[:10]
         theme_files = []
