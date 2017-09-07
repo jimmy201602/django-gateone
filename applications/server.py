@@ -2777,6 +2777,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         #theme_relpath = 'themes/%s' % theme_file
         theme_path = resource_filename('applications', theme_relpath)
         #theme_path = os.path.join(getsettings('BASE_DIR'), 'static/%s' % theme_relpath )
+        #print theme_path
         cached_theme_path = os.path.join(cache_dir, theme_file)
         filename_hash = hashlib.md5(theme_file.encode('utf-8')).hexdigest()[:10]
         theme_files = []
@@ -2790,39 +2791,39 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
         # implementations of this theme (must have same name)...
         # Find plugin's theme-specific CSS files:
         #Haven't consider how to extend gateone
-        #for ep in iter_entry_points(group='go_plugins'):
-            #try:
-                #exists = resource_exists(ep.module_name, theme_relpath)
-            #except ImportError: # Plugin has an issue or has been removed
-                #continue
-            #if exists:
-                #theme_path = resource_filename(ep.module_name, theme_relpath)
-                #theme_files.append(theme_path)
-                #mtime = os.stat(theme_path).st_mtime
-                #if (theme_path not in theme_mtimes
-                    #or mtime != theme_mtimes[theme_path]):
-                    #theme_mtimes[theme_path] = mtime
-                    #modifications = True
+        for ep in iter_entry_points(group='go_plugins'):
+            try:
+                exists = resource_exists(ep.module_name, '/plugins/%s'%(theme_relpath))
+            except ImportError: # Plugin has an issue or has been removed
+                continue
+            if exists:
+                theme_path = resource_filename(ep.module_name, '/plugins/%s'%(theme_relpath))
+                theme_files.append(theme_path)
+                mtime = os.stat(theme_path).st_mtime
+                if (theme_path not in theme_mtimes
+                    or mtime != theme_mtimes[theme_path]):
+                    theme_mtimes[theme_path] = mtime
+                    modifications = True
         # Find application's theme-specific CSS files:
-        #for ep in iter_entry_points(group='go_applications'):
-            #try:
-                #exists = resource_exists(ep.module_name, theme_relpath)
-            #except ImportError: # Plugin has an issue or has been removed
-                #continue
-            #if exists:
-                ##go_applications theme_path /home/jimmy/Desktop/GateOne/gateone/applications/terminal/templates/themes/black.css
-                ##ep.module_name gateone.applications.terminal
-                ##theme_relpath /templates/themes/black.css                
-                #theme_path = resource_filename(ep.module_name, theme_relpath)
-                #theme_files.append(theme_path)
-                #mtime = os.stat(theme_path).st_mtime
-                #if (theme_path not in theme_mtimes
-                    #or mtime != theme_mtimes[theme_path]):
-                    #theme_mtimes[theme_path] = mtime
-                    #modifications = True
+        for ep in iter_entry_points(group='go_applications'):
+            try:
+                exists = resource_exists(ep.module_name, theme_relpath)
+            except ImportError: # Plugin has an issue or has been removed
+                continue
+            if exists:
+                #go_applications theme_path /home/jimmy/Desktop/GateOne/gateone/applications/terminal/templates/themes/black.css
+                #ep.module_name gateone.applications.terminal
+                #theme_relpath /templates/themes/black.css                
+                theme_path = resource_filename(ep.module_name, theme_relpath)
+                theme_files.append(theme_path)
+                mtime = os.stat(theme_path).st_mtime
+                if (theme_path not in theme_mtimes
+                    or mtime != theme_mtimes[theme_path]):
+                    theme_mtimes[theme_path] = mtime
+                    modifications = True
         #go_applications theme
-        if os.path.exists(os.path.join(getsettings('BASE_DIR'), 'static/terminal/%s' % theme_relpath )):              
-            theme_path = os.path.join(getsettings('BASE_DIR'), 'static/terminal/%s' % theme_relpath )
+        if os.path.exists(os.path.join(getsettings('BASE_DIR'), 'applications/static/%s' % theme_relpath )):              
+            theme_path = os.path.join(getsettings('BASE_DIR'), 'applications/static/%s' % theme_relpath )
             theme_files.append(theme_path)
             mtime = os.stat(theme_path).st_mtime
             if (theme_path not in theme_mtimes
@@ -2830,22 +2831,22 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 theme_mtimes[theme_path] = mtime
                 modifications = True            
             # Find application plugin's theme-specific CSS files
-            #entry_point = 'go_%s_plugins' % ep.name
-            #for plugin_ep in iter_entry_points(group=entry_point):
-                #try:
-                    #exists = resource_exists(
-                        #plugin_ep.module_name, theme_relpath)
-                #except ImportError: # Plugin has an issue or has been removed
-                    #continue
-                #if exists:
-                    #theme_path = resource_filename(
-                        #plugin_ep.module_name, theme_relpath)
-                    #theme_files.append(theme_path)
-                    #mtime = os.stat(theme_path).st_mtime
-                    #if (theme_path not in theme_mtimes
-                        #or mtime != theme_mtimes[theme_path]):
-                        #theme_mtimes[theme_path] = mtime
-                        #modifications = True
+            entry_point = 'go_%s_plugins' % ep.name
+            for plugin_ep in iter_entry_points(group=entry_point):
+                try:
+                    exists = resource_exists(
+                        plugin_ep.module_name, theme_relpath)
+                except ImportError: # Plugin has an issue or has been removed
+                    continue
+                if exists:
+                    theme_path = resource_filename(
+                        plugin_ep.module_name, theme_relpath)
+                    theme_files.append(theme_path)
+                    mtime = os.stat(theme_path).st_mtime
+                    if (theme_path not in theme_mtimes
+                        or mtime != theme_mtimes[theme_path]):
+                        theme_mtimes[theme_path] = mtime
+                        modifications = True
         # Grab the modification times for each theme file
         if modifications or not os.path.exists(cached_theme_path):
             logging.debug(_(
@@ -3004,8 +3005,8 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                 #bug terminal extend function
                 if 'gateone/applications/' in path:
                     #application = path.split('applications/')[1].split('/')[0]
-                    application = 'terminal'
-                    '/home/jimmy/Desktop/django-gateone/applications/plugins/playback/static/playback.js'
+                    application = 'applications'
+                    '/home/jimmy/Desktop/django-gateone/applications/static/terminal.js'
                     if 'plugins' in path:
                         #static_path = path.split("%s/plugins/" % application)[1]
                         static_path = path.split("/plugins/")[1]
@@ -3016,6 +3017,7 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
                         static_path = path.split("%s/static/" % application)[1]
                         source_url = "%s%s/static/%s" % (
                             url_prefix, application, static_path)
+                        #print 'source_url',source_url
                 elif 'gateone/plugins/' in path:
                     plugin_name = path.split(
                         'gateone/plugins/')[1].split('/')[0]
