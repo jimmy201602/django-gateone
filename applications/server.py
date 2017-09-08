@@ -2811,25 +2811,16 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
             except ImportError: # Plugin has an issue or has been removed
                 continue
             if exists:
-                #go_applications theme_path /home/jimmy/Desktop/GateOne/gateone/applications/terminal/templates/themes/black.css
-                #ep.module_name gateone.applications.terminal
-                #theme_relpath /templates/themes/black.css                
-                theme_path = resource_filename(ep.module_name, theme_relpath)
+                if ep.module_name == 'applications.terminal':
+                    theme_path= os.path.join(getsettings('BASE_DIR'),theme_relpath[1:] )
+                else:
+                    theme_path = resource_filename(ep.module_name, theme_relpath)
                 theme_files.append(theme_path)
                 mtime = os.stat(theme_path).st_mtime
                 if (theme_path not in theme_mtimes
                     or mtime != theme_mtimes[theme_path]):
                     theme_mtimes[theme_path] = mtime
-                    modifications = True
-        #go_applications theme
-        if os.path.exists(os.path.join(getsettings('BASE_DIR'), 'applications/static/%s' % theme_relpath )):              
-            theme_path = os.path.join(getsettings('BASE_DIR'), 'applications/static/%s' % theme_relpath )
-            theme_files.append(theme_path)
-            mtime = os.stat(theme_path).st_mtime
-            if (theme_path not in theme_mtimes
-                or mtime != theme_mtimes[theme_path]):
-                theme_mtimes[theme_path] = mtime
-                modifications = True            
+                    modifications = True     
             # Find application plugin's theme-specific CSS files
             entry_point = 'go_%s_plugins' % ep.name
             for plugin_ep in iter_entry_points(group=entry_point):
@@ -3630,13 +3621,15 @@ class ApplicationWebSocket(WebsocketConsumer, OnOffMixin):
 
         if *upn* is 'AUTHENTICATED' all users will get the message.
         """
+        # A translation bug need to be fixed
+        if not isinstance(message,(str,unicode)):
+            message = str(message)
         message_dict = {'go:user_message': message}
         if upn:
             ApplicationWebSocket._deliver(message_dict, upn=upn)
         elif session:
             ApplicationWebSocket._deliver(message_dict, session=session)
         else: # Just send to the currently-connected client
-            #print 'else message_dict',message_dict
             self.write_message(message_dict)
         self.trigger('go:send_message', message, upn, session)
 
