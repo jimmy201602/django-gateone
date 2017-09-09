@@ -296,8 +296,8 @@ class TerminalApplication(GOApplication):
         self.plugin_new_multiplex_hooks = []
         self.plugin_new_term_hooks = {}
         self.plugin_env_hooks = {}
-        from applications.plugins.playback.playback import save_recording
-        self.ws.actions.update({'terminal:playback_save_recording': bind(save_recording, self)})
+        #from applications.plugins.playback.playback import save_recording
+        #self.ws.actions.update({'terminal:playback_save_recording': bind(save_recording, self)})
            
         for plugin_name, hooks in self.plugin_hooks.items():
             plugin_name = plugin_name.split('.')[-1]
@@ -2783,156 +2783,156 @@ class TerminalApplication(GOApplication):
                     #value = str(value)
             #setattr(options, key, value)
 
-def init(settings):
-    """
-    Checks to make sure 50terminal.conf is created if terminal-specific settings
-    are not found in the settings directory.
+#def init(settings):
+    #"""
+    #Checks to make sure 50terminal.conf is created if terminal-specific settings
+    #are not found in the settings directory.
 
-    Also checks to make sure that the logviewer.py script is executable.
-    """
-    term_log = go_logger("gateone.terminal")
-    logviewer_path = resource_filename(
-        'applications', '/logviewer.py')
-    #logviewer_path = os.path.join(getsettings('BASE_DIR'),'applications/logviewer.py')
-    import stat
-    st = os.stat(logviewer_path)
-    if not bool(st.st_mode & stat.S_IXOTH):
-        try:
-            os.chmod(logviewer_path, 0o755)
-        except OSError:
-            # We don't have permission to change it.  Not a big deal.
-            pass
-    terminal_options = ( # These are now terminal-app-specific setttings
-        'command', 'dtach', 'session_logging', 'syslog_session_logging'
-    )
-    #options.config /opt/gateone/server.conf
-    if os.path.exists(options.config):
-        # Get the old settings from the old config file and use them to generate
-        # a new 50terminal.conf
-        if 'terminal' not in settings['*']:
-            settings['*']['terminal'] = {}
-        with io.open(options.config, encoding='utf-8') as f:
-            for line in f:
-                if line.startswith('#'):
-                    continue
-                key = line.split('=', 1)[0].strip()
-                value = eval(line.split('=', 1)[1].strip())
-                if key not in terminal_options:
-                    continue
-                if key == 'command':
-                    # Fix the path to ssh_connect.py if present
-                    if 'ssh_connect.py' in value:
-                        value = value.replace(
-                            '/plugins/', '/applications/terminal/plugins/')
-                    # Also fix the path to the known_hosts file
-                    if '/ssh/known_hosts' in value:
-                        value = value.replace(
-                            '/ssh/known_hosts', '/.ssh/known_hosts')
-                    key = 'commands' # Convert to new name
-                    value = {'SSH': value}
-                settings['*']['terminal'].update({key: value})
-    required_settings = ('commands', 'default_command', 'session_logging')
-    term_settings = settings['*'].get('terminal', {})
-    generate_terminal_config = False
-    for setting in required_settings:
-        if setting not in term_settings:
-            generate_terminal_config = True
-    if not term_settings or generate_terminal_config:
-        # Create some defaults and save the config as 50terminal.conf
-        settings_path = options.settings_dir
-        terminal_conf_path = os.path.join(settings_path, '50terminal.conf')
-        if not os.path.exists(terminal_conf_path):
-            from applications.configuration import settings_template
-            template_path = os.path.join(getsettings('BASE_DIR'),'conf.d/50terminal.conf')
-            settings['*']['terminal'] = {}
-            # Update the settings with defaults
-            ssh_connect_path = os.path.join(getsettings('BASE_DIR'),'applications/plugins/ssh/scripts/ssh_connect.py')
-            default_command = (
-              "{0} -S "
-              r"'%SESSION_DIR%/%SESSION%/%SHORT_SOCKET%' --sshfp "
-              r"-a '-oUserKnownHostsFile=\"%USERDIR%/%USER%/.ssh/known_hosts\"'"
-            ).format(ssh_connect_path)
-            settings['*']['terminal'].update({
-                'dtach': True,
-                'session_logging': True,
-                'syslog_session_logging': False,
-                'commands': {
-                    'SSH': {
-                        "command": default_command,
-                        "description": "Connect to hosts via SSH."
-                    }
-                },
-                'default_command': 'SSH',
-                'environment_vars': {
-                    'TERM': 'xterm-256color'
-                },
-                'enabled_filetypes': 'all'
-            })
-            new_term_settings = settings_template(
-                template_path, settings=settings['*']['terminal'])
-            with io.open(terminal_conf_path, 'w', encoding='utf-8') as s:
-                s.write(_(
-                    "// This is Gate One's Terminal application settings "
-                    "file.\n"))
-                s.write(new_term_settings)
-    term_settings = settings['*']['terminal']
-    if options.kill:
-        from applications.utils import killall
-        go_settings = settings['*']['gateone']
-        # Kill all running dtach sessions (associated with Gate One anyway)
-        killall(go_settings['session_dir'], go_settings['pid_file'])
-        # Cleanup the session_dir (it is supposed to only contain temp stuff)
-        import shutil
-        shutil.rmtree(go_settings['session_dir'], ignore_errors=True)
-        sys.exit(0)
-    if not which('dtach'):
-        term_log.warning(
-            _("dtach command not found.  dtach support has been disabled."))
-    apply_cli_overrides(term_settings)
-    # Fix the path to known_hosts if using the old default command
-    for name, command in term_settings['commands'].items():
-        if '\"%USERDIR%/%USER%/ssh/known_hosts\"' in command:
-            term_log.warning(_(
-                "The default path to known_hosts has been changed.  Please "
-                "update your settings to use '/.ssh/known_hosts' instead of "
-                "'/ssh/known_hosts'.  Applying a termporary fix..."))
-            term_settings['commands'][name] = command.replace('/ssh/', '/.ssh/')
-    # Initialize plugins so we can add their 'Web' handlers
-    enabled_plugins = settings['*']['terminal'].get('enabled_plugins', [])
-    plugins = entry_point_files('go_terminal_plugins', enabled_plugins)
-    # Attach plugin hooks
-    plugin_hooks = {}
-    for name, plugin in plugins['py'].items():
-        try:
-            plugin_hooks.update({plugin.__name__: plugin.hooks})
-        except AttributeError:
-            pass # No hooks, no problem
-    # Add static handlers for all the JS plugins (primarily for source maps)
-    url_prefix = settings['*']['gateone']['url_prefix']
-    plugins = set(
-        plugins['py'].keys() + plugins['js'].keys() + plugins['css'].keys())
-    for plugin in plugins:
-        name = plugin.split('.')[-1]
-        plugin_static_url = r"{prefix}terminal/{name}/static/(.*)".format(
-            prefix=url_prefix, name=name)
-        handler = (plugin_static_url, StaticHandler, {
-            "path": '/static/',
-            'use_pkg': plugin
-        })
-        if handler not in REGISTERED_HANDLERS:
-            REGISTERED_HANDLERS.append(handler)
-            web_handlers.append(handler)
-    # Hook up the 'Web' handlers so those URLs are immediately available
-    for hooks in plugin_hooks.values():
-        if 'Web' in hooks:
-            for handler in hooks['Web']:
-                if not handler[0].startswith(url_prefix): # Fix it
-                    handler = (url_prefix + handler[0].lstrip('/'), handler[1])
-                if handler in REGISTERED_HANDLERS:
-                    continue # Already registered this one
-                else:
-                    REGISTERED_HANDLERS.append(handler)
-                    web_handlers.append(handler)
+    #Also checks to make sure that the logviewer.py script is executable.
+    #"""
+    #term_log = go_logger("gateone.terminal")
+    #logviewer_path = resource_filename(
+        #'applications', '/logviewer.py')
+    ##logviewer_path = os.path.join(getsettings('BASE_DIR'),'applications/logviewer.py')
+    #import stat
+    #st = os.stat(logviewer_path)
+    #if not bool(st.st_mode & stat.S_IXOTH):
+        #try:
+            #os.chmod(logviewer_path, 0o755)
+        #except OSError:
+            ## We don't have permission to change it.  Not a big deal.
+            #pass
+    #terminal_options = ( # These are now terminal-app-specific setttings
+        #'command', 'dtach', 'session_logging', 'syslog_session_logging'
+    #)
+    ##options.config /opt/gateone/server.conf
+    #if os.path.exists(options.config):
+        ## Get the old settings from the old config file and use them to generate
+        ## a new 50terminal.conf
+        #if 'terminal' not in settings['*']:
+            #settings['*']['terminal'] = {}
+        #with io.open(options.config, encoding='utf-8') as f:
+            #for line in f:
+                #if line.startswith('#'):
+                    #continue
+                #key = line.split('=', 1)[0].strip()
+                #value = eval(line.split('=', 1)[1].strip())
+                #if key not in terminal_options:
+                    #continue
+                #if key == 'command':
+                    ## Fix the path to ssh_connect.py if present
+                    #if 'ssh_connect.py' in value:
+                        #value = value.replace(
+                            #'/plugins/', '/applications/terminal/plugins/')
+                    ## Also fix the path to the known_hosts file
+                    #if '/ssh/known_hosts' in value:
+                        #value = value.replace(
+                            #'/ssh/known_hosts', '/.ssh/known_hosts')
+                    #key = 'commands' # Convert to new name
+                    #value = {'SSH': value}
+                #settings['*']['terminal'].update({key: value})
+    #required_settings = ('commands', 'default_command', 'session_logging')
+    #term_settings = settings['*'].get('terminal', {})
+    #generate_terminal_config = False
+    #for setting in required_settings:
+        #if setting not in term_settings:
+            #generate_terminal_config = True
+    #if not term_settings or generate_terminal_config:
+        ## Create some defaults and save the config as 50terminal.conf
+        #settings_path = options.settings_dir
+        #terminal_conf_path = os.path.join(settings_path, '50terminal.conf')
+        #if not os.path.exists(terminal_conf_path):
+            #from applications.configuration import settings_template
+            #template_path = os.path.join(getsettings('BASE_DIR'),'conf.d/50terminal.conf')
+            #settings['*']['terminal'] = {}
+            ## Update the settings with defaults
+            #ssh_connect_path = os.path.join(getsettings('BASE_DIR'),'applications/plugins/ssh/scripts/ssh_connect.py')
+            #default_command = (
+              #"{0} -S "
+              #r"'%SESSION_DIR%/%SESSION%/%SHORT_SOCKET%' --sshfp "
+              #r"-a '-oUserKnownHostsFile=\"%USERDIR%/%USER%/.ssh/known_hosts\"'"
+            #).format(ssh_connect_path)
+            #settings['*']['terminal'].update({
+                #'dtach': True,
+                #'session_logging': True,
+                #'syslog_session_logging': False,
+                #'commands': {
+                    #'SSH': {
+                        #"command": default_command,
+                        #"description": "Connect to hosts via SSH."
+                    #}
+                #},
+                #'default_command': 'SSH',
+                #'environment_vars': {
+                    #'TERM': 'xterm-256color'
+                #},
+                #'enabled_filetypes': 'all'
+            #})
+            #new_term_settings = settings_template(
+                #template_path, settings=settings['*']['terminal'])
+            #with io.open(terminal_conf_path, 'w', encoding='utf-8') as s:
+                #s.write(_(
+                    #"// This is Gate One's Terminal application settings "
+                    #"file.\n"))
+                #s.write(new_term_settings)
+    #term_settings = settings['*']['terminal']
+    #if options.kill:
+        #from applications.utils import killall
+        #go_settings = settings['*']['gateone']
+        ## Kill all running dtach sessions (associated with Gate One anyway)
+        #killall(go_settings['session_dir'], go_settings['pid_file'])
+        ## Cleanup the session_dir (it is supposed to only contain temp stuff)
+        #import shutil
+        #shutil.rmtree(go_settings['session_dir'], ignore_errors=True)
+        #sys.exit(0)
+    #if not which('dtach'):
+        #term_log.warning(
+            #_("dtach command not found.  dtach support has been disabled."))
+    #apply_cli_overrides(term_settings)
+    ## Fix the path to known_hosts if using the old default command
+    #for name, command in term_settings['commands'].items():
+        #if '\"%USERDIR%/%USER%/ssh/known_hosts\"' in command:
+            #term_log.warning(_(
+                #"The default path to known_hosts has been changed.  Please "
+                #"update your settings to use '/.ssh/known_hosts' instead of "
+                #"'/ssh/known_hosts'.  Applying a termporary fix..."))
+            #term_settings['commands'][name] = command.replace('/ssh/', '/.ssh/')
+    ## Initialize plugins so we can add their 'Web' handlers
+    #enabled_plugins = settings['*']['terminal'].get('enabled_plugins', [])
+    #plugins = entry_point_files('go_terminal_plugins', enabled_plugins)
+    ## Attach plugin hooks
+    #plugin_hooks = {}
+    #for name, plugin in plugins['py'].items():
+        #try:
+            #plugin_hooks.update({plugin.__name__: plugin.hooks})
+        #except AttributeError:
+            #pass # No hooks, no problem
+    ## Add static handlers for all the JS plugins (primarily for source maps)
+    #url_prefix = settings['*']['gateone']['url_prefix']
+    #plugins = set(
+        #plugins['py'].keys() + plugins['js'].keys() + plugins['css'].keys())
+    #for plugin in plugins:
+        #name = plugin.split('.')[-1]
+        #plugin_static_url = r"{prefix}terminal/{name}/static/(.*)".format(
+            #prefix=url_prefix, name=name)
+        #handler = (plugin_static_url, StaticHandler, {
+            #"path": '/static/',
+            #'use_pkg': plugin
+        #})
+        #if handler not in REGISTERED_HANDLERS:
+            #REGISTERED_HANDLERS.append(handler)
+            #web_handlers.append(handler)
+    ## Hook up the 'Web' handlers so those URLs are immediately available
+    #for hooks in plugin_hooks.values():
+        #if 'Web' in hooks:
+            #for handler in hooks['Web']:
+                #if not handler[0].startswith(url_prefix): # Fix it
+                    #handler = (url_prefix + handler[0].lstrip('/'), handler[1])
+                #if handler in REGISTERED_HANDLERS:
+                    #continue # Already registered this one
+                #else:
+                    #REGISTERED_HANDLERS.append(handler)
+                    #web_handlers.append(handler)
 
 
 # Tell Gate One which classes are applications
