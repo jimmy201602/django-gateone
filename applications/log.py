@@ -587,3 +587,33 @@ def go_logger(name, **kwargs):
                 break        
     logger = JSONAdapter(logger, kwargs)
     return logger
+
+
+class StreamToLogger(object):
+    """
+    Fake file-like stream object that redirects writes to a logger instance.
+    """
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level,line.rstrip())
+
+#auth_logger = go_logger('gateone.auth.terminal')
+#auth_logger.info('info')
+#auth_logger.warning('warning')
+#auth_logger.error('error')
+#auth_logger.debug('debug')
+
+#stdout_logger = go_logger('STDOUT')
+#sl = StreamToLogger(stdout_logger, log_level=logging.INFO)
+#sys.stdout = sl
+
+#s2 = StreamToLogger(stdout_logger, log_level=logging.ERROR)
+#sys.stderr = s2
+
+#print 111111111111
+#print test
