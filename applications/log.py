@@ -147,7 +147,7 @@ class LogFormatter(logging.Formatter):
     `tornado.options.parse_command_line` or `tornado.options.parse_config_file`
     (unless ``--logging=none`` is used).
     """
-    DEFAULT_FORMAT = '%(color)s[%(levelname)1.1s %(asctime)s %(module)s:%(funcName)s:%(lineno)d]%(end_color)s %(message)s'
+    DEFAULT_FORMAT = '%(color)s[%(levelname)1.1s %(asctime)s %(process)d %(module)s:%(funcName)s:%(lineno)d]%(end_color)s %(message)s'
     DEFAULT_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
     DEFAULT_COLORS = {
         logging.DEBUG: 4,  # Blue
@@ -579,6 +579,7 @@ def go_logger(name, **kwargs):
         console.setLevel(getattr(logging, define_options()['logging'].upper()))    
         console.setFormatter(LogFormatter(color=True))        
         logging.getLogger(name).addHandler(console)
+        logging.getLogger(name).propagate = False
         logger.propagate = False
         handlers = logging.getLogger().handlers
         for handler in handlers:

@@ -14,7 +14,7 @@ constantly==15.1.0
 cryptography==1.8.1
 daphne==1.2.0
 decorator==4.0.11
-Django==1.11.1
+Django==1.11.16
 enum34==1.1.6
 futures==3.1.1
 graphviz==0.6
