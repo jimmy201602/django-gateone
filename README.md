@@ -1,3 +1,5 @@
+# Announcement
+This project is still in beta version. It's been replaced by the new project [webterminal](https://github.com/jimmy201602/webterminal/).
 # django-gateone
 gateone implemented by django
 ## Contributing
